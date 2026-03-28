@@ -163,6 +163,37 @@ class Activity(ActivityBase):
         from_attributes = True
 
 
+# ── Knock ─────────────────────────────────────────────────────────────────────
+class KnockBase(BaseModel):
+    lat: float
+    lng: float
+    address: Optional[str] = None
+    status: str = "knocked"
+    notes: Optional[str] = None
+    contact_id: Optional[int] = None
+
+
+class KnockCreate(KnockBase):
+    pass
+
+
+class KnockUpdate(BaseModel):
+    address: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    contact_id: Optional[int] = None
+
+
+class Knock(KnockBase):
+    id: int
+    created_by: Optional[int]
+    created_at: datetime
+    contact: Optional[Contact] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 class DashboardStats(BaseModel):
     total_contacts: int

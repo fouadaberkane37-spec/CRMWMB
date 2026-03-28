@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where gh:*)",
+      "Read(//c/Users/15145/**)",
+      "Bash(cmd.exe /c \"where gh\")",
+      "Bash(cmd.exe /c \"gh auth status\")",
+      "Bash(cmd.exe /c \"gh --version\")",
+      "Bash(powershell.exe -Command \"gh --version\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\GitHub CLI\\\\'' -ErrorAction SilentlyContinue; Get-ChildItem ''C:\\\\Users\\\\15145\\\\AppData\\\\Local\\\\Microsoft\\\\WinGet\\\\Links\\\\'' -ErrorAction SilentlyContinue | Where-Object {$_Name -like ''*gh*''}\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe'' auth status\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe'' auth login --web --hostname github.com\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm install:*)",
+      "Bash(python -m uvicorn --version)",
+      "Bash(pip install:*)",
+      "Bash(pip --version)",
+      "Bash(python -m pip install uvicorn)",
+      "Bash(python -m pip install fastapi sqlalchemy \"python-jose[cryptography]\" \"passlib[bcrypt]\" python-multipart \"pydantic[email]\" -q)",
+      "Bash(python -c \"import main\")",
+      "Bash(python -m pip install \"bcrypt==4.0.1\" -q)",
+      "Bash(python -c \"import main; print\\(''OK''\\)\")",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d \"{\"\"username\"\":\"\"admin\"\",\"\"password\"\":\"\"admin123\"\"}\")",
+      "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/x-www-form-urlencoded\" -d \"username=admin&password=admin123\")",
+      "Bash(curl -sv http://localhost:8000/api/contacts?limit=5 -H \"Authorization: Bearer test\")"
+    ]
+  }
+}

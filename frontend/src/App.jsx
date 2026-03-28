@@ -8,6 +8,7 @@ import Companies from './pages/Companies.jsx'
 import Deals from './pages/Deals.jsx'
 import Activities from './pages/Activities.jsx'
 import Users from './pages/Users.jsx'
+import KnockMap from './pages/KnockMap.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="deals" element={<Deals />} />
             <Route path="activities" element={<Activities />} />
             <Route path="users" element={<Users />} />
+            <Route path="map" element={<KnockMap />} />
           </Route>
         </Routes>
       </BrowserRouter>

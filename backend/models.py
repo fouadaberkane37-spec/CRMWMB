@@ -75,6 +75,22 @@ class Deal(Base):
     activities = relationship("Activity", back_populates="deal")
 
 
+class Knock(Base):
+    __tablename__ = "knocks"
+    id = Column(Integer, primary_key=True, index=True)
+    lat = Column(Float, nullable=False)
+    lng = Column(Float, nullable=False)
+    address = Column(String)
+    status = Column(String, default="knocked")  # knocked | answered | not_home | interested | not_interested
+    notes = Column(Text)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contact = relationship("Contact")
+
+
 class Activity(Base):
     __tablename__ = "activities"
     id = Column(Integer, primary_key=True, index=True)

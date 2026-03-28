@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, SessionLocal
 import models
-from routes import auth, users, contacts, companies, deals, activities, dashboard
+from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks
 from auth import get_password_hash
 
-app = FastAPI(title="Self-Hosted CRM", version="1.0.0", docs_url="/api/docs")
+app = FastAPI(title="Self-Hosted CRM", version="1.0.0", docs_url="/api/docs", redirect_slashes=False)
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,7 +34,7 @@ def seed_admin():
             )
             db.add(admin)
             db.commit()
-            print("✓ Default admin created  →  username: admin  |  password: admin123")
+            print("[OK] Default admin created -> username: admin | password: admin123")
             print("  Change the password after first login!")
     finally:
         db.close()
@@ -49,6 +49,7 @@ app.include_router(companies.router)
 app.include_router(deals.router)
 app.include_router(activities.router)
 app.include_router(dashboard.router)
+app.include_router(knocks.router)
 
 
 @app.get("/")

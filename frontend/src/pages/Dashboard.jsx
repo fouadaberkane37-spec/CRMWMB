@@ -5,22 +5,22 @@ import { Users, Building2, TrendingUp, DollarSign, CheckCircle, Activity } from 
 
 function StatCard({ icon: Icon, label, value, color, to }) {
   const colors = {
-    indigo: 'bg-indigo-50 text-indigo-600',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    blue: 'bg-blue-50 text-blue-600',
-    violet: 'bg-violet-50 text-violet-600',
-    amber: 'bg-amber-50 text-amber-600',
-    rose: 'bg-rose-50 text-rose-600',
+    indigo: 'bg-indigo-500/10 text-indigo-400',
+    emerald: 'bg-emerald-500/10 text-emerald-400',
+    blue: 'bg-blue-500/10 text-blue-400',
+    violet: 'bg-violet-500/10 text-violet-400',
+    amber: 'bg-amber-500/10 text-amber-400',
+    rose: 'bg-rose-500/10 text-rose-400',
   }
   const card = (
-    <div className="bg-white rounded-xl border border-gray-100 p-6 hover:shadow-md transition-shadow">
+    <div className="bg-slate-900 rounded-xl border border-slate-700/50 p-6 hover:border-slate-600 transition-colors">
       <div className="flex items-center justify-between mb-4">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colors[color]}`}>
           <Icon size={20} />
         </div>
       </div>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-sm text-gray-500 mt-1">{label}</p>
+      <p className="text-2xl font-bold text-slate-100">{value}</p>
+      <p className="text-sm text-slate-500 mt-1">{label}</p>
     </div>
   )
   return to ? <Link to={to}>{card}</Link> : card
@@ -32,9 +32,9 @@ export default function Dashboard() {
   const [recentDeals, setRecentDeals] = useState([])
 
   useEffect(() => {
-    api.get('/dashboard/stats').then((r) => setStats(r.data))
-    api.get('/contacts?limit=5').then((r) => setRecentContacts(r.data))
-    api.get('/deals?limit=5').then((r) => setRecentDeals(r.data))
+    api.get('/dashboard/stats/').then((r) => setStats(r.data))
+    api.get('/contacts/?limit=5').then((r) => setRecentContacts(r.data))
+    api.get('/deals/?limit=5').then((r) => setRecentDeals(r.data))
   }, [])
 
   const fmt = (n) =>
@@ -45,26 +45,26 @@ export default function Dashboard() {
       : `$${n}`
 
   const stageColors = {
-    lead: 'bg-blue-100 text-blue-700',
-    qualified: 'bg-indigo-100 text-indigo-700',
-    proposal: 'bg-purple-100 text-purple-700',
-    negotiation: 'bg-orange-100 text-orange-700',
-    won: 'bg-emerald-100 text-emerald-700',
-    lost: 'bg-red-100 text-red-700',
+    lead: 'bg-blue-900/40 text-blue-400',
+    qualified: 'bg-indigo-900/40 text-indigo-400',
+    proposal: 'bg-purple-900/40 text-purple-400',
+    negotiation: 'bg-orange-900/40 text-orange-400',
+    won: 'bg-emerald-900/40 text-emerald-400',
+    lost: 'bg-red-900/40 text-red-400',
   }
 
   const statusColors = {
-    lead: 'bg-blue-100 text-blue-700',
-    prospect: 'bg-yellow-100 text-yellow-700',
-    customer: 'bg-emerald-100 text-emerald-700',
-    inactive: 'bg-gray-100 text-gray-600',
+    lead: 'bg-blue-900/40 text-blue-400',
+    prospect: 'bg-yellow-900/40 text-yellow-400',
+    customer: 'bg-emerald-900/40 text-emerald-400',
+    inactive: 'bg-slate-700 text-slate-400',
   }
 
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Your CRM overview</p>
+        <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
+        <p className="text-slate-500 text-sm mt-1">Your CRM overview</p>
       </div>
 
       {/* Stats */}
@@ -80,24 +80,24 @@ export default function Dashboard() {
       {/* Recent rows */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Contacts */}
-        <div className="bg-white rounded-xl border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Recent Contacts</h2>
-            <Link to="/contacts" className="text-sm text-indigo-600 hover:text-indigo-700">View all</Link>
+        <div className="bg-slate-900 rounded-xl border border-slate-700/50">
+          <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
+            <h2 className="font-semibold text-slate-100">Recent Contacts</h2>
+            <Link to="/contacts" className="text-sm text-indigo-400 hover:text-indigo-300">View all</Link>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-slate-700/30">
             {recentContacts.length === 0 && (
-              <p className="px-6 py-8 text-center text-gray-400 text-sm">No contacts yet</p>
+              <p className="px-6 py-8 text-center text-slate-500 text-sm">No contacts yet</p>
             )}
             {recentContacts.map((c) => (
               <div key={c.id} className="px-6 py-3 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-slate-200">
                     {c.first_name} {c.last_name}
                   </p>
-                  <p className="text-xs text-gray-400">{c.email || c.company?.name || '—'}</p>
+                  <p className="text-xs text-slate-500">{c.email || c.company?.name || '—'}</p>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[c.status] || 'bg-slate-700 text-slate-400'}`}>
                   {c.status}
                 </span>
               </div>
@@ -106,24 +106,24 @@ export default function Dashboard() {
         </div>
 
         {/* Recent Deals */}
-        <div className="bg-white rounded-xl border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Recent Deals</h2>
-            <Link to="/deals" className="text-sm text-indigo-600 hover:text-indigo-700">View all</Link>
+        <div className="bg-slate-900 rounded-xl border border-slate-700/50">
+          <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
+            <h2 className="font-semibold text-slate-100">Recent Deals</h2>
+            <Link to="/deals" className="text-sm text-indigo-400 hover:text-indigo-300">View all</Link>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-slate-700/30">
             {recentDeals.length === 0 && (
-              <p className="px-6 py-8 text-center text-gray-400 text-sm">No deals yet</p>
+              <p className="px-6 py-8 text-center text-slate-500 text-sm">No deals yet</p>
             )}
             {recentDeals.map((d) => (
               <div key={d.id} className="px-6 py-3 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{d.title}</p>
-                  <p className="text-xs text-gray-400">{d.contact ? `${d.contact.first_name} ${d.contact.last_name || ''}` : '—'}</p>
+                  <p className="text-sm font-medium text-slate-200">{d.title}</p>
+                  <p className="text-xs text-slate-500">{d.contact ? `${d.contact.first_name} ${d.contact.last_name || ''}` : '—'}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-gray-900">{d.value > 0 ? fmt(d.value) : '—'}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${stageColors[d.stage] || 'bg-gray-100 text-gray-600'}`}>
+                  <p className="text-sm font-semibold text-slate-200">{d.value > 0 ? fmt(d.value) : '—'}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${stageColors[d.stage] || 'bg-slate-700 text-slate-400'}`}>
                     {d.stage}
                   </span>
                 </div>
