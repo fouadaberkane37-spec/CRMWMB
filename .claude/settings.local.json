@@ -23,7 +23,19 @@
       "Bash(curl -s http://localhost:8000/)",
       "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d \"{\"\"username\"\":\"\"admin\"\",\"\"password\"\":\"\"admin123\"\"}\")",
       "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/x-www-form-urlencoded\" -d \"username=admin&password=admin123\")",
-      "Bash(curl -sv http://localhost:8000/api/contacts?limit=5 -H \"Authorization: Bearer test\")"
+      "Bash(curl -sv http://localhost:8000/api/contacts?limit=5 -H \"Authorization: Bearer test\")",
+      "Bash(powershell -Command \"Get-Command gh -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source; if \\(-not $?\\) { Get-ChildItem ''C:\\\\Program Files\\\\'' -Recurse -Filter ''gh.exe'' -ErrorAction SilentlyContinue | Select-Object FullName }\")",
+      "Bash(powershell -Command \"Get-ChildItem ''C:\\\\Users\\\\15145\\\\AppData\\\\Local\\\\Programs'' -ErrorAction SilentlyContinue | Select-Object Name\")",
+      "Bash(powershell -Command \"Get-ChildItem ''C:\\\\Program Files\\\\'' -ErrorAction SilentlyContinue | Select-Object Name\")",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
+      "Bash(powershell -Command \"echo $env:GITHUB_TOKEN; echo $env:GH_TOKEN\")",
+      "Bash(powershell -Command \"Get-Content ''$env:APPDATA\\\\GitHub CLI\\\\hosts.yml'' -ErrorAction SilentlyContinue; Get-Content ''$env:USERPROFILE\\\\.config\\\\gh\\\\hosts.yml'' -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"Get-ChildItem ''$env:APPDATA'' | Where-Object { $_Name -like ''*github*'' -or $_Name -like ''*GitHub*'' }; Get-ChildItem ''$env:LOCALAPPDATA'' | Where-Object { $_Name -like ''*github*'' -or $_Name -like ''*GitHub*'' }\")",
+      "Bash(powershell -Command \"Get-ChildItem ''C:\\\\Users\\\\15145\\\\AppData\\\\Roaming'' | Where-Object { $_Name -match ''github'' } ; Get-ChildItem ''C:\\\\Users\\\\15145\\\\AppData\\\\Local'' | Where-Object { $_Name -match ''github'' }\")",
+      "Bash(ls \"C:\\\\Users\\\\15145\\\\AppData\\\\Roaming\\\\GitHub CLI\"\" 2>/dev/null && cat \"C:Users15145AppDataRoamingGitHub CLIhosts.yml \")",
+      "Bash(cmd.exe /c \"\"\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\"\" auth status > C:\\\\Users\\\\15145\\\\AppData\\\\Local\\\\Temp\\\\ghstatus.txt 2>&1\")",
+      "Bash(powershell.exe -NoProfile -Command \"& ''C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe'' auth status 2>&1 | Out-String\")",
+      "Bash(python migrate.py)"
     ]
   }
 }
