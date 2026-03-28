@@ -36,6 +36,17 @@ build/
 Thumbs.db
 desktop.ini
 
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
 # Logs
 *.log
 logs/
