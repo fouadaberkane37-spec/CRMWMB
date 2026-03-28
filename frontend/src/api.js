@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: '/api' })
+// In native Capacitor builds, set VITE_API_URL to your Railway URL before running `npm run ios:build`
+// e.g. VITE_API_URL=https://your-app.up.railway.app/api
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api' })
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
