@@ -1,73 +1,72 @@
-# Claude Terminal CLI
+# Self-Hosted CRM
 
-A project for interacting with Claude (Anthropic's AI) directly from the terminal using the Anthropic API.
+A fully self-hosted CRM — your data stays 100% on your machine. No subscriptions, no seat limits, no data sent anywhere.
 
 ## Features
 
-- Call Claude from the command line
-- Support for REST API via `curl`
-- Python script interface
-- Easy API key configuration
+- **Contacts** — manage leads, prospects, and customers
+- **Companies** — organize by organization
+- **Deals Pipeline** — Kanban board (Lead → Qualified → Proposal → Negotiation → Won/Lost)
+- **Activities** — log calls, emails, meetings, notes, tasks
+- **Users** — unlimited users with admin/user roles
+- **Dashboard** — stats and recent activity at a glance
 
-## Prerequisites
+## Stack
 
-- Python 3.8+
-- An [Anthropic API key](https://console.anthropic.com/)
+- **Backend**: FastAPI + SQLite (via SQLAlchemy)
+- **Frontend**: React 18 + Vite + Tailwind CSS
+- **Auth**: JWT tokens + bcrypt — everything local
 
-## Installation
+## Quick Start (Windows)
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/claude-terminal-cli.git
-   cd claude-terminal-cli
-   ```
+```
+double-click start.bat
+```
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Quick Start (Mac/Linux)
 
-3. Set your API key:
-   ```bash
-   # Windows (PowerShell)
-   $env:ANTHROPIC_API_KEY = "your-api-key-here"
-
-   # Or add it to a .env file
-   echo ANTHROPIC_API_KEY=your-api-key-here > .env
-   ```
-
-## Usage
-
-### Python Script
 ```bash
-python claude_cli.py "Your message here"
+chmod +x start.sh
+./start.sh
 ```
 
-### curl (REST API)
+Then open **http://localhost:5173**
+
+**Default login**: `admin` / `admin123` — change this after first login!
+
+## Manual Setup
+
+### Backend
 ```bash
-curl https://api.anthropic.com/v1/messages \
-  -H "x-api-key: $ANTHROPIC_API_KEY" \
-  -H "anthropic-version: 2023-06-01" \
-  -H "content-type: application/json" \
-  -d '{"model": "claude-opus-4-5", "max_tokens": 1024, "messages": [{"role": "user", "content": "Hello!"}]}'
+cd backend
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Mac/Linux
+
+pip install -r requirements.txt
+python -m uvicorn main:app --reload --port 8000
 ```
 
-## Project Structure
-
-```
-claude-terminal-cli/
-├── README.md
-├── .gitignore
-├── requirements.txt
-├── claude_cli.py        # Main CLI script
-└── examples/
-    └── example_usage.py
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-## Contributing
+## Data
 
-Pull requests are welcome! Please open an issue first to discuss what you'd like to change.
+All data is stored in `backend/crm.db` (SQLite). Back up this file to keep your data safe.
 
-## License
+## Security
 
-[MIT](LICENSE)
+- Change the default admin password immediately after first login
+- Set a strong `SECRET_KEY` env var in production:
+  ```
+  SECRET_KEY=your-very-long-random-secret uvicorn main:app --port 8000
+  ```
+- Do not expose to the internet without HTTPS/reverse proxy
+
+## API Docs
+
+Visit **http://localhost:8000/api/docs** for the interactive API reference.
