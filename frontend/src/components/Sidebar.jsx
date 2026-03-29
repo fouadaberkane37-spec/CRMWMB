@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, Building2, TrendingUp,
-  Activity, UserCog, LogOut, Zap, MapPin,
+  Activity, UserCog, LogOut, Zap, MapPin, Search,
 } from 'lucide-react'
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { to: '/deals', label: 'Deals', icon: TrendingUp },
   { to: '/activities', label: 'Activities', icon: Activity },
   { to: '/map', label: 'Knock Map', icon: MapPin },
+  { to: '/search', label: 'Search', icon: Search },
 ]
 
 export default function Sidebar() {

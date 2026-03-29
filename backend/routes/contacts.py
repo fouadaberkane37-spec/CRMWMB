@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
+import csv, io
 from database import get_db
 import models
 import schemas
@@ -70,3 +72,58 @@ def delete_contact(contact_id: int, db: Session = Depends(get_db), _=Depends(get
     db.delete(db_contact)
     db.commit()
     return {"message": "Deleted"}
+
+
+@router.get("/export/csv")
+def export_contacts_csv(db: Session = Depends(get_db), _=Depends(get_current_user)):
+    contacts = db.query(models.Contact).options(joinedload(models.Contact.company)).order_by(models.Contact.created_at.desc()).all()
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["first_name", "last_name", "email", "phone", "title", "company", "status", "notes"])
+    for c in contacts:
+        w.writerow([
+            c.first_name, c.last_name or "", c.email or "", c.phone or "",
+            c.title or "", c.company.name if c.company else "", c.status, c.notes or "",
+        ])
+    return Response(
+        content=out.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=contacts.csv"},
+    )
+
+
+@router.post("/import/csv")
+async def import_contacts_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    content = await file.read()
+    try:
+        reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not parse CSV file")
+
+    VALID_STATUSES = {"lead", "prospect", "customer", "inactive"}
+    created = 0
+    for row in reader:
+        first = (row.get("first_name") or "").strip()
+        if not first:
+            continue
+        status = (row.get("status") or "lead").strip().lower()
+        if status not in VALID_STATUSES:
+            status = "lead"
+        db.add(models.Contact(
+            first_name=first,
+            last_name=(row.get("last_name") or "").strip() or None,
+            email=(row.get("email") or "").strip() or None,
+            phone=(row.get("phone") or "").strip() or None,
+            title=(row.get("title") or "").strip() or None,
+            status=status,
+            notes=(row.get("notes") or "").strip() or None,
+            created_by=current_user.id,
+        ))
+        created += 1
+
+    db.commit()
+    return {"imported": created}

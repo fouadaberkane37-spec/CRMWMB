@@ -2,15 +2,15 @@ import React, { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
-  LayoutDashboard, Users, TrendingUp, Activity,
-  Menu, Building2, MapPin, UserCog, LogOut, X,
+  LayoutDashboard, Users, TrendingUp, Search,
+  Menu, Building2, MapPin, UserCog, LogOut, X, Activity,
 } from 'lucide-react'
 
 const primaryNav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/contacts', label: 'Contacts', icon: Users },
   { to: '/deals', label: 'Deals', icon: TrendingUp },
-  { to: '/activities', label: 'Activities', icon: Activity },
+  { to: '/search', label: 'Search', icon: Search },
 ]
 
 export default function BottomNav() {
@@ -67,6 +67,7 @@ export default function BottomNav() {
 
             <div className="space-y-1">
               {[
+                { to: '/activities', label: 'Activities', icon: Activity },
                 { to: '/companies', label: 'Companies', icon: Building2 },
                 { to: '/map', label: 'Knock Map', icon: MapPin },
                 ...(user?.role === 'admin' ? [{ to: '/users', label: 'Users', icon: UserCog }] : []),

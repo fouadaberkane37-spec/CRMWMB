@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
-import { Plus, Search, Pencil, Trash2, Building2, Mail, Phone } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Building2, Mail, Phone, Download, Upload } from 'lucide-react'
 
 const STATUS_COLORS = {
   lead: 'bg-blue-900/40 text-blue-400',
@@ -26,6 +26,8 @@ export default function Contacts() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
+  const [importing, setImporting] = useState(false)
+  const fileRef = useRef(null)
 
   const load = useCallback(() => {
     const params = {}
@@ -60,6 +62,43 @@ export default function Contacts() {
     load()
   }
 
+  function exportCsv() {
+    const base = import.meta.env.VITE_API_URL || '/api'
+    const token = localStorage.getItem('token')
+    // Build URL and trigger download via a temporary link
+    const url = `${base}/contacts/export/csv`
+    const a = document.createElement('a')
+    a.href = url
+    a.setAttribute('download', 'contacts.csv')
+    // Pass auth via a short-lived fetch → blob URL
+    api.get('/contacts/export/csv', { responseType: 'blob' }).then((r) => {
+      const blob = window.URL.createObjectURL(r.data)
+      a.href = blob
+      a.click()
+      window.URL.revokeObjectURL(blob)
+    })
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const { data } = await api.post('/contacts/import/csv', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      alert(`Imported ${data.imported} contacts`)
+      load()
+    } catch {
+      alert('Import failed — check the CSV format')
+    } finally {
+      setImporting(false)
+      e.target.value = ''
+    }
+  }
+
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
   return (
@@ -69,9 +108,25 @@ export default function Contacts() {
           <h1 className="text-2xl font-bold text-slate-100">Contacts</h1>
           <p className="text-slate-500 text-sm mt-0.5">{contacts.length} records</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
-          <Plus size={16} /> Add Contact
-        </button>
+        <div className="flex items-center gap-2">
+          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={importing}
+            className="flex items-center gap-1.5 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Upload size={15} /> {importing ? 'Importing…' : 'Import'}
+          </button>
+          <button
+            onClick={exportCsv}
+            className="flex items-center gap-1.5 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors"
+          >
+            <Download size={15} /> Export
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
+            <Plus size={16} /> Add
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

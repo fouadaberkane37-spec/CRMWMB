@@ -4,7 +4,13 @@ import os
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./crm.db")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Railway (and most PaaS) gives postgres:// URLs; SQLAlchemy requires postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# check_same_thread is only valid for SQLite
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
