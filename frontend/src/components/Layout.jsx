@@ -10,8 +10,8 @@ export default function Layout() {
       <div className="hidden md:flex">
         <Sidebar />
       </div>
-      {/* Main content — extra bottom padding on mobile for bottom nav */}
-      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+      {/* Main content — extra bottom padding on mobile for bottom nav; map pages get full height */}
+      <main className="flex-1 overflow-y-auto pb-16 md:pb-0 flex flex-col">
         <Outlet />
       </main>
       {/* Bottom nav — mobile only */}

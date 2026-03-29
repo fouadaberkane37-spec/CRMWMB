@@ -27,3 +27,21 @@ body {
     background-color: #1e293b;
   }
 }
+
+/* User location pulsing dot animation (used in KnockMap) */
+@keyframes location-pulse {
+  0%   { transform: scale(0.6); opacity: 0.8; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+.location-pulse-ring {
+  animation: location-pulse 1.8s ease-out infinite;
+}
+
+/* Leaflet popup tweak for dark theme pins */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35) !important;
+}
+.leaflet-popup-tip {
+  box-shadow: none !important;
+}
