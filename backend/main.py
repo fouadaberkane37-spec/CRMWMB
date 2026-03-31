@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from database import engine, Base, SessionLocal
 import models
-from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search
+from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search, sms
 from auth import get_password_hash
 import os
 
@@ -60,6 +60,7 @@ app.include_router(activities.router)
 app.include_router(dashboard.router)
 app.include_router(knocks.router)
 app.include_router(search.router)
+app.include_router(sms.router)
 
 # --- Serve built React frontend (production) ---
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")

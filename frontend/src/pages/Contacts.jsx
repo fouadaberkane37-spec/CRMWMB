@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
-import { Plus, Search, Pencil, Trash2, Building2, Mail, Phone, Download, Upload } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Building2, Mail, Phone, Download, Upload, MessageSquare } from 'lucide-react'
 
 const STATUS_COLORS = {
   lead: 'bg-blue-900/40 text-blue-400',
@@ -27,6 +27,9 @@ export default function Contacts() {
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [importing, setImporting] = useState(false)
+  const [smsContact, setSmsContact] = useState(null)
+  const [smsMessage, setSmsMessage] = useState('')
+  const [smsSending, setSmsSending] = useState(false)
   const fileRef = useRef(null)
 
   const load = useCallback(() => {
@@ -97,6 +100,19 @@ export default function Contacts() {
       setImporting(false)
       e.target.value = ''
     }
+  }
+
+  async function sendSms() {
+    if (!smsMessage.trim()) return
+    setSmsSending(true)
+    try {
+      await api.post('/sms/send', { contact_id: smsContact.id, message: smsMessage.trim() })
+      alert(`SMS sent to ${smsContact.first_name}!`)
+      setSmsContact(null)
+      setSmsMessage('')
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to send SMS')
+    } finally { setSmsSending(false) }
   }
 
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
@@ -187,6 +203,9 @@ export default function Contacts() {
                 </td>
                 <td className="px-6 py-3.5">
                   <div className="flex items-center gap-1 justify-end">
+                    {c.phone && (
+                      <button onClick={() => { setSmsContact(c); setSmsMessage('') }} className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-900/20 rounded-lg" title="Send SMS"><MessageSquare size={14} /></button>
+                    )}
                     <button onClick={() => openEdit(c)} className="p-1.5 text-slate-500 hover:text-slate-200 hover:bg-slate-700 rounded-lg"><Pencil size={14} /></button>
                     <button onClick={() => setDeleteId(c.id)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
                   </div>
@@ -259,6 +278,40 @@ export default function Contacts() {
           <div className="flex gap-3">
             <button onClick={() => setDeleteId(null)} className="flex-1 border border-slate-600 text-slate-300 py-2.5 rounded-lg text-sm">Cancel</button>
             <button onClick={del} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-sm font-medium">Delete</button>
+          </div>
+        </Modal>
+      )}
+
+      {smsContact && (
+        <Modal title={`Send SMS to ${smsContact.first_name} ${smsContact.last_name || ''}`} onClose={() => setSmsContact(null)}>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-slate-400 bg-slate-800 rounded-lg px-3 py-2">
+              <Phone size={14} />
+              <span>{smsContact.phone}</span>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Message</label>
+              <textarea
+                value={smsMessage}
+                onChange={(e) => setSmsMessage(e.target.value)}
+                rows={4}
+                placeholder="Type your message..."
+                className="input resize-none"
+                autoFocus
+              />
+              <p className="text-xs text-slate-500 mt-1 text-right">{smsMessage.length} / 160 chars</p>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setSmsContact(null)} className="flex-1 border border-slate-600 text-slate-300 py-2.5 rounded-lg text-sm">Cancel</button>
+              <button
+                onClick={sendSms}
+                disabled={smsSending || !smsMessage.trim()}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <MessageSquare size={15} />
+                {smsSending ? 'Sending…' : 'Send SMS'}
+              </button>
+            </div>
           </div>
         </Modal>
       )}
