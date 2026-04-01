@@ -194,6 +194,31 @@ class Knock(KnockBase):
         from_attributes = True
 
 
+# ── Chat ──────────────────────────────────────────────────────────────────────
+class ChatMessageCreate(BaseModel):
+    body: str
+
+
+class ChatMessageOut(BaseModel):
+    id: int
+    contact_id: int
+    sender_id: int
+    sender_name: Optional[str] = None
+    body: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ChatConversation(BaseModel):
+    contact_id: int
+    contact_name: str
+    last_message: Optional[str] = None
+    last_at: Optional[datetime] = None
+    unread: int = 0
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 class DashboardStats(BaseModel):
     total_contacts: int

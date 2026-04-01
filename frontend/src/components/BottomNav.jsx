@@ -3,12 +3,13 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, TrendingUp, Search,
-  Menu, Building2, MapPin, UserCog, LogOut, X, Activity,
+  Menu, Building2, MapPin, UserCog, LogOut, X, Activity, MessageSquare,
 } from 'lucide-react'
 
 const primaryNav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/contacts', label: 'Contacts', icon: Users },
+  { to: '/chats', label: 'Chats', icon: MessageSquare },
   { to: '/deals', label: 'Deals', icon: TrendingUp },
   { to: '/search', label: 'Search', icon: Search },
 ]
