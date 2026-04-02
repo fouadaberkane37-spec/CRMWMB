@@ -44,6 +44,8 @@ export default function Chats() {
   const [searchQ, setSearchQ] = useState('')
   const [showNewChat, setShowNewChat] = useState(false)
   const [contactSearch, setContactSearch] = useState('')
+  const [activeContactName, setActiveContactName] = useState('')
+  const [error, setError] = useState('')
   const bottomRef = useRef(null)
   const pollRef = useRef(null)
 
@@ -80,20 +82,25 @@ export default function Chats() {
     e.preventDefault()
     if (!input.trim() || !activeContactId) return
     setSending(true)
+    setError('')
     try {
       const { data } = await api.post(`/chats/${activeContactId}`, { body: input.trim() })
       setMessages((prev) => [...prev, data])
       setInput('')
       loadConversations()
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to send message — please try again')
     } finally {
       setSending(false)
     }
   }
 
-  function openContact(cid) {
+  function openContact(cid, name) {
     setActiveContactId(cid)
+    setActiveContactName(name || '')
     setShowNewChat(false)
+    setError('')
   }
 
   const filteredConvs = conversations.filter((c) =>
@@ -153,7 +160,7 @@ export default function Chats() {
           {filteredConvs.map((conv) => (
             <button
               key={conv.contact_id}
-              onClick={() => openContact(conv.contact_id)}
+              onClick={() => openContact(conv.contact_id, conv.contact_name)}
               className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-slate-800/60 transition-colors text-left ${
                 activeContactId === conv.contact_id ? 'bg-slate-800' : ''
               }`}
@@ -182,9 +189,9 @@ export default function Chats() {
             >
               <ArrowLeft size={22} />
             </button>
-            {activeConv && <Avatar name={activeConv.contact_name} />}
+            <Avatar name={activeConv?.contact_name || activeContactName || '?'} />
             <div>
-              <p className="text-white font-semibold text-sm">{activeConv?.contact_name}</p>
+              <p className="text-white font-semibold text-sm">{activeConv?.contact_name || activeContactName}</p>
               <p className="text-slate-500 text-xs">Client</p>
             </div>
           </div>
@@ -222,6 +229,13 @@ export default function Chats() {
             })}
             <div ref={bottomRef} />
           </div>
+
+          {/* Error banner */}
+          {error && (
+            <div className="mx-3 mb-1 px-3 py-2 bg-red-900/50 border border-red-700/50 rounded-xl text-red-300 text-xs">
+              {error}
+            </div>
+          )}
 
           {/* Input */}
           <form
@@ -280,7 +294,7 @@ export default function Chats() {
                 return (
                   <button
                     key={c.id}
-                    onClick={() => openContact(c.id)}
+                    onClick={() => openContact(c.id, name)}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800 transition-colors text-left"
                   >
                     <Avatar name={name} size="sm" />
