@@ -91,18 +91,6 @@ class Knock(Base):
     contact = relationship("Contact")
 
 
-class ChatMessage(Base):
-    __tablename__ = "chat_messages"
-    id = Column(Integer, primary_key=True, index=True)
-    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=False)
-    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    body = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    contact = relationship("Contact")
-    sender = relationship("User")
-
-
 class Activity(Base):
     __tablename__ = "activities"
     id = Column(Integer, primary_key=True, index=True)
