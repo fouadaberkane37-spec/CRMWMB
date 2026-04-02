@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Form
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import get_db
@@ -49,3 +50,46 @@ def send_sms(
         return {"sid": msg.sid, "status": msg.status}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/webhook", include_in_schema=False, response_class=PlainTextResponse)
+async def twilio_inbound_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Twilio webhook for inbound SMS.
+    Configure your Twilio number's Messaging webhook URL to:
+        https://crmwmb-production.up.railway.app/api/sms/webhook
+    (HTTP POST, application/x-www-form-urlencoded)
+    """
+    form = await request.form()
+    from_number: str = (form.get("From") or "").strip()
+    body: str = (form.get("Body") or "").strip()
+
+    if from_number and body:
+        # Normalize phone: Twilio sends e.g. +15551234567
+        # Try to match contact by phone (exact or suffix match)
+        contacts = db.query(models.Contact).all()
+        contact = None
+        for c in contacts:
+            if c.phone:
+                # Strip non-digit chars for comparison
+                c_digits = "".join(filter(str.isdigit, c.phone))
+                f_digits = "".join(filter(str.isdigit, from_number))
+                if c_digits and f_digits and (c_digits == f_digits or c_digits.endswith(f_digits[-9:]) or f_digits.endswith(c_digits[-9:])):
+                    contact = c
+                    break
+
+        if contact:
+            msg = models.ChatMessage(
+                contact_id=contact.id,
+                sender_id=None,       # inbound — no CRM user
+                body=body,
+                direction="inbound",
+            )
+            db.add(msg)
+            db.commit()
+
+    # Return empty TwiML — no auto-reply
+    return PlainTextResponse('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml")

@@ -95,8 +95,11 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
     id = Column(Integer, primary_key=True, index=True)
     contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=False)
-    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # NULL for inbound messages from customers (no CRM user involved)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     body = Column(Text, nullable=False)
+    # "outbound" = sent by CRM agent, "inbound" = received from customer via SMS
+    direction = Column(String, default="outbound", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     contact = relationship("Contact")

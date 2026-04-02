@@ -31,12 +31,15 @@ Base.metadata.create_all(bind=engine)
 # Explicitly ensure chat_messages exists (handles existing production DBs
 # where create_all may have run before this table was added)
 _is_sqlite = DATABASE_URL.startswith("sqlite")
+
+# Ensure chat_messages table exists (handles DBs created before this model was added)
 _chat_ddl = """
     CREATE TABLE IF NOT EXISTS chat_messages (
-        id {pk},
+        id         {pk},
         contact_id INTEGER NOT NULL REFERENCES contacts(id),
-        sender_id  INTEGER NOT NULL REFERENCES users(id),
+        sender_id  INTEGER REFERENCES users(id),
         body       TEXT    NOT NULL,
+        direction  VARCHAR(16) NOT NULL DEFAULT 'outbound',
         created_at {ts}
     )
 """.format(
@@ -49,6 +52,19 @@ try:
     print("[OK] chat_messages table ready")
 except Exception as _e:
     print(f"[WARN] chat_messages DDL: {_e}")
+
+# Add 'direction' column to existing chat_messages tables that predate this column
+if _is_sqlite:
+    _add_direction = "ALTER TABLE chat_messages ADD COLUMN direction VARCHAR(16) NOT NULL DEFAULT 'outbound'"
+else:
+    _add_direction = "ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS direction VARCHAR(16) NOT NULL DEFAULT 'outbound'"
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_add_direction))
+    print("[OK] chat_messages.direction column ensured")
+except Exception as _e:
+    # Column already exists or SQLite duplicate-column error — safe to ignore
+    pass
 
 
 def seed_admin():

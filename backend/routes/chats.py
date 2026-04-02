@@ -59,13 +59,20 @@ def get_messages(
 
     result = []
     for m in msgs:
-        sender = db.query(models.User).filter(models.User.id == m.sender_id).first()
+        if m.sender_id:
+            sender = db.query(models.User).filter(models.User.id == m.sender_id).first()
+            sender_name = (sender.full_name or sender.username) if sender else "Unknown"
+        else:
+            # Inbound message from the contact/customer
+            contact = db.query(models.Contact).filter(models.Contact.id == m.contact_id).first()
+            sender_name = f"{contact.first_name} {contact.last_name or ''}".strip() if contact else "Customer"
         result.append(schemas.ChatMessageOut(
             id=m.id,
             contact_id=m.contact_id,
             sender_id=m.sender_id,
-            sender_name=(sender.full_name or sender.username) if sender else "Unknown",
+            sender_name=sender_name,
             body=m.body,
+            direction=m.direction,
             created_at=m.created_at,
         ))
     return result
@@ -89,6 +96,7 @@ def send_message(
         contact_id=contact_id,
         sender_id=current_user.id,
         body=body,
+        direction="outbound",
     )
     db.add(msg)
     db.commit()
@@ -100,5 +108,6 @@ def send_message(
         sender_id=msg.sender_id,
         sender_name=current_user.full_name or current_user.username,
         body=msg.body,
+        direction=msg.direction,
         created_at=msg.created_at,
     )

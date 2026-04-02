@@ -202,9 +202,10 @@ class ChatMessageCreate(BaseModel):
 class ChatMessageOut(BaseModel):
     id: int
     contact_id: int
-    sender_id: int
+    sender_id: Optional[int] = None
     sender_name: Optional[str] = None
     body: str
+    direction: str = "outbound"  # "outbound" | "inbound"
     created_at: datetime
 
     class Config:
