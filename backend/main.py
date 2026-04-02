@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from database import engine, Base, SessionLocal
+from sqlalchemy import text
+from database import engine, Base, SessionLocal, DATABASE_URL
 import models
 from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search, sms, chats
 from auth import get_password_hash
@@ -26,6 +27,28 @@ app.add_middleware(
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
+
+# Explicitly ensure chat_messages exists (handles existing production DBs
+# where create_all may have run before this table was added)
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+_chat_ddl = """
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        id {pk},
+        contact_id INTEGER NOT NULL REFERENCES contacts(id),
+        sender_id  INTEGER NOT NULL REFERENCES users(id),
+        body       TEXT    NOT NULL,
+        created_at {ts}
+    )
+""".format(
+    pk="INTEGER PRIMARY KEY AUTOINCREMENT" if _is_sqlite else "SERIAL PRIMARY KEY",
+    ts="DATETIME DEFAULT CURRENT_TIMESTAMP" if _is_sqlite else "TIMESTAMP DEFAULT NOW()",
+)
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_chat_ddl))
+    print("[OK] chat_messages table ready")
+except Exception as _e:
+    print(f"[WARN] chat_messages DDL: {_e}")
 
 
 def seed_admin():
