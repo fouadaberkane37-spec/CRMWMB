@@ -4,9 +4,16 @@ from typing import List
 from database import get_db
 import models
 import schemas
-from auth import require_admin, get_password_hash
+from auth import require_admin, get_current_user, get_password_hash
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+
+@router.get("/team", response_model=List[schemas.UserBasic])
+def list_team(db: Session = Depends(get_db), _=Depends(get_current_user)):
+    """Return basic user info (id + name) for all active users — no admin required.
+    Used by the Team Map to build the user-color legend."""
+    return db.query(models.User).filter(models.User.is_active == True).order_by(models.User.created_at).all()
 
 
 @router.get("/", response_model=List[schemas.User])

@@ -9,8 +9,10 @@ import Deals from './pages/Deals.jsx'
 import Activities from './pages/Activities.jsx'
 import Users from './pages/Users.jsx'
 import KnockMap from './pages/KnockMap.jsx'
+import TeamMap from './pages/TeamMap.jsx'
 import Search from './pages/Search.jsx'
 import Chats from './pages/Chats.jsx'
+import AcceptInvite from './pages/AcceptInvite.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -48,6 +50,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/invite/:token" element={<AcceptInvite />} />
           <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="contacts" element={<Contacts />} />
@@ -56,6 +59,7 @@ export default function App() {
             <Route path="activities" element={<Activities />} />
             <Route path="users" element={<Users />} />
             <Route path="map" element={<KnockMap />} />
+            <Route path="team-map" element={<TeamMap />} />
             <Route path="search" element={<Search />} />
             <Route path="chats" element={<Chats />} />
           </Route>

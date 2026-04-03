@@ -89,6 +89,7 @@ class Knock(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     contact = relationship("Contact")
+    creator = relationship("User", foreign_keys=[created_by])
 
 
 class ChatMessage(Base):
@@ -123,3 +124,17 @@ class Activity(Base):
 
     contact = relationship("Contact", back_populates="activities")
     deal = relationship("Deal", back_populates="activities")
+
+
+class Invite(Base):
+    __tablename__ = "invites"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    role = Column(String, default="user")
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+
+    inviter = relationship("User", foreign_keys=[created_by])

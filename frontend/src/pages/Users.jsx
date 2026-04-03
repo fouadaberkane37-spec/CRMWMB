@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
-import { Plus, Pencil, Trash2, ShieldCheck, User } from 'lucide-react'
+import { Plus, Pencil, Trash2, ShieldCheck, User, Mail, Copy, Check } from 'lucide-react'
 import { useAuth } from '../App.jsx'
 
 const EMPTY = { username: '', email: '', full_name: '', role: 'user', password: '' }
+const INVITE_EMPTY = { email: '', role: 'user' }
 
 export default function Users() {
   const { user: me } = useAuth()
@@ -14,6 +15,14 @@ export default function Users() {
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [error, setError] = useState('')
+
+  // Invite state
+  const [inviteModal, setInviteModal] = useState(false)
+  const [inviteForm, setInviteForm] = useState(INVITE_EMPTY)
+  const [inviteResult, setInviteResult] = useState(null) // { invite_url }
+  const [inviteSaving, setInviteSaving] = useState(false)
+  const [inviteError, setInviteError] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const load = () => api.get('/users/').then((r) => setUsers(r.data))
   useEffect(() => { load() }, [])
@@ -42,6 +51,37 @@ export default function Users() {
 
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
+  function openInvite() {
+    setInviteForm(INVITE_EMPTY)
+    setInviteResult(null)
+    setInviteError('')
+    setCopied(false)
+    setInviteModal(true)
+  }
+
+  async function sendInvite() {
+    setInviteSaving(true)
+    setInviteError('')
+    try {
+      const { data } = await api.post('/invites/', inviteForm)
+      setInviteResult(data)
+    } catch (err) {
+      setInviteError(err.response?.data?.detail || 'Failed to create invite')
+    } finally {
+      setInviteSaving(false)
+    }
+  }
+
+  function copyLink() {
+    const url = inviteResult?.invite_url
+    if (!url) return
+    const full = url.startsWith('http') ? url : `${window.location.origin}${url}`
+    navigator.clipboard.writeText(full).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
@@ -49,9 +89,14 @@ export default function Users() {
           <h1 className="text-2xl font-bold text-slate-100">Users</h1>
           <p className="text-slate-500 text-sm mt-0.5">{users.length} accounts · unlimited</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
-          <Plus size={16} /> Add User
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={openInvite} className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
+            <Mail size={16} /> Invite
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
+            <Plus size={16} /> Add User
+          </button>
+        </div>
       </div>
 
       <div className="bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden">
@@ -168,6 +213,69 @@ export default function Users() {
           <div className="flex gap-3">
             <button onClick={() => setDeleteId(null)} className="flex-1 border border-slate-600 text-slate-300 py-2.5 rounded-lg text-sm">Cancel</button>
             <button onClick={del} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-sm font-medium">Delete</button>
+          </div>
+        </Modal>
+      )}
+
+      {inviteModal && (
+        <Modal title="Invite by Email" onClose={() => setInviteModal(false)}>
+          <div className="space-y-4">
+            {inviteError && (
+              <div className="bg-red-900/30 text-red-400 text-sm px-4 py-3 rounded-lg border border-red-800/50">{inviteError}</div>
+            )}
+
+            {!inviteResult ? (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Email address</label>
+                  <input
+                    type="email"
+                    value={inviteForm.email}
+                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                    className="input"
+                    placeholder="colleague@example.com"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Role</label>
+                  <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })} className="input">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <p className="text-slate-500 text-xs">
+                  An invite link will be generated. If you have SMTP configured, it will also be emailed automatically.
+                </p>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setInviteModal(false)} className="flex-1 border border-slate-600 text-slate-300 py-2.5 rounded-lg text-sm hover:bg-slate-800">Cancel</button>
+                  <button onClick={sendInvite} disabled={inviteSaving || !inviteForm.email} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
+                    {inviteSaving ? 'Generating…' : 'Generate Invite Link'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bg-emerald-900/30 border border-emerald-700/40 rounded-lg px-4 py-3">
+                  <p className="text-emerald-400 text-sm font-medium">Invite link created!</p>
+                  <p className="text-slate-400 text-xs mt-0.5">Share this link with {inviteResult.email}. It expires in 48 hours.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Invite link</label>
+                  <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2.5 border border-slate-700">
+                    <span className="flex-1 text-slate-300 text-xs font-mono break-all">
+                      {inviteResult.invite_url?.startsWith('http')
+                        ? inviteResult.invite_url
+                        : `${window.location.origin}${inviteResult.invite_url}`}
+                    </span>
+                    <button onClick={copyLink} className="flex-shrink-0 flex items-center gap-1 text-indigo-400 hover:text-indigo-300 text-xs font-medium">
+                      {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                    </button>
+                  </div>
+                </div>
+                <button onClick={() => setInviteModal(false)} className="w-full border border-slate-600 text-slate-300 py-2.5 rounded-lg text-sm hover:bg-slate-800">Done</button>
+              </>
+            )}
           </div>
         </Modal>
       )}

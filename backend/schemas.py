@@ -220,6 +220,47 @@ class ChatConversation(BaseModel):
     unread: int = 0
 
 
+# ── Invite ────────────────────────────────────────────────────────────────────
+class InviteCreate(BaseModel):
+    email: str
+    role: str = "user"
+
+
+class InviteOut(BaseModel):
+    id: int
+    email: str
+    role: str
+    created_at: datetime
+    expires_at: datetime
+    used_at: Optional[datetime] = None
+    invite_url: Optional[str] = None  # populated by the endpoint, not from DB
+
+    class Config:
+        from_attributes = True
+
+
+class InviteAccept(BaseModel):
+    username: str
+    full_name: Optional[str] = None
+    password: str
+
+
+class InviteCheck(BaseModel):
+    email: str
+    role: str
+    valid: bool
+
+
+# ── UserBasic (non-admin public listing for team views) ───────────────────────
+class UserBasic(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 class DashboardStats(BaseModel):
     total_contacts: int

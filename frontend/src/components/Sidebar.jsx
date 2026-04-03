@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, Building2, TrendingUp,
-  Activity, UserCog, LogOut, Zap, MapPin, Search, MessageSquare,
+  Activity, UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe,
 } from 'lucide-react'
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/chats', label: 'Chats', icon: MessageSquare },
   { to: '/activities', label: 'Activities', icon: Activity },
   { to: '/map', label: 'Knock Map', icon: MapPin },
+  { to: '/team-map', label: 'Team Map', icon: Globe },
   { to: '/search', label: 'Search', icon: Search },
 ]
 

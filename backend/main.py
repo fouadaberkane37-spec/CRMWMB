@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import text
 from database import engine, Base, SessionLocal, DATABASE_URL
 import models
-from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search, sms, chats
+from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search, sms, chats, invites
 from auth import get_password_hash
 import os
 
@@ -67,6 +67,31 @@ except Exception as _e:
     pass
 
 
+# Ensure invites table exists
+_invites_ddl = """
+    CREATE TABLE IF NOT EXISTS invites (
+        id         {pk},
+        email      VARCHAR NOT NULL,
+        token      VARCHAR NOT NULL UNIQUE,
+        role       VARCHAR NOT NULL DEFAULT 'user',
+        created_by INTEGER REFERENCES users(id),
+        created_at {ts},
+        expires_at {ts2} NOT NULL,
+        used_at    {ts2}
+    )
+""".format(
+    pk="INTEGER PRIMARY KEY AUTOINCREMENT" if _is_sqlite else "SERIAL PRIMARY KEY",
+    ts="DATETIME DEFAULT CURRENT_TIMESTAMP" if _is_sqlite else "TIMESTAMP DEFAULT NOW()",
+    ts2="DATETIME" if _is_sqlite else "TIMESTAMP",
+)
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_invites_ddl))
+    print("[OK] invites table ready")
+except Exception as _e:
+    print(f"[WARN] invites DDL: {_e}")
+
+
 def seed_admin():
     """Create default admin on first run."""
     db = SessionLocal()
@@ -101,6 +126,7 @@ app.include_router(knocks.router)
 app.include_router(search.router)
 app.include_router(sms.router)
 app.include_router(chats.router)
+app.include_router(invites.router)
 
 # --- Serve built React frontend (production) ---
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
