@@ -70,7 +70,7 @@ export default function BottomNav() {
               {[
                 { to: '/activities', label: 'Activities', icon: Activity },
                 { to: '/companies', label: 'Companies', icon: Building2 },
-                { to: '/map', label: 'Knock Map', icon: MapPin },
+                { to: '/map', label: 'My Map', icon: MapPin },
                 { to: '/team-map', label: 'Team Map', icon: Globe },
                 ...(user?.role === 'admin' ? [{ to: '/users', label: 'Users', icon: UserCog }] : []),
               ].map(({ to, label, icon: Icon }) => (

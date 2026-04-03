@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 're
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api.js'
+import { useAuth } from '../App.jsx'
 import { Plus, Navigation, X, MapPin, ChevronDown } from 'lucide-react'
 
 // Fix Vite broken Leaflet default icons
@@ -65,6 +66,7 @@ function MapController({ onReady, placing, onMove }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function KnockMap() {
+  const { user } = useAuth()
   const [knocks, setKnocks]       = useState([])
   const [contacts, setContacts]   = useState([])
   const [userLoc, setUserLoc]     = useState(null)       // { lat, lng }
@@ -176,8 +178,10 @@ export default function KnockMap() {
     load()
   }
 
-  const filtered = filterStatus ? knocks.filter((k) => k.status === filterStatus) : knocks
-  const counts   = Object.fromEntries(STATUSES.map((s) => [s.key, knocks.filter((k) => k.status === s.key).length]))
+  // Only show this user's own pins — use Team Map to see everyone's pins
+  const myKnocks = knocks.filter((k) => k.created_by === user?.id)
+  const filtered = filterStatus ? myKnocks.filter((k) => k.status === filterStatus) : myKnocks
+  const counts   = Object.fromEntries(STATUSES.map((s) => [s.key, myKnocks.filter((k) => k.status === s.key).length]))
   const activeStatus = STATUSES.find((s) => s.key === filterStatus)
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -266,9 +270,9 @@ export default function KnockMap() {
           {/* Title + live badge */}
           <div className="pointer-events-auto bg-slate-900/85 backdrop-blur-md rounded-2xl px-4 py-2.5 flex items-center gap-3 shadow-xl border border-slate-700/40">
             <MapPin size={16} className="text-indigo-400 flex-shrink-0" />
-            <span className="text-white font-bold text-sm">Knock Map</span>
+            <span className="text-white font-bold text-sm">My Map</span>
             <span className="text-slate-500 text-xs">·</span>
-            <span className="text-slate-400 text-xs">{knocks.length} pins</span>
+            <span className="text-slate-400 text-xs">{myKnocks.length} pins</span>
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${synced ? 'bg-emerald-400' : 'bg-red-400'}`}
               title={synced ? 'Live' : 'Offline'} />
           </div>

@@ -13,7 +13,7 @@ const navItems = [
   { to: '/deals', label: 'Deals', icon: TrendingUp },
   { to: '/chats', label: 'Chats', icon: MessageSquare },
   { to: '/activities', label: 'Activities', icon: Activity },
-  { to: '/map', label: 'Knock Map', icon: MapPin },
+  { to: '/map', label: 'My Map', icon: MapPin },
   { to: '/team-map', label: 'Team Map', icon: Globe },
   { to: '/search', label: 'Search', icon: Search },
 ]
