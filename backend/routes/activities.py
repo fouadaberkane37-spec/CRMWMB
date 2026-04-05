@@ -19,9 +19,12 @@ def list_activities(
     skip: int = 0,
     limit: int = 200,
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     q = db.query(models.Activity).options(joinedload(models.Activity.contact))
+    # Non-admin (sales) can only see activities they created
+    if current_user.role != "admin":
+        q = q.filter(models.Activity.created_by == current_user.id)
     if type:
         q = q.filter(models.Activity.type == type)
     if contact_id:
@@ -43,10 +46,12 @@ def create_activity(activity: schemas.ActivityCreate, db: Session = Depends(get_
 
 
 @router.put("/{activity_id}", response_model=schemas.Activity)
-def update_activity(activity_id: int, activity: schemas.ActivityUpdate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def update_activity(activity_id: int, activity: schemas.ActivityUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     db_activity = db.query(models.Activity).filter(models.Activity.id == activity_id).first()
     if not db_activity:
         raise HTTPException(status_code=404, detail="Activity not found")
+    if current_user.role != "admin" and db_activity.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     for k, v in activity.model_dump(exclude_unset=True).items():
         setattr(db_activity, k, v)
     db.commit()
@@ -55,10 +60,12 @@ def update_activity(activity_id: int, activity: schemas.ActivityUpdate, db: Sess
 
 
 @router.patch("/{activity_id}/complete", response_model=schemas.Activity)
-def complete_activity(activity_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def complete_activity(activity_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     db_activity = db.query(models.Activity).filter(models.Activity.id == activity_id).first()
     if not db_activity:
         raise HTTPException(status_code=404, detail="Activity not found")
+    if current_user.role != "admin" and db_activity.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     db_activity.completed = True
     db_activity.completed_at = datetime.utcnow()
     db.commit()
@@ -67,10 +74,12 @@ def complete_activity(activity_id: int, db: Session = Depends(get_db), _=Depends
 
 
 @router.delete("/{activity_id}")
-def delete_activity(activity_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def delete_activity(activity_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     db_activity = db.query(models.Activity).filter(models.Activity.id == activity_id).first()
     if not db_activity:
         raise HTTPException(status_code=404, detail="Activity not found")
+    if current_user.role != "admin" and db_activity.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     db.delete(db_activity)
     db.commit()
     return {"message": "Deleted"}

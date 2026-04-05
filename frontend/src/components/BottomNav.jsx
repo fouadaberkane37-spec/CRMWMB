@@ -6,17 +6,19 @@ import {
   Menu, Building2, MapPin, UserCog, LogOut, X, Activity, MessageSquare, Globe,
 } from 'lucide-react'
 
-const primaryNav = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { to: '/contacts', label: 'Contacts', icon: Users },
-  { to: '/chats', label: 'Chats', icon: MessageSquare },
-  { to: '/deals', label: 'Deals', icon: TrendingUp },
-  { to: '/search', label: 'Search', icon: Search },
-]
-
 export default function BottomNav() {
   const [showMore, setShowMore] = useState(false)
   const { user, logout } = useAuth()
+  const isAdmin = user?.role === 'admin'
+
+  // Chats is admin-only; keeping 4 primary items ensures the bar doesn't look empty for sales users
+  const primaryNav = [
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+    { to: '/contacts', label: 'Contacts', icon: Users },
+    ...(isAdmin ? [{ to: '/chats', label: 'Chats', icon: MessageSquare }] : []),
+    { to: '/deals', label: 'Deals', icon: TrendingUp },
+    { to: '/search', label: 'Search', icon: Search },
+  ]
   const navigate = useNavigate()
 
   function handleLogout() {

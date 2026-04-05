@@ -25,6 +25,12 @@ function RequireAuth({ children }) {
   return user ? children : <Navigate to="/login" replace />
 }
 
+// Redirects non-admin users away from admin-only routes
+function RequireAdmin({ children }) {
+  const { user } = useAuth()
+  return user?.role === 'admin' ? children : <Navigate to="/" replace />
+}
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user')) } catch { return null }
@@ -61,7 +67,7 @@ export default function App() {
             <Route path="map" element={<KnockMap />} />
             <Route path="team-map" element={<TeamMap />} />
             <Route path="search" element={<Search />} />
-            <Route path="chats" element={<Chats />} />
+            <Route path="chats" element={<RequireAdmin><Chats /></RequireAdmin>} />
           </Route>
         </Routes>
       </BrowserRouter>

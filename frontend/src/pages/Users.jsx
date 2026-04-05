@@ -4,8 +4,8 @@ import Modal from '../components/Modal.jsx'
 import { Plus, Pencil, Trash2, ShieldCheck, User, Mail, Copy, Check } from 'lucide-react'
 import { useAuth } from '../App.jsx'
 
-const EMPTY = { username: '', email: '', full_name: '', role: 'user', password: '' }
-const INVITE_EMPTY = { email: '', role: 'user' }
+const EMPTY = { username: '', email: '', full_name: '', role: 'sales', password: '' }
+const INVITE_EMPTY = { email: '', role: 'sales' }
 
 export default function Users() {
   const { user: me } = useAuth()
@@ -129,7 +129,7 @@ export default function Users() {
                 <td className="px-6 py-3.5">
                   {u.role === 'admin'
                     ? <span className="flex items-center gap-1 text-xs font-medium text-indigo-400 bg-indigo-900/40 px-2 py-0.5 rounded-full w-fit"><ShieldCheck size={11} />Admin</span>
-                    : <span className="flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-700 px-2 py-0.5 rounded-full w-fit"><User size={11} />User</span>}
+                    : <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-900/40 px-2 py-0.5 rounded-full w-fit"><User size={11} />Sales</span>}
                 </td>
                 <td className="px-6 py-3.5">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.is_active ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'}`}>
@@ -186,7 +186,7 @@ export default function Users() {
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">Role</label>
                 <select value={form.role} onChange={f('role')} className="input">
-                  <option value="user">User</option>
+                  <option value="sales">Sales</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
@@ -240,7 +240,7 @@ export default function Users() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1">Role</label>
                   <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })} className="input">
-                    <option value="user">User</option>
+                    <option value="sales">Sales</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>

@@ -11,6 +11,11 @@ from auth import get_current_user
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
 
+def _own_contact(contact, user):
+    """Return True if user owns this contact or is admin."""
+    return user.role == "admin" or contact.created_by == user.id
+
+
 @router.get("/", response_model=List[schemas.Contact])
 def list_contacts(
     search: Optional[str] = None,
@@ -19,9 +24,12 @@ def list_contacts(
     skip: int = 0,
     limit: int = 200,
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     q = db.query(models.Contact).options(joinedload(models.Contact.company))
+    # Non-admin (sales) can only see contacts they created
+    if current_user.role != "admin":
+        q = q.filter(models.Contact.created_by == current_user.id)
     if search:
         q = q.filter(
             models.Contact.first_name.ilike(f"%{search}%")
@@ -36,10 +44,12 @@ def list_contacts(
 
 
 @router.get("/{contact_id}", response_model=schemas.Contact)
-def get_contact(contact_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def get_contact(contact_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     c = db.query(models.Contact).options(joinedload(models.Contact.company)).filter(models.Contact.id == contact_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Contact not found")
+    if not _own_contact(c, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
     return c
 
 
@@ -53,10 +63,12 @@ def create_contact(contact: schemas.ContactCreate, db: Session = Depends(get_db)
 
 
 @router.put("/{contact_id}", response_model=schemas.Contact)
-def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     db_contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
     if not db_contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+    if not _own_contact(db_contact, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
     for k, v in contact.model_dump(exclude_unset=True).items():
         setattr(db_contact, k, v)
     db.commit()
@@ -65,18 +77,23 @@ def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session 
 
 
 @router.delete("/{contact_id}")
-def delete_contact(contact_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     db_contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
     if not db_contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+    if not _own_contact(db_contact, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
     db.delete(db_contact)
     db.commit()
     return {"message": "Deleted"}
 
 
 @router.get("/export/csv")
-def export_contacts_csv(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    contacts = db.query(models.Contact).options(joinedload(models.Contact.company)).order_by(models.Contact.created_at.desc()).all()
+def export_contacts_csv(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    q = db.query(models.Contact).options(joinedload(models.Contact.company))
+    if current_user.role != "admin":
+        q = q.filter(models.Contact.created_by == current_user.id)
+    contacts = q.order_by(models.Contact.created_at.desc()).all()
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(["first_name", "last_name", "email", "phone", "title", "company", "status", "notes"])

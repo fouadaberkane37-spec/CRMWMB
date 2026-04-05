@@ -6,12 +6,12 @@ import {
   Activity, UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe,
 } from 'lucide-react'
 
-const navItems = [
+const ALL_NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/contacts', label: 'Contacts', icon: Users },
   { to: '/companies', label: 'Companies', icon: Building2 },
   { to: '/deals', label: 'Deals', icon: TrendingUp },
-  { to: '/chats', label: 'Chats', icon: MessageSquare },
+  { to: '/chats', label: 'Chats', icon: MessageSquare, adminOnly: true },
   { to: '/activities', label: 'Activities', icon: Activity },
   { to: '/map', label: 'My Map', icon: MapPin },
   { to: '/team-map', label: 'Team Map', icon: Globe },
@@ -20,6 +20,7 @@ const navItems = [
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const navItems = ALL_NAV.filter((item) => !item.adminOnly || user?.role === 'admin')
   const navigate = useNavigate()
 
   function handleLogout() {

@@ -10,11 +10,17 @@ from auth import get_current_user
 router = APIRouter(prefix="/api/chats", tags=["chats"])
 
 
+def _require_admin(user):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
 @router.get("/", response_model=List[schemas.ChatConversation])
 def list_conversations(
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
+    _require_admin(current_user)
     """Return the most recent message per contact, sorted newest first."""
     msgs = (
         db.query(models.ChatMessage)
@@ -45,8 +51,9 @@ def list_conversations(
 def get_messages(
     contact_id: int,
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
+    _require_admin(current_user)
     if not db.query(models.Contact).filter(models.Contact.id == contact_id).first():
         raise HTTPException(status_code=404, detail="Contact not found")
 
@@ -85,6 +92,7 @@ def send_message(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    _require_admin(current_user)
     if not db.query(models.Contact).filter(models.Contact.id == contact_id).first():
         raise HTTPException(status_code=404, detail="Contact not found")
 

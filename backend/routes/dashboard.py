@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from datetime import datetime
 from database import get_db
 import models
@@ -11,30 +11,39 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 @router.get("/stats", response_model=schemas.DashboardStats)
-def get_stats(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    total_contacts = db.query(func.count(models.Contact.id)).scalar() or 0
+def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    is_admin = current_user.role == "admin"
+
+    # Contacts — admin sees all, sales sees only their own
+    contacts_q = db.query(func.count(models.Contact.id))
+    if not is_admin:
+        contacts_q = contacts_q.filter(models.Contact.created_by == current_user.id)
+    total_contacts = contacts_q.scalar() or 0
+
+    # Companies — always global (companies aren't user-scoped)
     total_companies = db.query(func.count(models.Company.id)).scalar() or 0
-    open_deals = (
-        db.query(func.count(models.Deal.id))
-        .filter(models.Deal.stage.notin_(["won", "lost"]))
-        .scalar() or 0
-    )
-    total_deal_value = (
-        db.query(func.sum(models.Deal.value))
-        .filter(models.Deal.stage.notin_(["won", "lost"]))
-        .scalar() or 0
-    )
-    won_deals = (
-        db.query(func.count(models.Deal.id))
-        .filter(models.Deal.stage == "won")
-        .scalar() or 0
-    )
+
+    # Deals — admin sees all, sales sees assigned/created
+    deals_q = db.query(models.Deal)
+    if not is_admin:
+        deals_q = deals_q.filter(
+            or_(
+                models.Deal.assigned_to == current_user.id,
+                models.Deal.created_by == current_user.id,
+            )
+        )
+
+    open_deals = deals_q.filter(models.Deal.stage.notin_(["won", "lost"])).with_entities(func.count(models.Deal.id)).scalar() or 0
+    total_deal_value = deals_q.filter(models.Deal.stage.notin_(["won", "lost"])).with_entities(func.sum(models.Deal.value)).scalar() or 0
+    won_deals = deals_q.filter(models.Deal.stage == "won").with_entities(func.count(models.Deal.id)).scalar() or 0
+
+    # Activities — admin sees all, sales sees their own
     today = datetime.utcnow().date()
-    activities_today = (
-        db.query(func.count(models.Activity.id))
-        .filter(func.date(models.Activity.created_at) == today)
-        .scalar() or 0
-    )
+    activities_q = db.query(func.count(models.Activity.id)).filter(func.date(models.Activity.created_at) == today)
+    if not is_admin:
+        activities_q = activities_q.filter(models.Activity.created_by == current_user.id)
+    activities_today = activities_q.scalar() or 0
+
     return {
         "total_contacts": total_contacts,
         "total_companies": total_companies,

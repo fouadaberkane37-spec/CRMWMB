@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from database import get_db
 import models
 from auth import get_current_user
@@ -11,22 +12,22 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 def global_search(
     q: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     like = f"%{q}%"
+    is_admin = current_user.role == "admin"
 
-    contacts = (
-        db.query(models.Contact)
-        .filter(
-            models.Contact.first_name.ilike(like)
-            | models.Contact.last_name.ilike(like)
-            | models.Contact.email.ilike(like)
-            | models.Contact.phone.ilike(like)
-        )
-        .limit(10)
-        .all()
+    contacts_q = db.query(models.Contact).filter(
+        models.Contact.first_name.ilike(like)
+        | models.Contact.last_name.ilike(like)
+        | models.Contact.email.ilike(like)
+        | models.Contact.phone.ilike(like)
     )
+    if not is_admin:
+        contacts_q = contacts_q.filter(models.Contact.created_by == current_user.id)
+    contacts = contacts_q.limit(10).all()
 
+    # Companies are always visible (not user-scoped)
     companies = (
         db.query(models.Company)
         .filter(
@@ -38,12 +39,15 @@ def global_search(
         .all()
     )
 
-    deals = (
-        db.query(models.Deal)
-        .filter(models.Deal.title.ilike(like))
-        .limit(10)
-        .all()
-    )
+    deals_q = db.query(models.Deal).filter(models.Deal.title.ilike(like))
+    if not is_admin:
+        deals_q = deals_q.filter(
+            or_(
+                models.Deal.assigned_to == current_user.id,
+                models.Deal.created_by == current_user.id,
+            )
+        )
+    deals = deals_q.limit(10).all()
 
     return {
         "contacts": [
