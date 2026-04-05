@@ -63,7 +63,7 @@ try:
         _conn.execute(text(_add_direction))
     print("[OK] chat_messages.direction column ensured")
 except Exception as _e:
-    # Column already exists or SQLite duplicate-column error — safe to ignore
+    # Column already exists or SQLite duplicate-column error â safe to ignore
     pass
 
 
@@ -115,14 +115,13 @@ def seed_admin():
 
 # Make sender_id nullable for inbound SMS (fix existing DBs with NOT NULL constraint)
 if not _is_sqlite:
-        try:
-                    with engine.begin() as _conn:
-                                    _conn.execute(text("ALTER TABLE chat_messages ALTER COLUMN sender_id DROP NOT NULL"))
-                                print("[OK] chat_messages.sender_id is now nullable")
-        except Exception as _e:
-                    pass  # Already nullable or column not found
-            
-    
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text("ALTER TABLE chat_messages ALTER COLUMN sender_id DROP NOT NULL"))
+        print("[OK] chat_messages.sender_id is now nullable")
+    except Exception as _e:
+        pass  # Already nullable or column not found
+
 seed_admin()
 
 app.include_router(auth.router)
