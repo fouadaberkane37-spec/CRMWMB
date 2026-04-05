@@ -32,7 +32,7 @@ export default function Dashboard() {
   const [recentDeals, setRecentDeals] = useState([])
 
   useEffect(() => {
-    api.get('/dashboard/stats/').then((r) => setStats(r.data))
+    api.get('/dashboard/stats').then((r) => setStats(r.data))
     api.get('/contacts/?limit=5').then((r) => setRecentContacts(r.data))
     api.get('/deals/?limit=5').then((r) => setRecentDeals(r.data))
   }, [])
@@ -69,12 +69,12 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-        <StatCard icon={Users} label="Contacts" value={stats?.total_contacts ?? '—'} color="indigo" to="/contacts" />
-        <StatCard icon={Building2} label="Companies" value={stats?.total_companies ?? '—'} color="blue" to="/companies" />
-        <StatCard icon={TrendingUp} label="Open Deals" value={stats?.open_deals ?? '—'} color="violet" to="/deals" />
-        <StatCard icon={DollarSign} label="Pipeline Value" value={stats ? fmt(stats.total_deal_value) : '—'} color="emerald" />
-        <StatCard icon={CheckCircle} label="Won Deals" value={stats?.won_deals ?? '—'} color="amber" />
-        <StatCard icon={Activity} label="Today's Activity" value={stats?.activities_today ?? '—'} color="rose" to="/activities" />
+        <StatCard icon={Users} label="Contacts" value={stats?.total_contacts ?? 'â'} color="indigo" to="/contacts" />
+        <StatCard icon={Building2} label="Companies" value={stats?.total_companies ?? 'â'} color="blue" to="/companies" />
+        <StatCard icon={TrendingUp} label="Open Deals" value={stats?.open_deals ?? 'â'} color="violet" to="/deals" />
+        <StatCard icon={DollarSign} label="Pipeline Value" value={stats ? fmt(stats.total_deal_value) : 'â'} color="emerald" />
+        <StatCard icon={CheckCircle} label="Won Deals" value={stats?.won_deals ?? 'â'} color="amber" />
+        <StatCard icon={Activity} label="Today's Activity" value={stats?.activities_today ?? 'â'} color="rose" to="/activities" />
       </div>
 
       {/* Recent rows */}
@@ -95,7 +95,7 @@ export default function Dashboard() {
                   <p className="text-sm font-medium text-slate-200">
                     {c.first_name} {c.last_name}
                   </p>
-                  <p className="text-xs text-slate-500">{c.email || c.company?.name || '—'}</p>
+                  <p className="text-xs text-slate-500">{c.email || c.company?.name || 'â'}</p>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[c.status] || 'bg-slate-700 text-slate-400'}`}>
                   {c.status}
@@ -119,10 +119,10 @@ export default function Dashboard() {
               <div key={d.id} className="px-6 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-200">{d.title}</p>
-                  <p className="text-xs text-slate-500">{d.contact ? `${d.contact.first_name} ${d.contact.last_name || ''}` : '—'}</p>
+                  <p className="text-xs text-slate-500">{d.contact ? `${d.contact.first_name} ${d.contact.last_name || ''}` : 'â'}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-200">{d.value > 0 ? fmt(d.value) : '—'}</p>
+                  <p className="text-sm font-semibold text-slate-200">{d.value > 0 ? fmt(d.value) : 'â'}</p>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${stageColors[d.stage] || 'bg-slate-700 text-slate-400'}`}>
                     {d.stage}
                   </span>
