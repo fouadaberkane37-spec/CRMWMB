@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List
+import os
 from database import get_db
 import models
 import schemas
@@ -93,7 +94,8 @@ def send_message(
     current_user=Depends(get_current_user),
 ):
     _require_admin(current_user)
-    if not db.query(models.Contact).filter(models.Contact.id == contact_id).first():
+    contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+    if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
 
     body = payload.body.strip()
@@ -110,6 +112,10 @@ def send_message(
     db.commit()
     db.refresh(msg)
 
+    # Fire Twilio SMS if the contact has a phone — graceful: never blocks the save
+    if contact.phone:
+        _try_send_twilio(contact.phone, body)
+
     return schemas.ChatMessageOut(
         id=msg.id,
         contact_id=msg.contact_id,
@@ -119,3 +125,17 @@ def send_message(
         direction=msg.direction,
         created_at=msg.created_at,
     )
+
+
+def _try_send_twilio(to_phone: str, body: str):
+    """Best-effort Twilio SMS delivery. Silently skips if not configured."""
+    sid = os.getenv("TWILIO_ACCOUNT_SID")
+    token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = os.getenv("TWILIO_FROM_NUMBER")
+    if not (sid and token and from_number):
+        return
+    try:
+        from twilio.rest import Client
+        Client(sid, token).messages.create(body=body, from_=from_number, to=to_phone)
+    except Exception:
+        pass  # SMS failure must never prevent the chat message from being saved

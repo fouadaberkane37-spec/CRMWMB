@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Form
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import get_db
 import models
 from auth import get_current_user
+from routes.twilio import match_contact_by_phone, save_inbound_message, TWIML_EMPTY
 import os
 
 router = APIRouter(prefix="/api/sms", tags=["sms"])
@@ -42,54 +43,41 @@ def send_sms(
 
     client = _twilio_client()
     try:
-        msg = client.messages.create(
+        twilio_msg = client.messages.create(
             body=payload.message,
             from_=from_number,
             to=contact.phone,
         )
-        return {"sid": msg.sid, "status": msg.status}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    # Save to chat log so the conversation thread stays in sync
+    db.add(models.ChatMessage(
+        contact_id=contact.id,
+        sender_id=current_user.id,
+        body=payload.message,
+        direction="outbound",
+    ))
+    db.commit()
+
+    return {"sid": twilio_msg.sid, "status": twilio_msg.status}
+
 
 @router.post("/webhook", include_in_schema=False, response_class=PlainTextResponse)
-async def twilio_inbound_webhook(
+async def twilio_webhook_legacy(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """
-    Twilio webhook for inbound SMS.
-    Configure your Twilio number's Messaging webhook URL to:
-        https://crmwmb-production.up.railway.app/api/sms/webhook
-    (HTTP POST, application/x-www-form-urlencoded)
+    """Legacy alias kept for backwards-compatibility.
+    Prefer /api/twilio/incoming for new Twilio webhook configurations.
     """
     form = await request.form()
     from_number: str = (form.get("From") or "").strip()
     body: str = (form.get("Body") or "").strip()
 
     if from_number and body:
-        # Normalize phone: Twilio sends e.g. +15551234567
-        # Try to match contact by phone (exact or suffix match)
-        contacts = db.query(models.Contact).all()
-        contact = None
-        for c in contacts:
-            if c.phone:
-                # Strip non-digit chars for comparison
-                c_digits = "".join(filter(str.isdigit, c.phone))
-                f_digits = "".join(filter(str.isdigit, from_number))
-                if c_digits and f_digits and (c_digits == f_digits or c_digits.endswith(f_digits[-9:]) or f_digits.endswith(c_digits[-9:])):
-                    contact = c
-                    break
-
+        contact = match_contact_by_phone(db, from_number)
         if contact:
-            msg = models.ChatMessage(
-                contact_id=contact.id,
-                sender_id=None,       # inbound — no CRM user
-                body=body,
-                direction="inbound",
-            )
-            db.add(msg)
-            db.commit()
+            save_inbound_message(db, contact, body)
 
-    # Return empty TwiML — no auto-reply
-    return PlainTextResponse('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml")
+    return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
