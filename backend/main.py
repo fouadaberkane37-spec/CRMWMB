@@ -11,7 +11,7 @@ import os
 
 app = FastAPI(title="Self-Hosted CRM", version="1.0.0", docs_url="/api/docs", redirect_slashes=False)
 
-# Allow all origins in production (Railway sets PORT; frontend is served by same process)
+# Allow all origins in production (Railway sets PORT; frontend is served by same procehss)
 # Override with ALLOWED_ORIGINS env var if you want to restrict
 allowed_origins = os.getenv(
     "ALLOWED_ORIGINS", "*"
@@ -113,6 +113,16 @@ def seed_admin():
         db.close()
 
 
+# Make sender_id nullable for inbound SMS (fix existing DBs with NOT NULL constraint)
+if not _is_sqlite:
+        try:
+                    with engine.begin() as _conn:
+                                    _conn.execute(text("ALTER TABLE chat_messages ALTER COLUMN sender_id DROP NOT NULL"))
+                                print("[OK] chat_messages.sender_id is now nullable")
+        except Exception as _e:
+                    pass  # Already nullable or column not found
+            
+    
 seed_admin()
 
 app.include_router(auth.router)
