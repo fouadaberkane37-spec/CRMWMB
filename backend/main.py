@@ -315,6 +315,25 @@ except Exception as _e:
 finally:
     _db.close()
 
+# Remove deals scheduled outside operating hours (before 07:00 or at/after 17:00).
+# Runs on every startup to self-heal after any bad imports or seed re-runs.
+_db = SessionLocal()
+try:
+    _out_of_hours = [
+        d for d in _db.query(models.Deal).filter(models.Deal.expected_close_date.isnot(None)).all()
+        if not (7 <= d.expected_close_date.hour < 17)
+    ]
+    if _out_of_hours:
+        for _d in _out_of_hours:
+            _db.delete(_d)
+        _db.commit()
+        print(f"[OK] Removed {len(_out_of_hours)} deal(s) outside operating hours (07:00–17:00)")
+except Exception as _e:
+    _db.rollback()
+    print(f"[WARN] Out-of-hours cleanup failed: {_e}")
+finally:
+    _db.close()
+
 # Rename the admin account if ADMIN_FULL_NAME env var is set
 _admin_full_name = os.getenv("ADMIN_FULL_NAME", "").strip()
 if _admin_full_name:
