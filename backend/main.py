@@ -282,6 +282,29 @@ promote_admins()
 if os.getenv("SEED_CALENDAR") == "1":
     seed_calendar_data()
 
+# Deduplicate contacts by name (keep oldest per unique full name)
+if os.getenv("DEDUP_CONTACTS") == "1":
+    _db = SessionLocal()
+    try:
+        from collections import defaultdict as _dd
+        _all = _db.query(models.Contact).order_by(models.Contact.id.asc()).all()
+        _groups = _dd(list)
+        for _c in _all:
+            _key = f"{(_c.first_name or '').strip().lower()} {(_c.last_name or '').strip().lower()}".strip()
+            _groups[_key].append(_c)
+        _deleted = 0
+        for _key, _grp in _groups.items():
+            for _dup in _grp[1:]:
+                _db.delete(_dup)
+                _deleted += 1
+        _db.commit()
+        print(f"[OK] Deduplicated contacts: removed {_deleted} duplicate(s)")
+    except Exception as _e:
+        _db.rollback()
+        print(f"[ERR] Dedup failed: {_e}")
+    finally:
+        _db.close()
+
 # Rename the admin account if ADMIN_FULL_NAME env var is set
 _admin_full_name = os.getenv("ADMIN_FULL_NAME", "").strip()
 if _admin_full_name:
