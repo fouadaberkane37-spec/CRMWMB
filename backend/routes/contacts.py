@@ -42,8 +42,9 @@ def list_contacts(
     current_user=Depends(get_current_user),
 ):
     q = db.query(models.Contact).options(joinedload(models.Contact.company))
-    # Every user (including admin) only sees their own contacts
-    q = q.filter(models.Contact.created_by == current_user.id)
+    # Admin sees all contacts; everyone else only sees their own
+    if current_user.role != "admin":
+        q = q.filter(models.Contact.created_by == current_user.id)
     if search:
         q = q.filter(
             models.Contact.first_name.ilike(f"%{search}%")
@@ -119,13 +120,10 @@ def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user=
 
 @router.get("/export/csv")
 def export_contacts_csv(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    contacts = (
-        db.query(models.Contact)
-        .options(joinedload(models.Contact.company))
-        .filter(models.Contact.created_by == current_user.id)
-        .order_by(models.Contact.created_at.desc())
-        .all()
-    )
+    q = db.query(models.Contact).options(joinedload(models.Contact.company))
+    if current_user.role != "admin":
+        q = q.filter(models.Contact.created_by == current_user.id)
+    contacts = q.order_by(models.Contact.created_at.desc()).all()
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(["Name", "adresse", "Phone number", "services", "price", "note", "status"])
