@@ -149,6 +149,17 @@ export default function Contacts() {
     setForm({ ...form, services: updated.join(', ') })
   }
 
+  async function markAllCustomer() {
+    if (!window.confirm(`Mark all ${contacts.length} contacts as "Customer"? This cannot be undone.`)) return
+    try {
+      const { data } = await api.post('/contacts/mark-all-customer')
+      alert(data.message)
+      load()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to update contacts')
+    }
+  }
+
   async function deduplicateContacts() {
     if (!window.confirm('This will permanently delete all duplicate contacts (keeping the oldest per name). Continue?')) return
     setDeduping(true)
@@ -180,14 +191,23 @@ export default function Contacts() {
             <Upload size={15} /> {importing ? 'Importing…' : 'Import'}
           </button>
           {user?.role === 'admin' && (
-            <button
-              onClick={deduplicateContacts}
-              disabled={deduping}
-              className="flex items-center gap-1.5 border border-amber-700/60 text-amber-400 hover:text-amber-300 hover:border-amber-600 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
-              title="Remove duplicate contacts (keeps oldest per name)"
-            >
-              <ShieldCheck size={15} /> {deduping ? 'Cleaning…' : 'Deduplicate'}
-            </button>
+            <>
+              <button
+                onClick={markAllCustomer}
+                className="flex items-center gap-1.5 border border-emerald-700/60 text-emerald-400 hover:text-emerald-300 hover:border-emerald-600 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors"
+                title="Set all contacts to Customer status"
+              >
+                <ShieldCheck size={15} /> Mark All Closed
+              </button>
+              <button
+                onClick={deduplicateContacts}
+                disabled={deduping}
+                className="flex items-center gap-1.5 border border-amber-700/60 text-amber-400 hover:text-amber-300 hover:border-amber-600 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+                title="Remove duplicate contacts (keeps oldest per name)"
+              >
+                <ShieldCheck size={15} /> {deduping ? 'Cleaning…' : 'Deduplicate'}
+              </button>
+            </>
           )}
           <button
             onClick={exportCsv}

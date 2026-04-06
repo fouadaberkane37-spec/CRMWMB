@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
-import { ChevronLeft, ChevronRight, DollarSign } from 'lucide-react'
+import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -67,9 +67,87 @@ function StatusMenu({ deal, onUpdate, onClose }) {
   )
 }
 
+// ── Reschedule popup ───────────────────────────────────────────────────────────
+function ReschedulePopup({ deal, onSave, onClose }) {
+  const ref = useRef(null)
+  const current = deal.expected_close_date ? new Date(deal.expected_close_date) : new Date()
+
+  const [date, setDate] = useState(current.toISOString().slice(0, 10))
+  const [time, setTime] = useState(
+    `${String(current.getHours()).padStart(2,'0')}:${String(current.getMinutes()).padStart(2,'0')}`
+  )
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  async function handleSave() {
+    if (!date) return
+    setSaving(true)
+    try {
+      const iso = new Date(`${date}T${time || '09:00'}:00`).toISOString()
+      await api.put(`/deals/${deal.id}`, { ...deal, expected_close_date: iso, contact_id: deal.contact_id })
+      onSave(deal.id, iso)
+      onClose()
+    } finally { setSaving(false) }
+  }
+
+  const clientName = deal.contact
+    ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim()
+    : deal.title
+
+  return (
+    <div ref={ref}
+      className="absolute z-50 top-full left-0 mt-1 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4"
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-slate-200 truncate">{clientName}</p>
+        <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={14} /></button>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="flex items-center gap-1.5 text-xs text-slate-400 mb-1"><CalendarDays size={12} /> Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="flex items-center gap-1.5 text-xs text-slate-400 mb-1"><Clock size={12} /> Time</label>
+          <input
+            type="time"
+            value={time}
+            onChange={e => setTime(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose} className="flex-1 border border-slate-700 text-slate-400 py-2 rounded-lg text-xs hover:bg-slate-800">Cancel</button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !date}
+            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Reschedule'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Deal chip ──────────────────────────────────────────────────────────────────
-function DealChip({ deal, onUpdate }) {
-  const [open, setOpen] = useState(false)
+function DealChip({ deal, onUpdate, onReschedule }) {
+  const [open, setOpen] = useState(false)       // status menu
+  const [reschedule, setReschedule] = useState(false)
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
 
   const time = deal.expected_close_date
@@ -81,17 +159,35 @@ function DealChip({ deal, onUpdate }) {
     : deal.title
 
   return (
-    <div className="relative">
+    <div className="relative group">
+      {/* Main chip — click = status menu */}
       <button
-        onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
+        onClick={e => { e.stopPropagation(); setReschedule(false); setOpen(v => !v) }}
         className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight transition-opacity hover:opacity-90 ${s.color} ${s.text}`}
-        title={`${clientName} — $${deal.value}`}
+        title={`${clientName} — $${deal.value} · Click to change status`}
       >
         {time && <span className="opacity-75 mr-1">{time}</span>}
         <span className="truncate">{clientName}</span>
       </button>
+
+      {/* Reschedule icon — appears on hover */}
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(false); setReschedule(v => !v) }}
+        className="absolute right-0.5 top-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded bg-black/30 hover:bg-black/50 text-white/80"
+        title="Reschedule"
+      >
+        <CalendarDays size={9} />
+      </button>
+
       {open && (
         <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setOpen(false)} />
+      )}
+      {reschedule && (
+        <ReschedulePopup
+          deal={deal}
+          onSave={onReschedule}
+          onClose={() => setReschedule(false)}
+        />
       )}
     </div>
   )
@@ -116,6 +212,10 @@ export default function Calendar() {
   async function updateStatus(dealId, jobStatus) {
     await api.patch(`/deals/${dealId}/job-status`, null, { params: { job_status: jobStatus } })
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, job_status: jobStatus } : d))
+  }
+
+  function rescheduleLocal(dealId, newIso) {
+    setDeals(prev => prev.map(d => d.id === dealId ? { ...d, expected_close_date: newIso } : d))
   }
 
   // Navigate months
@@ -239,7 +339,7 @@ export default function Calendar() {
                     </span>
                   )}
                   {dayDeals.map(deal => (
-                    <DealChip key={deal.id} deal={deal} onUpdate={updateStatus} />
+                    <DealChip key={deal.id} deal={deal} onUpdate={updateStatus} onReschedule={rescheduleLocal} />
                   ))}
                 </div>
               )

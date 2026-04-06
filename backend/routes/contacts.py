@@ -119,9 +119,23 @@ def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user=
     return {"message": "Deleted"}
 
 
-@router.post("/deduplicate")
-def deduplicate_contacts(
+@router.post("/mark-all-customer")
+def mark_all_customer(
     db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    """Admin-only: set every contact's status to 'customer' (Closed Customer)."""
+    updated = (
+        db.query(models.Contact)
+        .filter(models.Contact.status != "customer")
+        .update({"status": "customer"}, synchronize_session=False)
+    )
+    db.commit()
+    return {"updated": updated, "message": f"{updated} contact(s) marked as Customer"}
+
+
+@router.post("/deduplicate")
+def deduplicate_contacts(    db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
     """Admin-only: delete duplicate contacts keeping the oldest (lowest id) per unique name."""
