@@ -13,11 +13,15 @@ export default function AcceptInvite() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+  const [apiError, setApiError] = useState('')
 
   useEffect(() => {
     api.get(`/invites/check/${token}`)
       .then((r) => setInvite(r.data))
-      .catch(() => setInvite({ valid: false }))
+      .catch((err) => {
+        setApiError(err.message || 'Could not reach the server')
+        setInvite({ valid: false })
+      })
       .finally(() => setChecking(false))
   }, [token])
 
@@ -61,7 +65,14 @@ export default function AcceptInvite() {
         <div className="w-full max-w-sm text-center">
           <XCircle size={48} className="text-red-400 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-white mb-2">Invalid or expired link</h1>
-          <p className="text-slate-400 text-sm mb-6">This invite link is no longer valid. Ask your admin to send a new one.</p>
+          <p className="text-slate-400 text-sm mb-4">
+            {apiError
+              ? `Could not reach the server: ${apiError}`
+              : 'This invite link has expired or already been used. Ask your admin to generate a new one.'}
+          </p>
+          {apiError && (
+            <p className="text-slate-500 text-xs mb-4 font-mono break-all">Token: {token}</p>
+          )}
           <button onClick={() => navigate('/login')} className="text-indigo-400 text-sm hover:underline">
             Go to login
           </button>
