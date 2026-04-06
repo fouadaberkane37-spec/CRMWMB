@@ -112,10 +112,18 @@ export default function KnockMap() {
   }, [])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => {
+  const loadContactsDeals = useCallback(() => {
     api.get('/contacts/').then((r) => setContacts(r.data)).catch(() => {})
     api.get('/deals/').then((r) => setDeals(r.data)).catch(() => {})
   }, [])
+
+  useEffect(() => { loadContactsDeals() }, [loadContactsDeals])
+
+  // Poll contacts + deals every 10s so booked pins appear without page refresh
+  useEffect(() => {
+    const t = setInterval(loadContactsDeals, 10000)
+    return () => clearInterval(t)
+  }, [loadContactsDeals])
 
   // Poll every 5 s for real-time sync
   useEffect(() => {

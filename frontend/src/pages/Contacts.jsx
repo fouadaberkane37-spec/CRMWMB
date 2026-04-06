@@ -48,6 +48,7 @@ export default function Contacts() {
   const [deleteId, setDeleteId] = useState(null)
   const [importing, setImporting] = useState(false)
   const [deduping, setDeduping] = useState(false)
+  const [geocoding, setGeocoding] = useState(false)
   const [smsContact, setSmsContact] = useState(null)
   const [smsMessage, setSmsMessage] = useState('')
   const [smsSending, setSmsSending] = useState(false)
@@ -172,6 +173,18 @@ export default function Contacts() {
     } finally { setDeduping(false) }
   }
 
+  async function geocodeAll() {
+    if (!window.confirm('This will geocode all contacts that have an address but no map coordinates. It can take a minute for large lists (1 req/sec). Continue?')) return
+    setGeocoding(true)
+    try {
+      const { data } = await api.post('/contacts/geocode-all')
+      alert(`Geocoded ${data.geocoded} of ${data.total} contacts. They will now appear as pins on the map.`)
+      load()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Geocoding failed')
+    } finally { setGeocoding(false) }
+  }
+
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
   return (
@@ -206,6 +219,14 @@ export default function Contacts() {
                 title="Remove duplicate contacts (keeps oldest per name)"
               >
                 <ShieldCheck size={15} /> {deduping ? 'Cleaning…' : 'Deduplicate'}
+              </button>
+              <button
+                onClick={geocodeAll}
+                disabled={geocoding}
+                className="flex items-center gap-1.5 border border-indigo-700/60 text-indigo-400 hover:text-indigo-300 hover:border-indigo-600 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+                title="Add map coordinates to contacts that have an address"
+              >
+                <MapPin size={15} /> {geocoding ? 'Geocoding…' : 'Pin on Map'}
               </button>
             </>
           )}

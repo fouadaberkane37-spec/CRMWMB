@@ -248,3 +248,29 @@ async def import_contacts_csv(
 
     db.commit()
     return {"imported": created}
+
+
+@router.post("/geocode-all")
+def geocode_all_contacts(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    """Re-geocode every contact that has an address but no lat/lng."""
+    import time
+    q = db.query(models.Contact).filter(
+        models.Contact.address.isnot(None),
+        models.Contact.address != "",
+    )
+    contacts = q.all()
+    updated = 0
+    for c in contacts:
+        if c.lat and c.lng:
+            continue  # already geocoded
+        lat, lng = geocode_address(c.address)
+        if lat and lng:
+            c.lat = lat
+            c.lng = lng
+            updated += 1
+        time.sleep(1)  # Nominatim rate-limit: 1 req/s
+    db.commit()
+    return {"geocoded": updated, "total": len(contacts)}
