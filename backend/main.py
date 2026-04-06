@@ -285,6 +285,36 @@ if not _is_sqlite:
 
 seed_admin()
 promote_admins()
+
+if os.getenv("WIPE_DATA") == "1":
+    _db = SessionLocal()
+    try:
+        _db.query(models.Deal).delete(synchronize_session=False)
+        try:
+            _db.query(models.Activity).delete(synchronize_session=False)
+        except Exception:
+            pass
+        try:
+            _db.query(models.ChatMessage).delete(synchronize_session=False)
+        except Exception:
+            pass
+        try:
+            _db.query(models.Knock).delete(synchronize_session=False)
+        except Exception:
+            pass
+        _db.query(models.Contact).delete(synchronize_session=False)
+        try:
+            _db.query(models.Company).delete(synchronize_session=False)
+        except Exception:
+            pass
+        _db.commit()
+        print("[OK] WIPE_DATA: all contacts, deals, calendar, knocks, chats, activities cleared")
+    except Exception as _e:
+        _db.rollback()
+        print(f"[ERR] WIPE_DATA failed: {_e}")
+    finally:
+        _db.close()
+
 if os.getenv("SEED_CALENDAR") == "1":
     seed_calendar_data()
 
