@@ -355,13 +355,11 @@ export default function KnockMap() {
             <span className="text-slate-500 text-xs">·</span>
             <span className="text-slate-400 text-xs">{myKnocks.length} knocks</span>
             <span className="text-slate-500 text-xs">·</span>
-            <span className="text-indigo-400 text-xs">{contacts.filter(c => c.lat && c.lng).length} clients</span>
-            {bookedContactIds.size > 0 && (
-              <>
-                <span className="text-slate-500 text-xs">·</span>
-                <span className="text-emerald-400 text-xs font-semibold">✓ {bookedContactIds.size} booked</span>
-              </>
-            )}
+            <span className="text-indigo-400 text-xs">{contacts.filter(c => c.lat && c.lng).length}/{contacts.length} contacts</span>
+            <span className="text-slate-500 text-xs">·</span>
+            <span className={bookedContactIds.size > 0 ? 'text-emerald-400 text-xs font-semibold' : 'text-slate-500 text-xs'}>
+              ✓ {bookedContactIds.size} done
+            </span>
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${synced ? 'bg-emerald-400' : 'bg-red-400'}`}
               title={synced ? 'Live' : 'Offline'} />
           </div>
@@ -463,6 +461,28 @@ export default function KnockMap() {
             </button>
           </div>
         </>
+      )}
+
+      {/* ══ LEGEND (bottom-left) ═════════════════════════════════════════════ */}
+      {mode === null && (
+        <div className="absolute bottom-0 left-0 z-10 p-4" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
+          <div className="bg-slate-900/85 backdrop-blur-md rounded-2xl px-3 py-2.5 border border-slate-700/40 shadow-xl space-y-1.5">
+            <div className="flex items-center gap-2">
+              <svg width="12" height="16" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#818cf8"/><circle cx="13" cy="13" r="4.5" fill="white" opacity="0.9"/></svg>
+              <span className="text-slate-300 text-xs">Contact</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <svg width="12" height="16" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#10b981"/><circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/><polyline points="9,13 11.5,15.5 17,10" fill="none" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span className="text-emerald-400 text-xs font-semibold">Job Done</span>
+            </div>
+            {contacts.length === 0 && (
+              <div className="text-amber-400 text-xs pt-0.5 border-t border-slate-700/40">Import contacts first</div>
+            )}
+            {contacts.length > 0 && contacts.filter(c => c.lat && c.lng).length === 0 && (
+              <div className="text-amber-400 text-xs pt-0.5 border-t border-slate-700/40">Click "Pin on Map"<br/>in Contacts page</div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ══ FLOATING ACTION BUTTONS (bottom-right) ════════════════════════════ */}
