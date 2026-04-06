@@ -12,8 +12,23 @@ router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
 
 def _own_contact(contact, user):
-    """Return True if user owns this contact or is admin."""
-    return user.role == "admin" or contact.created_by == user.id
+    """Return True if user owns this contact."""
+    return contact.created_by == user.id
+
+
+def geocode_address(address: str):
+    """Return (lat, lng) for a given address, or (None, None) on failure."""
+    if not address or not address.strip():
+        return None, None
+    try:
+        from geopy.geocoders import Nominatim
+        geolocator = Nominatim(user_agent="crmwmb/1.0", timeout=5)
+        location = geolocator.geocode(address)
+        if location:
+            return location.latitude, location.longitude
+    except Exception:
+        pass
+    return None, None
 
 
 @router.get("/", response_model=List[schemas.Contact])
@@ -27,9 +42,8 @@ def list_contacts(
     current_user=Depends(get_current_user),
 ):
     q = db.query(models.Contact).options(joinedload(models.Contact.company))
-    # Non-admin (sales) can only see contacts they created
-    if current_user.role != "admin":
-        q = q.filter(models.Contact.created_by == current_user.id)
+    # Every user (including admin) only sees their own contacts
+    q = q.filter(models.Contact.created_by == current_user.id)
     if search:
         q = q.filter(
             models.Contact.first_name.ilike(f"%{search}%")
@@ -58,7 +72,13 @@ def get_contact(contact_id: int, db: Session = Depends(get_db), current_user=Dep
 
 @router.post("/", response_model=schemas.Contact)
 def create_contact(contact: schemas.ContactCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    db_contact = models.Contact(**contact.model_dump(), created_by=current_user.id)
+    lat, lng = geocode_address(contact.address)
+    db_contact = models.Contact(
+        **contact.model_dump(),
+        lat=lat,
+        lng=lng,
+        created_by=current_user.id,
+    )
     db.add(db_contact)
     db.commit()
     db.refresh(db_contact)
@@ -72,8 +92,14 @@ def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session 
         raise HTTPException(status_code=404, detail="Contact not found")
     if not _own_contact(db_contact, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
-    for k, v in contact.model_dump(exclude_unset=True).items():
+    data = contact.model_dump(exclude_unset=True)
+    for k, v in data.items():
         setattr(db_contact, k, v)
+    # Re-geocode if address was updated
+    if "address" in data:
+        lat, lng = geocode_address(data["address"])
+        db_contact.lat = lat
+        db_contact.lng = lng
     db.commit()
     db.refresh(db_contact)
     return db_contact
@@ -93,10 +119,13 @@ def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user=
 
 @router.get("/export/csv")
 def export_contacts_csv(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    q = db.query(models.Contact).options(joinedload(models.Contact.company))
-    if current_user.role != "admin":
-        q = q.filter(models.Contact.created_by == current_user.id)
-    contacts = q.order_by(models.Contact.created_at.desc()).all()
+    contacts = (
+        db.query(models.Contact)
+        .options(joinedload(models.Contact.company))
+        .filter(models.Contact.created_by == current_user.id)
+        .order_by(models.Contact.created_at.desc())
+        .all()
+    )
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(["Name", "adresse", "Phone number", "services", "price", "note", "status"])
@@ -156,14 +185,21 @@ async def import_contacts_csv(
         if status not in VALID_STATUSES:
             status = "lead"
 
+        address = (row.get("adresse") or row.get("address") or row.get("Address") or "").strip() or None
+
+        # Geocode each address (best-effort — skipped on error)
+        lat, lng = geocode_address(address)
+
         db.add(models.Contact(
             first_name=first,
             last_name=last,
             email=(row.get("email") or row.get("Email") or "").strip() or None,
             phone=(row.get("Phone number") or row.get("phone") or row.get("Phone") or "").strip() or None,
-            address=(row.get("adresse") or row.get("address") or row.get("Address") or "").strip() or None,
+            address=address,
             services=(row.get("services") or row.get("Services") or "").strip() or None,
             price=price,
+            lat=lat,
+            lng=lng,
             notes=(row.get("note") or row.get("notes") or row.get("Notes") or "").strip() or None,
             status=status,
             created_by=current_user.id,

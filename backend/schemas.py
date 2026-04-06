@@ -92,6 +92,8 @@ class ContactUpdate(ContactBase):
 
 class Contact(ContactBase):
     id: int
+    lat: Optional[float] = None
+    lng: Optional[float] = None
     created_by: Optional[int]
     created_at: datetime
     updated_at: datetime

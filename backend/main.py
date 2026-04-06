@@ -97,6 +97,8 @@ _contact_migrations = [
     ("address",  "ALTER TABLE contacts ADD COLUMN{if_not_exists} address TEXT"),
     ("services", "ALTER TABLE contacts ADD COLUMN{if_not_exists} services TEXT"),
     ("price",    "ALTER TABLE contacts ADD COLUMN{if_not_exists} price FLOAT"),
+    ("lat",      "ALTER TABLE contacts ADD COLUMN{if_not_exists} lat FLOAT"),
+    ("lng",      "ALTER TABLE contacts ADD COLUMN{if_not_exists} lng FLOAT"),
 ]
 for _col, _stmt in _contact_migrations:
     if _is_sqlite:

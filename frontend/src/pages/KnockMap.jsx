@@ -54,6 +54,9 @@ const locationDotIcon = L.divIcon({
 
 const pinIcons = Object.fromEntries(STATUSES.map((s) => [s.key, makePin(s.color)]))
 
+// Client pin — indigo, distinct from knock pins
+const clientPinIcon = makePin('#818cf8')
+
 // ─── Internal Leaflet components ──────────────────────────────────────────────
 
 function MapController({ onReady, placing, onMove }) {
@@ -209,6 +212,37 @@ export default function KnockMap() {
           <Marker position={[userLoc.lat, userLoc.lng]} icon={locationDotIcon} zIndexOffset={1000} />
         )}
 
+        {/* Geocoded client/lead pins */}
+        {contacts.filter((c) => c.lat && c.lng).map((c) => (
+          <Marker key={`client-${c.id}`} position={[c.lat, c.lng]} icon={clientPinIcon}>
+            <Popup minWidth={200} className="knock-popup">
+              <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                  {c.first_name} {c.last_name || ''}
+                </div>
+                {c.address && (
+                  <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>{c.address}</div>
+                )}
+                {c.phone && (
+                  <div style={{ color: '#6366f1', fontSize: 11, marginTop: 2 }}>📞 {c.phone}</div>
+                )}
+                {c.services && (
+                  <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>🔧 {c.services}</div>
+                )}
+                {c.price != null && (
+                  <div style={{ color: '#059669', fontSize: 11, marginTop: 2, fontWeight: 600 }}>${c.price.toFixed(2)}</div>
+                )}
+                <div style={{
+                  marginTop: 6, display: 'inline-block',
+                  padding: '2px 8px', borderRadius: 12,
+                  background: '#eef2ff', color: '#6366f1',
+                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                }}>{c.status}</div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
         {/* Saved knock pins */}
         {filtered.map((k) => (
           <Marker key={k.id} position={[k.lat, k.lng]} icon={pinIcons[k.status] || pinIcons.knocked}>
@@ -272,7 +306,9 @@ export default function KnockMap() {
             <MapPin size={16} className="text-indigo-400 flex-shrink-0" />
             <span className="text-white font-bold text-sm">My Map</span>
             <span className="text-slate-500 text-xs">·</span>
-            <span className="text-slate-400 text-xs">{myKnocks.length} pins</span>
+            <span className="text-slate-400 text-xs">{myKnocks.length} knocks</span>
+            <span className="text-slate-500 text-xs">·</span>
+            <span className="text-indigo-400 text-xs">{contacts.filter(c => c.lat && c.lng).length} clients</span>
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${synced ? 'bg-emerald-400' : 'bg-red-400'}`}
               title={synced ? 'Live' : 'Offline'} />
           </div>

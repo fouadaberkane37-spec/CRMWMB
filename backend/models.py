@@ -45,6 +45,8 @@ class Contact(Base):
     address = Column(Text)
     services = Column(Text)   # comma-separated, e.g. "window-ext,window-int,gutters"
     price = Column(Float)
+    lat = Column(Float, nullable=True)   # geocoded from address
+    lng = Column(Float, nullable=True)
     title = Column(String)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     status = Column(String, default="lead")  # lead | prospect | customer | inactive
