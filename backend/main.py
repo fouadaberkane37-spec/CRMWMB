@@ -113,6 +113,28 @@ for _col, _stmt in _contact_migrations:
         pass  # Column already exists — safe to ignore
 
 
+def promote_admins():
+    """Promote usernames listed in PROMOTE_TO_ADMIN env var to admin role."""
+    raw = os.getenv("PROMOTE_TO_ADMIN", "").strip()
+    if not raw:
+        return
+    usernames = [u.strip() for u in raw.split(",") if u.strip()]
+    db = SessionLocal()
+    try:
+        for username in usernames:
+            user = db.query(models.User).filter(models.User.username == username).first()
+            if user and user.role != "admin":
+                user.role = "admin"
+                db.commit()
+                print(f"[OK] Promoted '{username}' to admin")
+            elif user:
+                print(f"[--] '{username}' is already admin")
+            else:
+                print(f"[WARN] PROMOTE_TO_ADMIN: user '{username}' not found")
+    finally:
+        db.close()
+
+
 def seed_admin():
     """Create default admin on first run."""
     db = SessionLocal()
@@ -144,6 +166,19 @@ if not _is_sqlite:
         pass  # Already nullable or column not found
 
 seed_admin()
+
+# Rename the admin account if ADMIN_FULL_NAME env var is set
+_admin_full_name = os.getenv("ADMIN_FULL_NAME", "").strip()
+if _admin_full_name:
+    _db = SessionLocal()
+    try:
+        _admin_user = _db.query(models.User).filter(models.User.role == "admin").first()
+        if _admin_user and _admin_user.full_name != _admin_full_name:
+            _admin_user.full_name = _admin_full_name
+            _db.commit()
+            print(f"[OK] Admin display name set to '{_admin_full_name}'")
+    finally:
+        _db.close()
 
 app.include_router(auth.router)
 app.include_router(users.router)
