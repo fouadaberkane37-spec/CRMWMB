@@ -71,6 +71,7 @@ class Deal(Base):
     expected_close_date = Column(DateTime, nullable=True)
     notes = Column(Text)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    job_status = Column(String, default="todo")  # todo | payment_pending | done | cancelled
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -113,6 +113,7 @@ class DealBase(BaseModel):
     expected_close_date: Optional[datetime] = None
     notes: Optional[str] = None
     assigned_to: Optional[int] = None
+    job_status: str = "todo"  # todo | payment_pending | done | cancelled
 
 
 class DealCreate(DealBase):

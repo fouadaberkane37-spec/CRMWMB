@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, TrendingUp, Search,
-  Menu, Building2, MapPin, UserCog, LogOut, X, Activity, MessageSquare, Globe,
+  Menu, Building2, MapPin, UserCog, LogOut, X, Activity, MessageSquare, Globe, CalendarDays,
 } from 'lucide-react'
 
 export default function BottomNav() {
@@ -15,7 +15,7 @@ export default function BottomNav() {
   const primaryNav = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
     { to: '/contacts', label: 'Contacts', icon: Users },
-    ...(isAdmin ? [{ to: '/chats', label: 'Chats', icon: MessageSquare }] : []),
+    { to: '/calendar', label: 'Calendar', icon: CalendarDays },
     { to: '/deals', label: 'Deals', icon: TrendingUp },
     { to: '/search', label: 'Search', icon: Search },
   ]
@@ -74,7 +74,8 @@ export default function BottomNav() {
                 { to: '/companies', label: 'Companies', icon: Building2 },
                 { to: '/map', label: 'My Map', icon: MapPin },
                 { to: '/team-map', label: 'Team Map', icon: Globe },
-                ...(user?.role === 'admin' ? [{ to: '/users', label: 'Users', icon: UserCog }] : []),
+                ...(isAdmin ? [{ to: '/chats', label: 'Chats', icon: MessageSquare }] : []),
+                ...(isAdmin ? [{ to: '/users', label: 'Users', icon: UserCog }] : []),
               ].map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}

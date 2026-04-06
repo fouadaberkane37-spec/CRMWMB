@@ -13,6 +13,7 @@ import TeamMap from './pages/TeamMap.jsx'
 import Search from './pages/Search.jsx'
 import Chats from './pages/Chats.jsx'
 import AcceptInvite from './pages/AcceptInvite.jsx'
+import Calendar from './pages/Calendar.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="contacts" element={<Contacts />} />
             <Route path="companies" element={<Companies />} />
             <Route path="deals" element={<Deals />} />
+            <Route path="calendar" element={<Calendar />} />
             <Route path="activities" element={<Activities />} />
             <Route path="users" element={<Users />} />
             <Route path="map" element={<KnockMap />} />

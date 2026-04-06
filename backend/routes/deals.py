@@ -89,6 +89,23 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
     return db_deal
 
 
+JOB_STATUSES = ["todo", "payment_pending", "done", "cancelled"]
+
+
+@router.patch("/{deal_id}/job-status")
+def update_job_status(deal_id: int, job_status: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    if job_status not in JOB_STATUSES:
+        raise HTTPException(status_code=400, detail=f"job_status must be one of {JOB_STATUSES}")
+    db_deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
+    if not db_deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    if not _own_deal(db_deal, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
+    db_deal.job_status = job_status
+    db.commit()
+    return {"job_status": job_status}
+
+
 @router.patch("/{deal_id}/stage")
 def move_stage(deal_id: int, stage: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     if stage not in STAGES:

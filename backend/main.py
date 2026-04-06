@@ -94,6 +94,18 @@ except Exception as _e:
 
 
 # Add new contact columns (address, services, price) for existing production DBs
+_deal_migrations = [
+    ("job_status", "ALTER TABLE deals ADD COLUMN{if_not_exists} job_status VARCHAR DEFAULT 'todo'"),
+]
+for _col, _stmt in _deal_migrations:
+    _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(_sql))
+        print(f"[OK] deals.{_col} column ensured")
+    except Exception:
+        pass
+
 _contact_migrations = [
     ("address",  "ALTER TABLE contacts ADD COLUMN{if_not_exists} address TEXT"),
     ("services", "ALTER TABLE contacts ADD COLUMN{if_not_exists} services TEXT"),

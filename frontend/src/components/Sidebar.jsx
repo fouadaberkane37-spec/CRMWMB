@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, Building2, TrendingUp,
-  Activity, UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe,
+  Activity, UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe, CalendarDays,
 } from 'lucide-react'
 
 const ALL_NAV = [
@@ -11,6 +11,7 @@ const ALL_NAV = [
   { to: '/contacts', label: 'Contacts', icon: Users },
   { to: '/companies', label: 'Companies', icon: Building2 },
   { to: '/deals', label: 'Deals', icon: TrendingUp },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/chats', label: 'Chats', icon: MessageSquare, adminOnly: true },
   { to: '/activities', label: 'Activities', icon: Activity },
   { to: '/map', label: 'My Map', icon: MapPin },
