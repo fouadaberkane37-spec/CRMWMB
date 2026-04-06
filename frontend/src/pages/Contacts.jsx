@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
-import { Plus, Search, Pencil, Trash2, Phone, Download, Upload, MessageSquare, MapPin, Wrench, DollarSign } from 'lucide-react'
+import { useAuth } from '../App.jsx'
+import { Plus, Search, Pencil, Trash2, Phone, Download, Upload, MessageSquare, MapPin, Wrench, DollarSign, ShieldCheck } from 'lucide-react'
 
 const STATUS_COLORS = {
   lead: 'bg-blue-900/40 text-blue-400',
@@ -37,6 +38,7 @@ function ServicesDisplay({ services }) {
 }
 
 export default function Contacts() {
+  const { user } = useAuth()
   const [contacts, setContacts] = useState([])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -45,6 +47,7 @@ export default function Contacts() {
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [importing, setImporting] = useState(false)
+  const [deduping, setDeduping] = useState(false)
   const [smsContact, setSmsContact] = useState(null)
   const [smsMessage, setSmsMessage] = useState('')
   const [smsSending, setSmsSending] = useState(false)
@@ -146,6 +149,18 @@ export default function Contacts() {
     setForm({ ...form, services: updated.join(', ') })
   }
 
+  async function deduplicateContacts() {
+    if (!window.confirm('This will permanently delete all duplicate contacts (keeping the oldest per name). Continue?')) return
+    setDeduping(true)
+    try {
+      const { data } = await api.post('/contacts/deduplicate')
+      alert(data.message)
+      load()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Deduplication failed')
+    } finally { setDeduping(false) }
+  }
+
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
   return (
@@ -164,6 +179,16 @@ export default function Contacts() {
           >
             <Upload size={15} /> {importing ? 'Importing…' : 'Import'}
           </button>
+          {user?.role === 'admin' && (
+            <button
+              onClick={deduplicateContacts}
+              disabled={deduping}
+              className="flex items-center gap-1.5 border border-amber-700/60 text-amber-400 hover:text-amber-300 hover:border-amber-600 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+              title="Remove duplicate contacts (keeps oldest per name)"
+            >
+              <ShieldCheck size={15} /> {deduping ? 'Cleaning…' : 'Deduplicate'}
+            </button>
+          )}
           <button
             onClick={exportCsv}
             className="flex items-center gap-1.5 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors"

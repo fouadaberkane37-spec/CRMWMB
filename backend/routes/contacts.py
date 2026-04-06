@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
+from collections import defaultdict
 import csv, io
 from database import get_db
 import models
 import schemas
-from auth import get_current_user
+from auth import get_current_user, require_admin
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
@@ -116,6 +117,33 @@ def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user=
     db.delete(db_contact)
     db.commit()
     return {"message": "Deleted"}
+
+
+@router.post("/deduplicate")
+def deduplicate_contacts(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    """Admin-only: delete duplicate contacts keeping the oldest (lowest id) per unique name."""
+    all_contacts = db.query(models.Contact).order_by(models.Contact.id.asc()).all()
+
+    # Group by normalized full name
+    groups = defaultdict(list)
+    for c in all_contacts:
+        key = f"{(c.first_name or '').strip().lower()} {(c.last_name or '').strip().lower()}".strip()
+        groups[key].append(c)
+
+    deleted = 0
+    for key, group in groups.items():
+        if len(group) <= 1:
+            continue
+        # Keep first (lowest id), delete the rest
+        for duplicate in group[1:]:
+            db.delete(duplicate)
+            deleted += 1
+
+    db.commit()
+    return {"deleted": deleted, "message": f"Removed {deleted} duplicate contact(s)"}
 
 
 @router.get("/export/csv")
