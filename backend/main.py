@@ -315,22 +315,42 @@ except Exception as _e:
 finally:
     _db.close()
 
-# Remove deals scheduled outside operating hours (before 07:00 or at/after 17:00).
-# Runs on every startup to self-heal after any bad imports or seed re-runs.
+# ── Deal cleanup (runs every startup) ─────────────────────────────────────────
 _db = SessionLocal()
 try:
-    _out_of_hours = [
-        d for d in _db.query(models.Deal).filter(models.Deal.expected_close_date.isnot(None)).all()
-        if not (7 <= d.expected_close_date.hour < 17)
-    ]
-    if _out_of_hours:
-        for _d in _out_of_hours:
-            _db.delete(_d)
+    _all_deals = _db.query(models.Deal).filter(models.Deal.expected_close_date.isnot(None)).order_by(models.Deal.id.asc()).all()
+    _valid_contact_ids = {c.id for c in _db.query(models.Contact.id).all()}
+    _to_delete = set()
+
+    # 1. Remove deals outside operating hours (before 07:00 or at/after 17:00)
+    for _d in _all_deals:
+        if not (7 <= _d.expected_close_date.hour < 17):
+            _to_delete.add(_d.id)
+
+    # 2. Remove orphaned deals (contact was deleted by dedup)
+    for _d in _all_deals:
+        if _d.contact_id and _d.contact_id not in _valid_contact_ids:
+            _to_delete.add(_d.id)
+
+    # 3. Dedup deals: per contact per calendar day, keep the oldest (lowest id)
+    from collections import defaultdict as _dd2
+    _deal_groups = _dd2(list)
+    for _d in _all_deals:
+        if _d.id in _to_delete:
+            continue
+        _day_key = (_d.contact_id, _d.expected_close_date.date())
+        _deal_groups[_day_key].append(_d)
+    for _grp in _deal_groups.values():
+        for _dup in _grp[1:]:          # keep first (lowest id), delete rest
+            _to_delete.add(_dup.id)
+
+    if _to_delete:
+        _db.query(models.Deal).filter(models.Deal.id.in_(_to_delete)).delete(synchronize_session=False)
         _db.commit()
-        print(f"[OK] Removed {len(_out_of_hours)} deal(s) outside operating hours (07:00–17:00)")
+        print(f"[OK] Deal cleanup: removed {len(_to_delete)} bad/duplicate deal(s)")
 except Exception as _e:
     _db.rollback()
-    print(f"[WARN] Out-of-hours cleanup failed: {_e}")
+    print(f"[WARN] Deal cleanup failed: {_e}")
 finally:
     _db.close()
 
