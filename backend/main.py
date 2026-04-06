@@ -7,6 +7,7 @@ from database import engine, Base, SessionLocal, DATABASE_URL
 import models
 from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search, sms, chats, invites, twilio as twilio_routes
 from auth import get_password_hash
+from datetime import datetime
 import os
 
 app = FastAPI(title="Self-Hosted CRM", version="1.0.0", docs_url="/api/docs", redirect_slashes=False)
@@ -135,6 +136,105 @@ def promote_admins():
         db.close()
 
 
+def seed_calendar_data():
+    """Create contacts + deals from Groupe WMB calendar appointments.
+    Runs once when SEED_CALENDAR=1 env var is set. Uses CALENDAR_OWNER username to assign ownership."""
+    owner_username = os.getenv("CALENDAR_OWNER", "").strip()
+    if not owner_username:
+        print("[WARN] seed_calendar_data: set CALENDAR_OWNER=<fouad_username>")
+        return
+
+    db = SessionLocal()
+    try:
+        owner = db.query(models.User).filter(models.User.username == owner_username).first()
+        if not owner:
+            print(f"[WARN] seed_calendar_data: user '{owner_username}' not found")
+            return
+
+        EVENTS = [
+            {"first": "Prateek",      "last": "Sur",         "phone": "+15147462700", "address": "333 rue des Anémones",                      "services": "window-ext",                     "price": 400.0, "date": datetime(2026, 4,  4, 10, 0), "windows": 50, "floors": 2},
+            {"first": "Chris",        "last": "Stamires",    "phone": "+15146794910", "address": "277 Montreuil",                             "services": "window-ext, window-int",         "price": 350.0, "date": datetime(2026, 4, 11, 10, 0), "windows": 30, "floors": 2},
+            {"first": "Amina",        "last": "Chellai",     "phone": "+15149174156", "address": "487 Anémone",                               "services": "window-ext, gutters",            "price": 450.0, "date": datetime(2026, 4, 11, 14, 0), "windows": 45, "floors": 2},
+            {"first": "Mark",         "last": None,          "phone": "+15149997986", "address": "324 rue des Anemone",                       "services": "window-ext",                     "price": 500.0, "date": datetime(2026, 4, 12,  9, 0), "windows": 60, "floors": 2},
+            {"first": "Valérie",      "last": None,          "phone": "+15142441676", "address": "552 rue Randell",                           "services": "window-ext",                     "price": 400.0, "date": datetime(2026, 4, 13, 13, 0), "windows": 60, "floors": 2},
+            {"first": "David",        "last": None,          "phone": "+18198205096", "address": "8180 Rue des Bungalows, Laval, QC H7H 1X4", "services": "window-ext",                     "price": 350.0, "date": datetime(2026, 4, 19,  9, 0), "windows": 30, "floors": 2},
+            {"first": "Francois",     "last": "Giroux",      "phone": "+15149104322", "address": "590 rue Bayard",                            "services": "window-ext",                     "price": 400.0, "date": datetime(2026, 4, 20,  9, 0), "windows": 30, "floors": 2},
+            {"first": "Raynald",      "last": "Langlois",    "phone": "+15793683607", "address": "16230 rue de l'Esplanade",                  "services": "window-ext, gutters",            "price": 500.0, "date": datetime(2026, 4, 21, 10, 0), "windows": 30, "floors": 2},
+            {"first": "Jean",         "last": None,          "phone": "+15149289227", "address": "705 rue la Buyère, Laval",                  "services": "window-ext",                     "price": 350.0, "date": datetime(2026, 4, 22,  9, 0), "windows": 35, "floors": 2},
+            {"first": "Jean",         "last": "Lortie",      "phone": "+15142321088", "address": "2311 rue de Prague",                        "services": "window-ext, window-int",         "price": 315.0, "date": datetime(2026, 4, 23,  9, 0), "windows": 30, "floors": 2},
+            {"first": "Chrystian",    "last": None,          "phone": "+15147545542", "address": "525 rue Bayard",                            "services": "window-ext",                     "price": 350.0, "date": datetime(2026, 4, 24,  9, 0), "windows": 2,  "floors": 2},
+            {"first": "Louis",        "last": "Philipe Giguerre", "phone": "+15149281455", "address": "11630 rue du Platine",               "services": "window-ext, gutters",            "price": 300.0, "date": datetime(2026, 4, 25,  9, 0), "windows": 30, "floors": 2},
+            {"first": "Alain",        "last": "Poirier",     "phone": "+15149680123", "address": "11940 rue Rubis",                           "services": "window-ext",                     "price": 350.0, "date": datetime(2026, 4, 25, 12, 0), "windows": 40, "floors": 2},
+            {"first": "Tammy",        "last": None,          "phone": "+15149266953", "address": "16805 rue des Saphires",                    "services": "window-ext",                     "price": 311.0, "date": datetime(2026, 4, 25, 15, 0), "windows": 30, "floors": 2},
+            {"first": "Sebastien",    "last": "Isabelle",    "phone": "+14505126439", "address": "479 rue des Villa",                         "services": "window-ext, gutters",            "price": 500.0, "date": datetime(2026, 4, 26,  7, 0), "windows": 30, "floors": 2},
+            {"first": "Viencent",     "last": "Bernier",     "phone": "+14189978729", "address": "17190 rue des Orquide",                     "services": "window-ext",                     "price": 340.0, "date": datetime(2026, 4, 26, 14, 0), "windows": 30, "floors": 2},
+            {"first": "Marie-Claude", "last": "Lemonde",     "phone": "+15149450536", "address": "2400 du Passerin",                          "services": "window-ext",                     "price": 300.0, "date": datetime(2026, 5,  4,  9, 0), "windows": 30, "floors": 2},
+            {"first": "Arman",        "last": None,          "phone": "+15142368223", "address": "5850 Boul des Rossignoles",                  "services": "window-ext",                     "price": 375.0, "date": datetime(2026, 5,  6,  9, 0), "windows": 30, "floors": 2},
+            {"first": "Perry",        "last": None,          "phone": "+15148231191", "address": "265 Montreuil",                             "services": "window-ext",                     "price": 300.0, "date": datetime(2026, 5, 15, 13, 0), "windows": 30, "floors": 2},
+            {"first": "Jimmy",        "last": "Argybou",     "phone": "+15148933929", "address": "91 chem de la Galène Bleue",                "services": "window-ext",                     "price": 340.0, "date": datetime(2026, 5, 24, 10, 0), "windows": 30, "floors": 2},
+            {"first": "Dominic",      "last": "David",       "phone": "+15142200127", "address": "120 place Gravie",                          "services": "window-ext",                     "price": 500.0, "date": datetime(2026, 5, 25, 10, 0), "windows": 50, "floors": 2},
+            {"first": "Marc",         "last": "Gregoire",    "phone": "+15149092139", "address": "380 place Charmante",                       "services": "window-ext",                     "price": 510.0, "date": datetime(2026, 5, 25, 14, 0), "windows": 30, "floors": 2},
+            {"first": "Claudette",    "last": "Généreux",    "phone": "+15144641495", "address": "1495 montée Masson, roulotte 48",           "services": "window-ext, window-int, gutters","price": 300.0, "date": datetime(2026, 5, 30,  9, 0), "windows": 10, "floors": 1},
+            {"first": "José",         "last": "Drapeau",     "phone": "+15142462401", "address": "684 Cornouille",                            "services": "window-ext",                     "price": 300.0, "date": datetime(2026, 6,  3,  9, 0), "windows": 20, "floors": 2},
+            {"first": "Frederic",     "last": "Bergeron",    "phone": "+15142675488", "address": "100 rue Saint-Pierre Est, Saint-Sauveur",   "services": "window-ext, window-int",         "price": 350.0, "date": datetime(2026, 8,  1,  7, 0), "windows": 30, "floors": 2},
+        ]
+
+        created_contacts = 0
+        created_deals = 0
+
+        for ev in EVENTS:
+            # Avoid duplicates — match on phone number
+            contact = db.query(models.Contact).filter(
+                models.Contact.phone == ev["phone"],
+                models.Contact.created_by == owner.id,
+            ).first()
+
+            if not contact:
+                contact = models.Contact(
+                    first_name=ev["first"],
+                    last_name=ev["last"],
+                    phone=ev["phone"],
+                    address=ev["address"],
+                    services=ev["services"],
+                    price=ev["price"],
+                    status="customer",
+                    created_by=owner.id,
+                )
+                db.add(contact)
+                db.flush()
+                created_contacts += 1
+
+            # Avoid duplicate deals — match on contact + date
+            existing = db.query(models.Deal).filter(
+                models.Deal.contact_id == contact.id,
+                models.Deal.expected_close_date == ev["date"],
+            ).first()
+
+            if not existing:
+                name = f"{ev['first']} {ev['last'] or ''}".strip()
+                services_label = ev["services"].replace("window-ext", "Fenêtres ext").replace("window-int", "int").replace("gutters", "Gouttières")
+                deal = models.Deal(
+                    title=f"{name} — {services_label}",
+                    value=ev["price"],
+                    stage="proposal",
+                    contact_id=contact.id,
+                    expected_close_date=ev["date"],
+                    notes=f"{ev['windows']} fenêtres · {ev['floors']} étage(s) · {ev['address']}",
+                    created_by=owner.id,
+                    assigned_to=owner.id,
+                )
+                db.add(deal)
+                created_deals += 1
+
+        db.commit()
+        print(f"[OK] Calendar seed: {created_contacts} contacts + {created_deals} deals created for '{owner_username}'")
+    except Exception as exc:
+        db.rollback()
+        print(f"[ERR] seed_calendar_data: {exc}")
+    finally:
+        db.close()
+
+
 def seed_admin():
     """Create default admin on first run."""
     db = SessionLocal()
@@ -167,6 +267,8 @@ if not _is_sqlite:
 
 seed_admin()
 promote_admins()
+if os.getenv("SEED_CALENDAR") == "1":
+    seed_calendar_data()
 
 # Rename the admin account if ADMIN_FULL_NAME env var is set
 _admin_full_name = os.getenv("ADMIN_FULL_NAME", "").strip()
