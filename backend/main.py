@@ -166,6 +166,7 @@ if not _is_sqlite:
         pass  # Already nullable or column not found
 
 seed_admin()
+promote_admins()
 
 # Rename the admin account if ADMIN_FULL_NAME env var is set
 _admin_full_name = os.getenv("ADMIN_FULL_NAME", "").strip()
@@ -177,6 +178,24 @@ if _admin_full_name:
             _admin_user.full_name = _admin_full_name
             _db.commit()
             print(f"[OK] Admin display name set to '{_admin_full_name}'")
+    finally:
+        _db.close()
+
+# Reassign all contacts to a specific user if REASSIGN_CONTACTS_TO env var is set.
+# Set it once, deploy, then remove it so it doesn't run again on every restart.
+_reassign_to = os.getenv("REASSIGN_CONTACTS_TO", "").strip()
+if _reassign_to:
+    _db = SessionLocal()
+    try:
+        _target = _db.query(models.User).filter(models.User.username == _reassign_to).first()
+        if _target:
+            updated = _db.query(models.Contact).filter(models.Contact.created_by != _target.id).update(
+                {"created_by": _target.id}, synchronize_session=False
+            )
+            _db.commit()
+            print(f"[OK] Reassigned {updated} contacts to '{_reassign_to}' (id={_target.id})")
+        else:
+            print(f"[WARN] REASSIGN_CONTACTS_TO: user '{_reassign_to}' not found")
     finally:
         _db.close()
 
