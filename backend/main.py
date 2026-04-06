@@ -286,7 +286,12 @@ if not _is_sqlite:
 seed_admin()
 promote_admins()
 
-if os.getenv("WIPE_DATA") == "1":
+# One-time data wipe (fresh start) — self-disabling via DB marker table.
+# Creates _wipe_v1_done on first run; subsequent deploys skip it automatically.
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text("CREATE TABLE _wipe_v1_done (id int)"))
+    # Table didn't exist → this is the first run → perform wipe
     _db = SessionLocal()
     try:
         _db.query(models.Deal).delete(synchronize_session=False)
@@ -308,12 +313,17 @@ if os.getenv("WIPE_DATA") == "1":
         except Exception:
             pass
         _db.commit()
-        print("[OK] WIPE_DATA: all contacts, deals, calendar, knocks, chats, activities cleared")
+        print("[OK] One-time wipe complete — contacts, deals, calendar, knocks, chats, activities cleared")
     except Exception as _e:
         _db.rollback()
-        print(f"[ERR] WIPE_DATA failed: {_e}")
+        print(f"[ERR] One-time wipe failed: {_e}")
     finally:
         _db.close()
+except Exception:
+    pass  # Marker table already exists → wipe already ran, skip
+
+if os.getenv("WIPE_DATA") == "1":
+    print("[INFO] WIPE_DATA env var is set but one-time wipe already ran via DB marker.")
 
 if os.getenv("SEED_CALENDAR") == "1":
     seed_calendar_data()
