@@ -57,6 +57,20 @@ const pinIcons = Object.fromEntries(STATUSES.map((s) => [s.key, makePin(s.color)
 // Client pin — indigo, distinct from knock pins
 const clientPinIcon = makePin('#818cf8')
 
+// Booked/Done pin — emerald with a checkmark badge
+const bookedPinIcon = L.divIcon({
+  className: '',
+  html: `<div style="position:relative;display:inline-block">
+    <svg width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z"
+            fill="#10b981" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/>
+      <circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/>
+      <polyline points="9,13 11.5,15.5 17,10" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>`,
+  iconSize: [26, 36], iconAnchor: [13, 36], popupAnchor: [0, -38],
+})
+
 // ─── Internal Leaflet components ──────────────────────────────────────────────
 
 function MapController({ onReady, placing, onMove }) {
@@ -72,6 +86,7 @@ export default function KnockMap() {
   const { user } = useAuth()
   const [knocks, setKnocks]       = useState([])
   const [contacts, setContacts]   = useState([])
+  const [deals, setDeals]         = useState([])
   const [userLoc, setUserLoc]     = useState(null)       // { lat, lng }
   const [locError, setLocError]   = useState(false)
 
@@ -97,7 +112,10 @@ export default function KnockMap() {
   }, [])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { api.get('/contacts/').then((r) => setContacts(r.data)).catch(() => {}) }, [])
+  useEffect(() => {
+    api.get('/contacts/').then((r) => setContacts(r.data)).catch(() => {})
+    api.get('/deals/').then((r) => setDeals(r.data)).catch(() => {})
+  }, [])
 
   // Poll every 5 s for real-time sync
   useEffect(() => {
@@ -181,6 +199,11 @@ export default function KnockMap() {
     load()
   }
 
+  // Contact IDs that have at least one "done" deal → get the booked pin
+  const bookedContactIds = new Set(
+    deals.filter((d) => d.job_status === 'done').map((d) => d.contact_id)
+  )
+
   // Only show this user's own pins — use Team Map to see everyone's pins
   const myKnocks = knocks.filter((k) => k.created_by === user?.id)
   const filtered = filterStatus ? myKnocks.filter((k) => k.status === filterStatus) : myKnocks
@@ -213,35 +236,51 @@ export default function KnockMap() {
         )}
 
         {/* Geocoded client/lead pins */}
-        {contacts.filter((c) => c.lat && c.lng).map((c) => (
-          <Marker key={`client-${c.id}`} position={[c.lat, c.lng]} icon={clientPinIcon}>
-            <Popup minWidth={200} className="knock-popup">
-              <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
-                  {c.first_name} {c.last_name || ''}
+        {contacts.filter((c) => c.lat && c.lng).map((c) => {
+          const isBooked = bookedContactIds.has(c.id)
+          return (
+            <Marker
+              key={`client-${c.id}`}
+              position={[c.lat, c.lng]}
+              icon={isBooked ? bookedPinIcon : clientPinIcon}
+              zIndexOffset={isBooked ? 500 : 0}
+            >
+              <Popup minWidth={200} className="knock-popup">
+                <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                    {c.first_name} {c.last_name || ''}
+                  </div>
+                  {c.address && (
+                    <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>{c.address}</div>
+                  )}
+                  {c.phone && (
+                    <div style={{ color: '#6366f1', fontSize: 11, marginTop: 2 }}>📞 {c.phone}</div>
+                  )}
+                  {c.services && (
+                    <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>🔧 {c.services}</div>
+                  )}
+                  {c.price != null && (
+                    <div style={{ color: '#059669', fontSize: 11, marginTop: 2, fontWeight: 600 }}>${c.price.toFixed(2)}</div>
+                  )}
+                  <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    <span style={{
+                      display: 'inline-block', padding: '2px 8px', borderRadius: 12,
+                      background: '#eef2ff', color: '#6366f1',
+                      fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                    }}>{c.status}</span>
+                    {isBooked && (
+                      <span style={{
+                        display: 'inline-block', padding: '2px 8px', borderRadius: 12,
+                        background: '#d1fae5', color: '#059669',
+                        fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                      }}>✓ Booked</span>
+                    )}
+                  </div>
                 </div>
-                {c.address && (
-                  <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>{c.address}</div>
-                )}
-                {c.phone && (
-                  <div style={{ color: '#6366f1', fontSize: 11, marginTop: 2 }}>📞 {c.phone}</div>
-                )}
-                {c.services && (
-                  <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>🔧 {c.services}</div>
-                )}
-                {c.price != null && (
-                  <div style={{ color: '#059669', fontSize: 11, marginTop: 2, fontWeight: 600 }}>${c.price.toFixed(2)}</div>
-                )}
-                <div style={{
-                  marginTop: 6, display: 'inline-block',
-                  padding: '2px 8px', borderRadius: 12,
-                  background: '#eef2ff', color: '#6366f1',
-                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                }}>{c.status}</div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+              </Popup>
+            </Marker>
+          )
+        })}
 
         {/* Saved knock pins */}
         {filtered.map((k) => (
@@ -309,6 +348,12 @@ export default function KnockMap() {
             <span className="text-slate-400 text-xs">{myKnocks.length} knocks</span>
             <span className="text-slate-500 text-xs">·</span>
             <span className="text-indigo-400 text-xs">{contacts.filter(c => c.lat && c.lng).length} clients</span>
+            {bookedContactIds.size > 0 && (
+              <>
+                <span className="text-slate-500 text-xs">·</span>
+                <span className="text-emerald-400 text-xs font-semibold">✓ {bookedContactIds.size} booked</span>
+              </>
+            )}
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${synced ? 'bg-emerald-400' : 'bg-red-400'}`}
               title={synced ? 'Live' : 'Offline'} />
           </div>
