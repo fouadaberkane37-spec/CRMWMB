@@ -92,6 +92,25 @@ except Exception as _e:
     print(f"[WARN] invites DDL: {_e}")
 
 
+# Add new contact columns (address, services, price) for existing production DBs
+_contact_migrations = [
+    ("address",  "ALTER TABLE contacts ADD COLUMN{if_not_exists} address TEXT"),
+    ("services", "ALTER TABLE contacts ADD COLUMN{if_not_exists} services TEXT"),
+    ("price",    "ALTER TABLE contacts ADD COLUMN{if_not_exists} price FLOAT"),
+]
+for _col, _stmt in _contact_migrations:
+    if _is_sqlite:
+        _sql = _stmt.replace("{if_not_exists}", "")
+    else:
+        _sql = _stmt.replace("{if_not_exists}", " IF NOT EXISTS")
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(_sql))
+        print(f"[OK] contacts.{_col} column ensured")
+    except Exception as _e:
+        pass  # Column already exists — safe to ignore
+
+
 def seed_admin():
     """Create default admin on first run."""
     db = SessionLocal()

@@ -42,6 +42,9 @@ class Contact(Base):
     last_name = Column(String)
     email = Column(String, index=True)
     phone = Column(String)
+    address = Column(Text)
+    services = Column(Text)   # comma-separated, e.g. "window-ext,window-int,gutters"
+    price = Column(Float)
     title = Column(String)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     status = Column(String, default="lead")  # lead | prospect | customer | inactive

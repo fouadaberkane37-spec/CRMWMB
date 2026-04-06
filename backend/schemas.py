@@ -73,6 +73,9 @@ class ContactBase(BaseModel):
     last_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    address: Optional[str] = None
+    services: Optional[str] = None   # comma-separated service tags
+    price: Optional[float] = None
     title: Optional[str] = None
     company_id: Optional[int] = None
     status: str = "lead"

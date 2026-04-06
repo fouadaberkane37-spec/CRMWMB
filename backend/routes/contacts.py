@@ -35,6 +35,9 @@ def list_contacts(
             models.Contact.first_name.ilike(f"%{search}%")
             | models.Contact.last_name.ilike(f"%{search}%")
             | models.Contact.email.ilike(f"%{search}%")
+            | models.Contact.phone.ilike(f"%{search}%")
+            | models.Contact.address.ilike(f"%{search}%")
+            | models.Contact.services.ilike(f"%{search}%")
         )
     if status:
         q = q.filter(models.Contact.status == status)
@@ -96,11 +99,13 @@ def export_contacts_csv(db: Session = Depends(get_db), current_user=Depends(get_
     contacts = q.order_by(models.Contact.created_at.desc()).all()
     out = io.StringIO()
     w = csv.writer(out)
-    w.writerow(["first_name", "last_name", "email", "phone", "title", "company", "status", "notes"])
+    w.writerow(["Name", "adresse", "Phone number", "services", "price", "note", "status"])
     for c in contacts:
+        full_name = f"{c.first_name} {c.last_name or ''}".strip()
         w.writerow([
-            c.first_name, c.last_name or "", c.email or "", c.phone or "",
-            c.title or "", c.company.name if c.company else "", c.status, c.notes or "",
+            full_name, c.address or "", c.phone or "",
+            c.services or "", c.price if c.price is not None else "",
+            c.notes or "", c.status,
         ])
     return Response(
         content=out.getvalue(),
@@ -124,20 +129,43 @@ async def import_contacts_csv(
     VALID_STATUSES = {"lead", "prospect", "customer", "inactive"}
     created = 0
     for row in reader:
-        first = (row.get("first_name") or "").strip()
-        if not first:
-            continue
+        # Support both original column names and CSV export format
+        name_raw = (row.get("Name") or row.get("name") or "").strip()
+        first_raw = (row.get("first_name") or "").strip()
+
+        if name_raw:
+            parts = name_raw.split(" ", 1)
+            first = parts[0]
+            last = parts[1] if len(parts) > 1 else None
+        elif first_raw:
+            first = first_raw
+            last = (row.get("last_name") or "").strip() or None
+        else:
+            continue  # skip rows with no name
+
+        # Parse price — handles "$350,00" (French-Canadian) or "350.00"
+        price_raw = (row.get("price") or row.get("Price") or "").strip()
+        price = None
+        if price_raw:
+            try:
+                price = float(price_raw.replace("$", "").replace(",", ".").strip())
+            except ValueError:
+                price = None
+
         status = (row.get("status") or "lead").strip().lower()
         if status not in VALID_STATUSES:
             status = "lead"
+
         db.add(models.Contact(
             first_name=first,
-            last_name=(row.get("last_name") or "").strip() or None,
-            email=(row.get("email") or "").strip() or None,
-            phone=(row.get("phone") or "").strip() or None,
-            title=(row.get("title") or "").strip() or None,
+            last_name=last,
+            email=(row.get("email") or row.get("Email") or "").strip() or None,
+            phone=(row.get("Phone number") or row.get("phone") or row.get("Phone") or "").strip() or None,
+            address=(row.get("adresse") or row.get("address") or row.get("Address") or "").strip() or None,
+            services=(row.get("services") or row.get("Services") or "").strip() or None,
+            price=price,
+            notes=(row.get("note") or row.get("notes") or row.get("Notes") or "").strip() or None,
             status=status,
-            notes=(row.get("notes") or "").strip() or None,
             created_by=current_user.id,
         ))
         created += 1

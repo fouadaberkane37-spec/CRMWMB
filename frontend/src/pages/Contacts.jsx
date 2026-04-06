@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
-import { Plus, Search, Pencil, Trash2, Building2, Mail, Phone, Download, Upload, MessageSquare } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Phone, Download, Upload, MessageSquare, MapPin, Wrench, DollarSign } from 'lucide-react'
 
 const STATUS_COLORS = {
   lead: 'bg-blue-900/40 text-blue-400',
@@ -12,14 +12,32 @@ const STATUS_COLORS = {
 
 const STATUSES = ['lead', 'prospect', 'customer', 'inactive']
 
+const SERVICES_OPTIONS = [
+  { value: 'window-ext', label: 'Window – Ext' },
+  { value: 'window-int', label: 'Window – Int' },
+  { value: 'gutters',    label: 'Gutters' },
+  { value: 'pressure-washing', label: 'Pressure Washing' },
+]
+
 const EMPTY = {
-  first_name: '', last_name: '', email: '', phone: '',
-  title: '', company_id: '', status: 'lead', notes: '',
+  first_name: '', last_name: '', phone: '',
+  address: '', services: '', price: '', status: 'lead', notes: '',
+}
+
+function ServicesDisplay({ services }) {
+  if (!services) return <span className="text-slate-500">—</span>
+  const tags = services.split(',').map(s => s.trim()).filter(Boolean)
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map(t => (
+        <span key={t} className="text-xs bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">{t}</span>
+      ))}
+    </div>
+  )
 }
 
 export default function Contacts() {
   const [contacts, setContacts] = useState([])
-  const [companies, setCompanies] = useState([])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [modal, setModal] = useState(null)
@@ -40,18 +58,29 @@ export default function Contacts() {
   }, [search, filterStatus])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { api.get('/companies/').then((r) => setCompanies(r.data)) }, [])
 
   function openCreate() { setForm(EMPTY); setModal('create') }
   function openEdit(c) {
-    setForm({ ...c, company_id: c.company_id || '', notes: c.notes || '' })
+    setForm({
+      first_name: c.first_name || '',
+      last_name: c.last_name || '',
+      phone: c.phone || '',
+      address: c.address || '',
+      services: c.services || '',
+      price: c.price != null ? String(c.price) : '',
+      status: c.status || 'lead',
+      notes: c.notes || '',
+    })
     setModal(c)
   }
 
   async function save() {
     setSaving(true)
     try {
-      const payload = { ...form, company_id: form.company_id || null }
+      const payload = {
+        ...form,
+        price: form.price !== '' ? parseFloat(form.price) : null,
+      }
       if (modal === 'create') await api.post('/contacts/', payload)
       else await api.put(`/contacts/${modal.id}`, payload)
       setModal(null)
@@ -66,17 +95,11 @@ export default function Contacts() {
   }
 
   function exportCsv() {
-    const base = import.meta.env.VITE_API_URL || '/api'
-    const token = localStorage.getItem('token')
-    // Build URL and trigger download via a temporary link
-    const url = `${base}/contacts/export/csv`
-    const a = document.createElement('a')
-    a.href = url
-    a.setAttribute('download', 'contacts.csv')
-    // Pass auth via a short-lived fetch → blob URL
     api.get('/contacts/export/csv', { responseType: 'blob' }).then((r) => {
       const blob = window.URL.createObjectURL(r.data)
+      const a = document.createElement('a')
       a.href = blob
+      a.setAttribute('download', 'contacts.csv')
       a.click()
       window.URL.revokeObjectURL(blob)
     })
@@ -113,6 +136,14 @@ export default function Contacts() {
     } catch (err) {
       alert(err.response?.data?.detail || 'Failed to send SMS')
     } finally { setSmsSending(false) }
+  }
+
+  // Toggle a service tag in the comma-separated services string
+  function toggleService(value) {
+    const current = form.services ? form.services.split(',').map(s => s.trim()).filter(Boolean) : []
+    const idx = current.indexOf(value)
+    const updated = idx >= 0 ? current.filter(s => s !== value) : [...current, value]
+    setForm({ ...form, services: updated.join(', ') })
   }
 
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
@@ -152,7 +183,7 @@ export default function Contacts() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search contacts…"
+            placeholder="Search name, address, phone, services…"
             className="w-full pl-9 pr-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
@@ -172,31 +203,39 @@ export default function Contacts() {
           <thead>
             <tr className="bg-slate-800 border-b border-slate-700/50">
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Name</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Email</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Address</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Phone</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Company</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Services</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Price</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Status</th>
               <th className="px-6 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/30">
             {contacts.length === 0 && (
-              <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-500">No contacts found</td></tr>
+              <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-500">No contacts found</td></tr>
             )}
             {contacts.map((c) => (
               <tr key={c.id} className="hover:bg-slate-800/50 transition-colors">
                 <td className="px-6 py-3.5 font-medium text-slate-200">
-                  {c.first_name} {c.last_name}
-                  {c.title && <span className="block text-xs text-slate-500 font-normal">{c.title}</span>}
+                  {c.first_name} {c.last_name || ''}
+                  {c.notes && <span className="block text-xs text-slate-500 font-normal truncate max-w-[180px]">{c.notes}</span>}
                 </td>
-                <td className="px-6 py-3.5 text-slate-400">
-                  {c.email ? <a href={`mailto:${c.email}`} className="flex items-center gap-1 hover:text-indigo-400"><Mail size={13} />{c.email}</a> : '—'}
+                <td className="px-6 py-3.5 text-slate-400 max-w-[200px]">
+                  {c.address
+                    ? <span className="flex items-start gap-1"><MapPin size={13} className="mt-0.5 shrink-0" /><span className="truncate">{c.address}</span></span>
+                    : '—'}
                 </td>
-                <td className="px-6 py-3.5 text-slate-400">
+                <td className="px-6 py-3.5 text-slate-400 whitespace-nowrap">
                   {c.phone ? <span className="flex items-center gap-1"><Phone size={13} />{c.phone}</span> : '—'}
                 </td>
-                <td className="px-6 py-3.5 text-slate-400">
-                  {c.company ? <span className="flex items-center gap-1"><Building2 size={13} />{c.company.name}</span> : '—'}
+                <td className="px-6 py-3.5">
+                  <ServicesDisplay services={c.services} />
+                </td>
+                <td className="px-6 py-3.5 text-slate-300 whitespace-nowrap">
+                  {c.price != null
+                    ? <span className="flex items-center gap-1"><DollarSign size={13} className="text-emerald-500" />{c.price.toFixed(2)}</span>
+                    : '—'}
                 </td>
                 <td className="px-6 py-3.5">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${STATUS_COLORS[c.status] || 'bg-slate-700 text-slate-400'}`}>{c.status}</span>
@@ -216,6 +255,7 @@ export default function Contacts() {
         </table>
       </div>
 
+      {/* Create / Edit modal */}
       {modal && (
         <Modal title={modal === 'create' ? 'New Contact' : 'Edit Contact'} onClose={() => setModal(null)}>
           <div className="space-y-4">
@@ -230,8 +270,8 @@ export default function Contacts() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
-              <input type="email" value={form.email} onChange={f('email')} className="input" />
+              <label className="block text-sm font-medium text-slate-300 mb-1">Address</label>
+              <input value={form.address} onChange={f('address')} className="input" placeholder="123 Main St, City" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -239,24 +279,38 @@ export default function Contacts() {
                 <input value={form.phone} onChange={f('phone')} className="input" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Job Title</label>
-                <input value={form.title} onChange={f('title')} className="input" />
+                <label className="block text-sm font-medium text-slate-300 mb-1">Price ($)</label>
+                <input type="number" step="0.01" min="0" value={form.price} onChange={f('price')} className="input" placeholder="0.00" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Company</label>
-                <select value={form.company_id} onChange={f('company_id')} className="input">
-                  <option value="">None</option>
-                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Services</label>
+              <div className="grid grid-cols-2 gap-2">
+                {SERVICES_OPTIONS.map(({ value, label }) => {
+                  const active = form.services?.split(',').map(s => s.trim()).includes(value)
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => toggleService(value)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${
+                        active
+                          ? 'border-indigo-500 bg-indigo-900/30 text-indigo-300'
+                          : 'border-slate-600 bg-slate-800 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >
+                      <Wrench size={13} />
+                      {label}
+                    </button>
+                  )
+                })}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
-                <select value={form.status} onChange={f('status')} className="input">
-                  {STATUSES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
-                </select>
-              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
+              <select value={form.status} onChange={f('status')} className="input">
+                {STATUSES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">Notes</label>
@@ -272,6 +326,7 @@ export default function Contacts() {
         </Modal>
       )}
 
+      {/* Delete confirm */}
       {deleteId && (
         <Modal title="Delete Contact" onClose={() => setDeleteId(null)} size="sm">
           <p className="text-slate-400 text-sm mb-6">This will permanently delete the contact and all related data.</p>
@@ -282,6 +337,7 @@ export default function Contacts() {
         </Modal>
       )}
 
+      {/* Quick SMS */}
       {smsContact && (
         <Modal title={`Send SMS to ${smsContact.first_name} ${smsContact.last_name || ''}`} onClose={() => setSmsContact(null)}>
           <div className="space-y-4">
