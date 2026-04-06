@@ -57,8 +57,25 @@ const pinIcons = Object.fromEntries(STATUSES.map((s) => [s.key, makePin(s.color)
 // Client pin — indigo, distinct from knock pins
 const clientPinIcon = makePin('#818cf8')
 
-// Booked/Done pin — emerald with a checkmark badge
+// Booked/scheduled pin — amber, calendar icon
 const bookedPinIcon = L.divIcon({
+  className: '',
+  html: `<div style="position:relative;display:inline-block">
+    <svg width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z"
+            fill="#f59e0b" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/>
+      <circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/>
+      <rect x="9" y="10" width="8" height="6.5" rx="1" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
+      <line x1="11" y1="9" x2="11" y2="11" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="15" y1="9" x2="15" y2="11" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="9" y1="13" x2="17" y2="13" stroke="#f59e0b" stroke-width="1.2"/>
+    </svg>
+  </div>`,
+  iconSize: [26, 36], iconAnchor: [13, 36], popupAnchor: [0, -38],
+})
+
+// Done pin — emerald with checkmark
+const donePinIcon = L.divIcon({
   className: '',
   html: `<div style="position:relative;display:inline-block">
     <svg width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg">
@@ -207,9 +224,16 @@ export default function KnockMap() {
     load()
   }
 
-  // Contact IDs that have at least one "done" deal → get the booked pin
-  const bookedContactIds = new Set(
+  // Contacts with a done deal → emerald checkmark pin
+  const doneContactIds = new Set(
     deals.filter((d) => d.job_status === 'done').map((d) => d.contact_id)
+  )
+  // Contacts with an active deal (todo / payment_pending) → amber calendar pin
+  const bookedContactIds = new Set(
+    deals
+      .filter((d) => d.job_status === 'todo' || d.job_status === 'payment_pending')
+      .map((d) => d.contact_id)
+      .filter((id) => !doneContactIds.has(id)) // done takes priority
   )
 
   // Only show this user's own pins — use Team Map to see everyone's pins
@@ -245,13 +269,15 @@ export default function KnockMap() {
 
         {/* Geocoded client/lead pins */}
         {contacts.filter((c) => c.lat && c.lng).map((c) => {
+          const isDone   = doneContactIds.has(c.id)
           const isBooked = bookedContactIds.has(c.id)
+          const icon = isDone ? donePinIcon : isBooked ? bookedPinIcon : clientPinIcon
           return (
             <Marker
               key={`client-${c.id}`}
               position={[c.lat, c.lng]}
-              icon={isBooked ? bookedPinIcon : clientPinIcon}
-              zIndexOffset={isBooked ? 500 : 0}
+              icon={icon}
+              zIndexOffset={isDone ? 600 : isBooked ? 500 : 0}
             >
               <Popup minWidth={200} className="knock-popup">
                 <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
@@ -276,12 +302,19 @@ export default function KnockMap() {
                       background: '#eef2ff', color: '#6366f1',
                       fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                     }}>{c.status}</span>
-                    {isBooked && (
+                    {isDone && (
                       <span style={{
                         display: 'inline-block', padding: '2px 8px', borderRadius: 12,
                         background: '#d1fae5', color: '#059669',
-                        fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                      }}>✓ Booked</span>
+                        fontSize: 10, fontWeight: 700,
+                      }}>✓ Done</span>
+                    )}
+                    {isBooked && (
+                      <span style={{
+                        display: 'inline-block', padding: '2px 8px', borderRadius: 12,
+                        background: '#fef3c7', color: '#d97706',
+                        fontSize: 10, fontWeight: 700,
+                      }}>📅 Booked</span>
                     )}
                   </div>
                 </div>
@@ -357,9 +390,12 @@ export default function KnockMap() {
             <span className="text-slate-500 text-xs">·</span>
             <span className="text-indigo-400 text-xs">{contacts.filter(c => c.lat && c.lng).length}/{contacts.length} contacts</span>
             <span className="text-slate-500 text-xs">·</span>
-            <span className={bookedContactIds.size > 0 ? 'text-emerald-400 text-xs font-semibold' : 'text-slate-500 text-xs'}>
-              ✓ {bookedContactIds.size} done
-            </span>
+            {bookedContactIds.size > 0 && (
+              <span className="text-amber-400 text-xs font-semibold">📅 {bookedContactIds.size} booked</span>
+            )}
+            {doneContactIds.size > 0 && (
+              <span className="text-emerald-400 text-xs font-semibold">✓ {doneContactIds.size} done</span>
+            )}
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${synced ? 'bg-emerald-400' : 'bg-red-400'}`}
               title={synced ? 'Live' : 'Offline'} />
           </div>
@@ -472,8 +508,12 @@ export default function KnockMap() {
               <span className="text-slate-300 text-xs">Contact</span>
             </div>
             <div className="flex items-center gap-2">
+              <svg width="12" height="16" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#f59e0b"/><circle cx="13" cy="13" r="4.5" fill="white" opacity="0.9"/></svg>
+              <span className="text-amber-400 text-xs">Booked</span>
+            </div>
+            <div className="flex items-center gap-2">
               <svg width="12" height="16" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#10b981"/><circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/><polyline points="9,13 11.5,15.5 17,10" fill="none" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <span className="text-emerald-400 text-xs font-semibold">Job Done</span>
+              <span className="text-emerald-400 text-xs">Done</span>
             </div>
             {contacts.length === 0 && (
               <div className="text-amber-400 text-xs pt-0.5 border-t border-slate-700/40">Import contacts first</div>
