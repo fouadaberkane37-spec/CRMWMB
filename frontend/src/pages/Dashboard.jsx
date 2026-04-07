@@ -1,21 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api.js'
-import { Users, CheckCircle, DollarSign, CalendarDays } from 'lucide-react'
-
-function StatCard({ icon: Icon, label, value, sub, colorClass, iconClass, to }) {
-  const inner = (
-    <div className={`bg-slate-900 rounded-2xl border p-6 transition-colors ${colorClass}`}>
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${iconClass}`}>
-        <Icon size={22} />
-      </div>
-      <p className="text-3xl font-bold text-slate-100 leading-none">{value}</p>
-      {sub && <p className="text-xs text-slate-500 mt-1.5">{sub}</p>}
-      <p className="text-sm text-slate-400 mt-2 font-medium">{label}</p>
-    </div>
-  )
-  return to ? <Link to={to}>{inner}</Link> : inner
-}
+import { useAuth } from '../App.jsx'
+import { Users, CheckCircle, DollarSign, CalendarDays, ChevronRight } from 'lucide-react'
 
 const STATUS_COLORS = {
   lead:     'bg-blue-900/40 text-blue-400',
@@ -32,10 +19,25 @@ const JOB_COLORS = {
 }
 
 const JOB_LABELS = {
-  todo: 'To Do', payment_pending: 'Payment Pending', done: 'Done', cancelled: 'Cancelled',
+  todo: 'To Do', payment_pending: 'Pending', done: 'Done', cancelled: 'Cancelled',
+}
+
+function StatCard({ icon: Icon, label, value, sub, accent, to }) {
+  const inner = (
+    <div className={`bg-slate-900 rounded-2xl border ${accent.border} p-4 active:opacity-80 transition-opacity`}>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${accent.icon}`}>
+        <Icon size={20} />
+      </div>
+      <p className="text-2xl font-bold text-slate-100 leading-none">{value}</p>
+      {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+      <p className="text-xs text-slate-400 mt-2 font-medium">{label}</p>
+    </div>
+  )
+  return to ? <Link to={to}>{inner}</Link> : inner
 }
 
 export default function Dashboard() {
+  const { user } = useAuth()
   const [contacts, setContacts] = useState([])
   const [deals, setDeals]       = useState([])
   const [loading, setLoading]   = useState(true)
@@ -78,104 +80,104 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
-        <p className="text-slate-500 text-sm mt-1">Groupe WMB — business overview</p>
+    <div className="px-4 pt-6 pb-2 md:px-8 md:pt-8">
+      {/* Header */}
+      <div className="mb-5">
+        <h1 className="text-xl font-bold text-slate-100">
+          Hey, {user?.full_name?.split(' ')[0] || user?.username} 👋
+        </h1>
+        <p className="text-slate-500 text-sm mt-0.5">Groupe WMB overview</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Stats 2×2 grid */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
         <StatCard
           icon={Users}
           label="Total Leads"
           value={loading ? '…' : totalLeads}
           sub="all contacts"
-          colorClass="border-indigo-500/20 hover:border-indigo-500/40"
-          iconClass="bg-indigo-500/10 text-indigo-400"
+          accent={{ border: 'border-indigo-500/20', icon: 'bg-indigo-500/10 text-indigo-400' }}
           to="/contacts"
         />
         <StatCard
           icon={CheckCircle}
           label="Customers"
           value={loading ? '…' : totalCustomers}
-          sub="closed contacts"
-          colorClass="border-emerald-500/20 hover:border-emerald-500/40"
-          iconClass="bg-emerald-500/10 text-emerald-400"
+          sub="closed"
+          accent={{ border: 'border-emerald-500/20', icon: 'bg-emerald-500/10 text-emerald-400' }}
           to="/contacts"
         />
         <StatCard
           icon={DollarSign}
-          label="Revenue Made"
+          label="Revenue"
           value={loading ? '…' : fmtMoney(amountMade)}
-          sub={`30% of ${fmtMoney(totalDealValue)} total`}
-          colorClass="border-emerald-500/20 hover:border-emerald-500/40"
-          iconClass="bg-emerald-500/10 text-emerald-400"
+          sub={`30% of ${fmtMoney(totalDealValue)}`}
+          accent={{ border: 'border-emerald-500/20', icon: 'bg-emerald-500/10 text-emerald-400' }}
         />
         <StatCard
           icon={CalendarDays}
           label="Appointments"
           value={loading ? '…' : deals.filter(d => d.expected_close_date).length}
           sub={`${upcoming.length} upcoming`}
-          colorClass="border-amber-500/20 hover:border-amber-500/40"
-          iconClass="bg-amber-500/10 text-amber-400"
+          accent={{ border: 'border-amber-500/20', icon: 'bg-amber-500/10 text-amber-400' }}
           to="/calendar"
         />
       </div>
 
-      {/* Recent rows */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Contacts */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-700/50">
-          <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-100">Recent Contacts</h2>
-            <Link to="/contacts" className="text-sm text-indigo-400 hover:text-indigo-300">View all</Link>
-          </div>
-          <div className="divide-y divide-slate-700/30">
-            {recentContacts.length === 0 && (
-              <p className="px-6 py-8 text-center text-slate-500 text-sm">No contacts yet</p>
-            )}
-            {recentContacts.map((c) => (
-              <div key={c.id} className="px-6 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-200">{c.first_name} {c.last_name}</p>
-                  <p className="text-xs text-slate-500">{c.phone || c.address || '—'}</p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_COLORS[c.status] || 'bg-slate-700 text-slate-400'}`}>
-                  {c.status}
+      {/* Recent Contacts */}
+      <div className="bg-slate-900 rounded-2xl border border-slate-700/50 mb-4 overflow-hidden">
+        <div className="px-4 py-3.5 border-b border-slate-700/50 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-100 text-sm">Recent Contacts</h2>
+          <Link to="/contacts" className="flex items-center gap-1 text-xs text-indigo-400">
+            View all <ChevronRight size={14} />
+          </Link>
+        </div>
+        <div className="divide-y divide-slate-700/30">
+          {recentContacts.length === 0 && (
+            <p className="px-4 py-8 text-center text-slate-500 text-sm">No contacts yet</p>
+          )}
+          {recentContacts.map(c => (
+            <div key={c.id} className="px-4 flex items-center justify-between" style={{ minHeight: '52px' }}>
+              <div className="flex-1 min-w-0 mr-3">
+                <p className="text-sm font-medium text-slate-200 truncate">{c.first_name} {c.last_name}</p>
+                <p className="text-xs text-slate-500 truncate">{c.phone || c.address || '—'}</p>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize flex-shrink-0 ${STATUS_COLORS[c.status] || 'bg-slate-700 text-slate-400'}`}>
+                {c.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Upcoming Appointments */}
+      <div className="bg-slate-900 rounded-2xl border border-slate-700/50 overflow-hidden">
+        <div className="px-4 py-3.5 border-b border-slate-700/50 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-100 text-sm">Upcoming Appointments</h2>
+          <Link to="/calendar" className="flex items-center gap-1 text-xs text-indigo-400">
+            Calendar <ChevronRight size={14} />
+          </Link>
+        </div>
+        <div className="divide-y divide-slate-700/30">
+          {upcoming.length === 0 && (
+            <p className="px-4 py-8 text-center text-slate-500 text-sm">No upcoming appointments</p>
+          )}
+          {upcoming.map(d => (
+            <div key={d.id} className="px-4 flex items-center justify-between" style={{ minHeight: '56px' }}>
+              <div className="flex-1 min-w-0 mr-3">
+                <p className="text-sm font-medium text-slate-200 truncate">
+                  {d.contact ? `${d.contact.first_name} ${d.contact.last_name || ''}`.trim() : d.title}
+                </p>
+                <p className="text-xs text-slate-500">{fmtDate(d.expected_close_date)}</p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-sm font-semibold text-emerald-400">{d.value > 0 ? `$${d.value.toFixed(0)}` : '—'}</p>
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${JOB_COLORS[d.job_status] || JOB_COLORS.todo}`}>
+                  {JOB_LABELS[d.job_status] || 'To Do'}
                 </span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Upcoming Appointments */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-700/50">
-          <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-100">Upcoming Appointments</h2>
-            <Link to="/calendar" className="text-sm text-indigo-400 hover:text-indigo-300">Calendar</Link>
-          </div>
-          <div className="divide-y divide-slate-700/30">
-            {upcoming.length === 0 && (
-              <p className="px-6 py-8 text-center text-slate-500 text-sm">No upcoming appointments</p>
-            )}
-            {upcoming.map((d) => (
-              <div key={d.id} className="px-6 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-200">
-                    {d.contact ? `${d.contact.first_name} ${d.contact.last_name || ''}`.trim() : d.title}
-                  </p>
-                  <p className="text-xs text-slate-500">{fmtDate(d.expected_close_date)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-emerald-400">{d.value > 0 ? `$${d.value.toFixed(0)}` : '—'}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_COLORS[d.job_status] || JOB_COLORS.todo}`}>
-                    {JOB_LABELS[d.job_status] || 'To Do'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

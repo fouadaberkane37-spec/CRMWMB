@@ -3,7 +3,8 @@ import api from '../api.js'
 import { useAuth } from '../App.jsx'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
-         ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut } from 'lucide-react'
+         ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut,
+         List, LayoutGrid } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -555,6 +556,7 @@ export default function Calendar() {
   // Drag state
   const [draggingDealId, setDraggingDealId] = useState(null)
   const [dragOverDate, setDragOverDate]     = useState(undefined)
+  const [viewMode, setViewMode]             = useState('agenda') // 'agenda' | 'grid'
 
   const load = useCallback(() => {
     api.get('/deals/', { params: { limit: 1000 } })
@@ -625,123 +627,221 @@ export default function Calendar() {
   ]))
   const monthRevenue  = monthDeals.filter(d => d.job_status === 'done').reduce((s, d) => s + (d.value || 0), 0)
   const monthPipeline = monthDeals.reduce((s, d) => s + (d.value || 0), 0)
-  const todayStr = fmt(today)
+  const todayStr   = fmt(today)
+  const allDeals   = [...deals].sort((a,b) => new Date(a.expected_close_date) - new Date(b.expected_close_date))
+
+  // Agenda: group month deals by date, sorted
+  const agendaDays = Object.entries(
+    monthDeals.reduce((acc, d) => {
+      const key = fmt(new Date(d.expected_close_date))
+      if (!acc[key]) acc[key] = []
+      acc[key].push(d)
+      return acc
+    }, {})
+  ).sort(([a], [b]) => new Date(a) - new Date(b))
 
   return (
-    <div className="p-6 h-full flex flex-col">
+    <div className="flex flex-col" style={{ height: '100%' }}>
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Calendar</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            {monthDeals.length} appointments this month
-            {draggingDealId && <span className="ml-2 text-indigo-400 font-medium">· Drop on any day to reschedule</span>}
-          </p>
+          <h1 className="text-xl font-bold text-slate-100">Calendar</h1>
+          <p className="text-slate-500 text-xs mt-0.5">{monthDeals.length} appointments</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+          {/* View toggle — mobile only */}
+          <button
+            onClick={() => setViewMode(v => v === 'agenda' ? 'grid' : 'agenda')}
+            className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 md:hidden"
+            aria-label="Toggle view"
+          >
+            {viewMode === 'agenda' ? <LayoutGrid size={16} /> : <List size={16} />}
+          </button>
+          <button onClick={prevMonth} className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 active:bg-slate-700">
             <ChevronLeft size={18} />
           </button>
-          <span className="text-white font-semibold text-base min-w-[150px] text-center">
-            {MONTHS[month]} {year}
+          <span className="text-white font-semibold text-sm min-w-[110px] text-center">
+            {MONTHS[month].slice(0,3)} {year}
           </span>
-          <button onClick={nextMonth} className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+          <button onClick={nextMonth} className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 active:bg-slate-700">
             <ChevronRight size={18} />
           </button>
         </div>
       </div>
 
-      {/* ── Stats bar ── */}
-      <div className="flex gap-3 mb-4 flex-shrink-0 flex-wrap">
+      {/* ── Stats pills (scrollable) ── */}
+      <div className="flex gap-2 px-4 mb-3 overflow-x-auto flex-shrink-0 pb-1 scrollbar-none">
         {JOB_STATUSES.map(s => (
-          <div key={s.key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${s.badge}`}>
-            <span className={`w-2 h-2 rounded-full ${s.dot}`} />
-            {s.label}
-            <span className="font-bold ml-0.5">{counts[s.key]}</span>
+          <div key={s.key} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold whitespace-nowrap ${s.badge}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+            {s.label} {counts[s.key]}
           </div>
         ))}
-        <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-700/50 bg-slate-800/50 text-xs font-medium text-slate-300 ml-auto">
-          <DollarSign size={12} className="text-emerald-400" />
-          <span className="text-emerald-400 font-bold">${monthRevenue.toFixed(0)}</span>
-          <span className="text-slate-500">collected · pipeline ${monthPipeline.toFixed(0)}</span>
+        <div className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-slate-700/50 bg-slate-800/50 text-xs font-semibold text-emerald-400 whitespace-nowrap">
+          <DollarSign size={11} />${monthRevenue.toFixed(0)}
         </div>
       </div>
 
-      {/* ── Calendar grid ── */}
-      <div className="flex-1 flex flex-col min-h-0 bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden">
-        {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-slate-700/50 flex-shrink-0">
-          {DAYS.map(d => (
-            <div key={d} className="px-2 py-2 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">{d}</div>
-          ))}
-        </div>
-
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">Loading…</div>
-        ) : (
-          <div
-            className="grid grid-cols-7 flex-1 overflow-y-auto"
-            style={{ gridAutoRows: 'minmax(80px, 1fr)' }}
-            onDragEnd={() => { setDraggingDealId(null); setDragOverDate(undefined) }}
-          >
-            {Array.from({ length: totalCells }, (_, i) => {
-              const dayNum  = i - firstDayOfWeek + 1
-              const isValid = dayNum >= 1 && dayNum <= daysInMonth
-              const dateStr = isValid
-                ? `${year}-${String(month + 1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`
-                : null
-              const dayDeals = dateStr ? (dealsByDate[dateStr] || []) : []
-              const isToday  = dateStr === todayStr
-              const isPast   = isValid && new Date(year, month, dayNum) < new Date(today.getFullYear(), today.getMonth(), today.getDate())
-
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">Loading…</div>
+      ) : (
+        <>
+          {/* ── AGENDA VIEW (mobile default) ── */}
+          <div className={`flex-1 overflow-y-auto px-4 pb-2 ${viewMode === 'agenda' ? 'block md:hidden' : 'hidden'}`}>
+            {agendaDays.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-600">
+                <CalendarDays size={40} className="mb-3 opacity-40" />
+                <p className="text-sm">No appointments this month</p>
+              </div>
+            ) : agendaDays.map(([dateStr, dayDeals]) => {
+              const dt = new Date(dateStr)
+              const isToday = dateStr === todayStr
+              const isPast  = dt < new Date(today.getFullYear(), today.getMonth(), today.getDate())
               return (
-                <div key={i} style={{ position: 'relative' }}>
-                  <DayCell
-                    dayNum={dayNum}
-                    dateStr={dateStr}
-                    isValid={isValid}
-                    isToday={isToday}
-                    isPast={isPast}
-                    deals={dayDeals}
-                    isDragOver={dragOverDate === dateStr}
-                    draggingDealId={draggingDealId}
-                    allDeals={[...deals].sort((a,b) => new Date(a.expected_close_date) - new Date(b.expected_close_date))}
-                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverDate(dateStr) }}
-                    onDragLeave={() => setDragOverDate(undefined)}
-                    onDrop={e => {
-                      e.preventDefault()
-                      const dealId = parseInt(e.dataTransfer.getData('dealId'))
-                      if (dealId && dateStr) dropDeal(dealId, dateStr)
-                      setDraggingDealId(null)
-                      setDragOverDate(undefined)
-                    }}
-                    onUpdate={updateStatus}
-                    onReschedule={rescheduleLocal}
-                    onDragStart={id => setDraggingDealId(id)}
-                    onDragEnd={() => { setDraggingDealId(null); setDragOverDate(undefined) }}
-                    isAdmin={isAdmin}
-                    isTech={isTech}
-                  />
+                <div key={dateStr} className="mb-3">
+                  {/* Date header */}
+                  <div className={`flex items-center gap-2 mb-2 ${isPast ? 'opacity-50' : ''}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                      isToday ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {dt.getDate()}
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      {dt.toLocaleDateString('en-CA', { weekday: 'long', month: 'short' })}
+                    </span>
+                  </div>
+                  {/* Deal cards */}
+                  <div className="space-y-2 ml-10">
+                    {dayDeals.map(deal => {
+                      const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
+                      const name = deal.contact
+                        ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim()
+                        : deal.title
+                      const time = new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+                      return (
+                        <AgendaCard
+                          key={deal.id}
+                          deal={deal}
+                          allDeals={allDeals}
+                          name={name}
+                          time={time}
+                          s={s}
+                          isAdmin={isAdmin}
+                          isTech={isTech}
+                          onUpdate={updateStatus}
+                          onReschedule={rescheduleLocal}
+                        />
+                      )
+                    })}
+                  </div>
                 </div>
               )
             })}
           </div>
-        )}
-      </div>
 
-      {/* ── Legend ── */}
-      <div className="flex items-center gap-4 mt-3 flex-shrink-0">
-        <span className="text-xs text-slate-600">
-          {isAdmin ? 'Click to change status · Drag to reschedule' : isTech ? 'Click any appointment to view details & clock in/out' : 'View only — admin can change status'}
-        </span>
-        <div className="flex items-center gap-3 ml-auto">
-          {JOB_STATUSES.map(s => (
-            <span key={s.key} className="flex items-center gap-1.5 text-xs text-slate-500">
-              <span className={`w-2.5 h-2.5 rounded-sm ${s.color}`} /> {s.label}
+          {/* ── GRID VIEW (desktop default, mobile optional) ── */}
+          <div className={`flex-1 flex flex-col min-h-0 mx-4 mb-3 bg-slate-900 rounded-2xl border border-slate-700/50 overflow-hidden ${viewMode === 'grid' ? 'block' : 'hidden md:flex md:flex-col'}`}>
+            <div className="grid grid-cols-7 border-b border-slate-700/50 flex-shrink-0">
+              {DAYS.map(d => (
+                <div key={d} className="py-2 text-center text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{d.slice(0,1)}</div>
+              ))}
+            </div>
+            <div
+              className="grid grid-cols-7 flex-1 overflow-y-auto"
+              style={{ gridAutoRows: 'minmax(70px, 1fr)' }}
+              onDragEnd={() => { setDraggingDealId(null); setDragOverDate(undefined) }}
+            >
+              {Array.from({ length: totalCells }, (_, i) => {
+                const dayNum  = i - firstDayOfWeek + 1
+                const isValid = dayNum >= 1 && dayNum <= daysInMonth
+                const dateStr = isValid
+                  ? `${year}-${String(month + 1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`
+                  : null
+                const dayDeals = dateStr ? (dealsByDate[dateStr] || []) : []
+                const isToday  = dateStr === todayStr
+                const isPast   = isValid && new Date(year, month, dayNum) < new Date(today.getFullYear(), today.getMonth(), today.getDate())
+                return (
+                  <div key={i} style={{ position: 'relative' }}>
+                    <DayCell
+                      dayNum={dayNum}
+                      dateStr={dateStr}
+                      isValid={isValid}
+                      isToday={isToday}
+                      isPast={isPast}
+                      deals={dayDeals}
+                      isDragOver={dragOverDate === dateStr}
+                      draggingDealId={draggingDealId}
+                      allDeals={allDeals}
+                      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverDate(dateStr) }}
+                      onDragLeave={() => setDragOverDate(undefined)}
+                      onDrop={e => {
+                        e.preventDefault()
+                        const dealId = parseInt(e.dataTransfer.getData('dealId'))
+                        if (dealId && dateStr) dropDeal(dealId, dateStr)
+                        setDraggingDealId(null)
+                        setDragOverDate(undefined)
+                      }}
+                      onUpdate={updateStatus}
+                      onReschedule={rescheduleLocal}
+                      onDragStart={id => setDraggingDealId(id)}
+                      onDragEnd={() => { setDraggingDealId(null); setDragOverDate(undefined) }}
+                      isAdmin={isAdmin}
+                      isTech={isTech}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── Legend ── */}
+          <div className="px-4 pb-2 flex-shrink-0 hidden md:block">
+            <span className="text-xs text-slate-600">
+              {isAdmin ? 'Click to change status · Drag to reschedule' : isTech ? 'Tap any appointment to view details & clock in/out' : 'View only'}
             </span>
-          ))}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </div>
+  )
+}
+
+// ── Agenda Card (mobile list item) ─────────────────────────────────────────────
+function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, onReschedule }) {
+  const [techModal, setTechModal]   = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        onClick={() => { if (isTech) setTechModal(true); else if (isAdmin) setStatusOpen(v => !v) }}
+        className={`w-full text-left rounded-2xl px-4 py-3 ${s.color} active:opacity-80 transition-opacity`}
+        style={{ minHeight: '60px' }}
+        aria-label={`${name} appointment at ${time}`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1 min-w-0 mr-2">
+            <p className={`font-semibold text-sm truncate ${s.text}`}>{name}</p>
+            <p className={`text-xs mt-0.5 opacity-80 ${s.text}`}>
+              {time} {deal.value > 0 ? `· $${deal.value.toFixed(0)}` : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`text-xs font-medium opacity-80 ${s.text}`}>{s.label}</span>
+            {isTech && <ExternalLink size={14} className={`opacity-60 ${s.text}`} />}
+            {!isAdmin && !isTech && <Lock size={12} className={`opacity-40 ${s.text}`} />}
+          </div>
+        </div>
+        {deal.contact?.address && (
+          <p className={`text-xs mt-1 opacity-60 truncate ${s.text}`}>{deal.contact.address}</p>
+        )}
+      </button>
+      {statusOpen && isAdmin && (
+        <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setStatusOpen(false)} />
+      )}
+      {techModal && (
+        <TechJobModal deal={deal} allDeals={allDeals} onClose={() => setTechModal(false)} />
+      )}
+    </>
   )
 }

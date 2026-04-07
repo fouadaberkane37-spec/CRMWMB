@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 body {
   margin: 0;
@@ -12,11 +12,28 @@ body {
   color: #e2e8f0;
   /* Prevent overscroll bounce on iOS */
   overscroll-behavior: none;
+  /* Prevent text size adjustment when rotating on iOS */
+  -webkit-text-size-adjust: 100%;
 }
 
-/* iOS safe-area: keep content above the home indicator */
+/* Use dynamic viewport height for full-screen feel on iOS Safari */
 #root {
+  height: 100dvh;
+  overflow: hidden;
+  /* Push content below Dynamic Island / notch */
   padding-top: env(safe-area-inset-top);
+}
+
+/* Hide horizontal scrollbar on stats pills */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Smooth momentum scrolling on iOS */
+.overflow-y-auto, .overflow-y-scroll {
+  -webkit-overflow-scrolling: touch;
 }
 
 @layer components {

@@ -2,13 +2,13 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import api from '../api.js'
-import { Zap, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 export default function Login() {
   const { login } = useAuth()
-  const navigate = useNavigate()
-  const [form, setForm] = useState({ username: '', password: '' })
-  const [error, setError] = useState('')
+  const navigate   = useNavigate()
+  const [form, setForm]       = useState({ username: '', password: '' })
+  const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e) {
@@ -22,7 +22,6 @@ export default function Login() {
       const { data } = await api.post('/auth/login', params, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
-      // Fetch user info
       const { data: user } = await api.get('/auth/me', {
         headers: { Authorization: `Bearer ${data.access_token}` },
       })
@@ -37,44 +36,52 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    <div
+      className="flex flex-col items-center justify-center bg-slate-950 px-5"
+      style={{ minHeight: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl mb-4">
-            <Zap size={28} className="text-white" />
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-600 rounded-3xl mb-5 shadow-lg shadow-indigo-900/50">
+            <span className="text-white text-4xl font-black">W</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-          <p className="text-slate-400 text-sm mt-1">Sign in to your CRM</p>
+          <h1 className="text-3xl font-bold text-white">WMB CRM</h1>
+          <p className="text-slate-400 text-sm mt-2">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl p-8 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-900/30 border border-red-800/50 text-red-400 rounded-lg px-4 py-3 text-sm">
+            <div className="bg-red-900/30 border border-red-800/50 text-red-400 rounded-2xl px-4 py-3 text-sm" role="alert">
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5">Username</label>
+            <label htmlFor="login-username" className="block text-sm font-semibold text-slate-300 mb-2">Username</label>
             <input
+              id="login-username"
               type="text"
               value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-              className="w-full border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-500 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="admin"
+              onChange={e => setForm({ ...form, username: e.target.value })}
+              className="w-full border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 rounded-2xl px-4 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              style={{ height: '52px' }}
+              placeholder="username"
+              autoCapitalize="none"
+              autoCorrect="off"
               required
-              autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
+            <label htmlFor="login-password" className="block text-sm font-semibold text-slate-300 mb-2">Password</label>
             <input
+              id="login-password"
               type="password"
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-500 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              className="w-full border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 rounded-2xl px-4 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              style={{ height: '52px' }}
               placeholder="••••••••"
               required
             />
@@ -83,15 +90,16 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full bg-indigo-600 active:bg-indigo-700 text-white font-bold rounded-2xl text-base transition-colors flex items-center justify-center gap-2 disabled:opacity-60 mt-2"
+            style={{ height: '56px' }}
           >
-            {loading && <Loader2 size={16} className="animate-spin" />}
-            Sign in
+            {loading && <Loader2 size={18} className="animate-spin" />}
+            {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <p className="text-center text-slate-500 text-xs mt-6">
-          Self-hosted · Your data stays on your machine
+        <p className="text-center text-slate-600 text-xs mt-8">
+          Groupe WMB · Team CRM
         </p>
       </div>
     </div>
