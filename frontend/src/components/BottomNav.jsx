@@ -13,6 +13,9 @@ export default function BottomNav() {
   const isAdmin  = user?.role === 'admin'
   const isTech   = user?.role === 'technician'
   const isSales  = user?.role === 'sales'
+  const canSeeChats = isAdmin ||
+    user?.username?.toLowerCase().includes('fouad') ||
+    user?.full_name?.toLowerCase().includes('fouad')
   const navigate = useNavigate()
 
   const primaryNav = isTech
@@ -95,7 +98,7 @@ export default function BottomNav() {
               {[
                 { to: '/map',       label: 'My Map',     icon: MapPin },
                 { to: '/team-map',  label: 'Team Map',   icon: Globe },
-                ...(isAdmin ? [{ to: '/chats',     label: 'Chats',      icon: MessageSquare }] : []),
+                ...(canSeeChats ? [{ to: '/chats',     label: 'Chats',      icon: MessageSquare }] : []),
                 ...(isAdmin ? [{ to: '/timesheet', label: 'Timesheet',  icon: ClipboardList }] : []),
                 ...(isAdmin ? [{ to: '/users',     label: 'Users',      icon: UserCog }] : []),
               ].map(({ to, label, icon: Icon }) => (

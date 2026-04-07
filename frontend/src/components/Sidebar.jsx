@@ -13,7 +13,7 @@ const ALL_NAV = [
   { to: '/booking', label: 'Booking',    icon: BookOpen,        hideForTech: true },
   { to: '/calendar',label: 'Calendar',   icon: CalendarDays },
   { to: '/clock',   label: 'Clock In/Out', icon: Timer, hideForSales: true },
-  { to: '/chats',   label: 'Chats',      icon: MessageSquare,   adminOnly: true, hideForTech: true },
+  { to: '/chats',   label: 'Chats',      icon: MessageSquare,   chatsOnly: true, hideForTech: true },
   { to: '/map',     label: 'My Map',     icon: MapPin,          hideForTech: true },
   { to: '/team-map',label: 'Team Map',   icon: Globe,           hideForTech: true },
   { to: '/search',  label: 'Search',     icon: Search,          hideForTech: true },
@@ -24,8 +24,13 @@ export default function Sidebar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
+  const canSeeChats = user?.role === 'admin' ||
+    user?.username?.toLowerCase().includes('fouad') ||
+    user?.full_name?.toLowerCase().includes('fouad')
+
   const navItems = ALL_NAV.filter(item => {
     if (item.adminOnly && user?.role !== 'admin') return false
+    if (item.chatsOnly && !canSeeChats) return false
     if (item.hideForTech && user?.role === 'technician') return false
     if (item.hideForSales && user?.role === 'sales') return false
     return true
