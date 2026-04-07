@@ -18,24 +18,24 @@ def _own_contact(contact, user):
 
 
 def geocode_address(address: str):
-    """Geocode an address restricted to the Greater Montreal area (~1 h drive).
+    """Geocode an address in the Greater Montreal / Laurentians area.
 
-    Bounding box: lat 45.1–46.1, lon -74.6 to -73.0
-    Covers Montreal, Laval, South Shore, Vaudreuil, Saint-Jean-sur-Richelieu.
-    Excludes Granby, Québec City, and all European matches.
+    Tries city-specific queries (Saint-Jérôme, Laval, Montreal) first,
+    then falls back to a viewbox-biased broad search.
+    Results are validated against the area bounding box.
     """
     import requests, time
 
     if not address or not address.strip():
         return None, None
 
-    # Greater Montreal bounding box  (left, top, right, bottom) for Nominatim
-    MTL_VIEWBOX = "-74.6,46.1,-73.0,45.1"
-    # (min_lon, min_lat, max_lon, max_lat) for Photon
-    MTL_BBOX    = "-74.6,45.1,-73.0,46.1"
+    # Bounding box: Saint-Jérôme (N) → South Shore (S), Vaudreuil (W) → Repentigny (E)
+    # lat 45.2–46.1, lon -74.7 to -73.3
+    VIEWBOX = "-74.7,46.1,-73.3,45.2"   # Nominatim: left,top,right,bottom
+    BBOX    = "-74.7,45.2,-73.3,46.1"   # Photon: minLon,minLat,maxLon,maxLat
 
-    def _in_mtl(lat, lng):
-        return 45.1 <= lat <= 46.1 and -74.6 <= lng <= -73.0
+    def _in_area(lat, lng):
+        return 45.2 <= lat <= 46.1 and -74.7 <= lng <= -73.3
 
     addr = address.strip()
     for tail in [", canada", ", québec", ", quebec", ", qc", ", ontario", ", on"]:
@@ -45,8 +45,15 @@ def geocode_address(address: str):
 
     HEADERS = {"User-Agent": "CRMWMB/1.0 groupewmb@gmail.com"}
 
-    # ── Nominatim bounded to Montreal area ────────────────────────────────────
-    for suffix in ["Québec, Canada", "Montreal, Quebec, Canada", "Quebec, Canada"]:
+    # ── Nominatim — city-specific first, then broad ────────────────────────────
+    city_suffixes = [
+        "Saint-Jérôme, Quebec, Canada",
+        "Saint-Jerome, Quebec, Canada",
+        "Laval, Quebec, Canada",
+        "Montreal, Quebec, Canada",
+        "Quebec, Canada",           # broad — viewbox provides geographic bias
+    ]
+    for suffix in city_suffixes:
         query = f"{addr}, {suffix}"
         try:
             r = requests.get(
@@ -56,8 +63,8 @@ def geocode_address(address: str):
                     "format": "json",
                     "limit": 3,
                     "countrycodes": "ca",
-                    "viewbox": MTL_VIEWBOX,
-                    "bounded": 1,
+                    "viewbox": VIEWBOX,
+                    # no bounded=1 so Nominatim isn't silently dropping valid results
                 },
                 headers=HEADERS,
                 timeout=8,
@@ -65,29 +72,31 @@ def geocode_address(address: str):
             if r.ok:
                 for hit in r.json():
                     lat, lng = float(hit["lat"]), float(hit["lon"])
-                    if _in_mtl(lat, lng):
+                    if _in_area(lat, lng):
                         return lat, lng
         except Exception:
             pass
         time.sleep(1)
 
-    # ── Photon fallback, filtered to Montreal bbox ─────────────────────────────
-    try:
-        r = requests.get(
-            "https://photon.komoot.io/api/",
-            params={"q": f"{addr}, Montreal, Quebec", "limit": 5, "lang": "fr",
-                    "bbox": MTL_BBOX},
-            headers=HEADERS,
-            timeout=8,
-        )
-        if r.ok:
-            for feat in r.json().get("features", []):
-                coords = feat["geometry"]["coordinates"]
-                lng2, lat2 = float(coords[0]), float(coords[1])
-                if _in_mtl(lat2, lng2):
-                    return lat2, lng2
-    except Exception:
-        pass
+    # ── Photon fallback ────────────────────────────────────────────────────────
+    for city in ["Saint-Jérôme, Quebec", "Laval, Quebec", "Montreal, Quebec"]:
+        try:
+            r = requests.get(
+                "https://photon.komoot.io/api/",
+                params={"q": f"{addr}, {city}", "limit": 5, "lang": "fr",
+                        "bbox": BBOX},
+                headers=HEADERS,
+                timeout=8,
+            )
+            if r.ok:
+                for feat in r.json().get("features", []):
+                    coords = feat["geometry"]["coordinates"]
+                    lng2, lat2 = float(coords[0]), float(coords[1])
+                    if _in_area(lat2, lng2):
+                        return lat2, lng2
+        except Exception:
+            pass
+        time.sleep(1)
 
     return None, None
 

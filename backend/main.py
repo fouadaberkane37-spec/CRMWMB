@@ -335,10 +335,10 @@ try:
         _conn.execute(text(
             "UPDATE contacts SET lat = NULL, lng = NULL "
             "WHERE lat IS NOT NULL AND ("
-            "  lat < 45.1 OR lat > 46.1 OR lng < -74.6 OR lng > -73.0"
+            "  lat < 45.2 OR lat > 46.1 OR lng < -74.7 OR lng > -73.3"
             ")"
         ))
-    print("[OK] Cleared out-of-area geocoding (outside Montreal ~1h radius)")
+    print("[OK] Cleared out-of-area geocoding (outside Saint-Jerome/Laval/Montreal area)")
 except Exception as _e:
     print(f"[WARN] geo-reset failed: {_e}")
 
