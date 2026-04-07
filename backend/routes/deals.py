@@ -32,8 +32,8 @@ def list_deals(
         joinedload(models.Deal.contact),
         joinedload(models.Deal.company),
     )
-    # Non-admin (sales) can only see deals they own (assigned to or created by)
-    if current_user.role != "admin":
+    # Technicians see all deals (read-only calendar view); sales see only their own
+    if current_user.role == "sales":
         q = q.filter(
             or_(
                 models.Deal.assigned_to == current_user.id,
