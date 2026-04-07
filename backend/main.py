@@ -130,11 +130,12 @@ for _col, _stmt in _deal_migrations:
         pass
 
 _contact_migrations = [
-    ("address",  "ALTER TABLE contacts ADD COLUMN{if_not_exists} address TEXT"),
-    ("services", "ALTER TABLE contacts ADD COLUMN{if_not_exists} services TEXT"),
-    ("price",    "ALTER TABLE contacts ADD COLUMN{if_not_exists} price FLOAT"),
-    ("lat",      "ALTER TABLE contacts ADD COLUMN{if_not_exists} lat FLOAT"),
-    ("lng",      "ALTER TABLE contacts ADD COLUMN{if_not_exists} lng FLOAT"),
+    ("address",    "ALTER TABLE contacts ADD COLUMN{if_not_exists} address TEXT"),
+    ("services",   "ALTER TABLE contacts ADD COLUMN{if_not_exists} services TEXT"),
+    ("price",      "ALTER TABLE contacts ADD COLUMN{if_not_exists} price FLOAT"),
+    ("lat",        "ALTER TABLE contacts ADD COLUMN{if_not_exists} lat FLOAT"),
+    ("lng",        "ALTER TABLE contacts ADD COLUMN{if_not_exists} lng FLOAT"),
+    ("deleted_at", "ALTER TABLE contacts ADD COLUMN{if_not_exists} deleted_at DATETIME"),
 ]
 for _col, _stmt in _contact_migrations:
     if _is_sqlite:
