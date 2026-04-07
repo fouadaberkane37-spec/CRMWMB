@@ -245,7 +245,10 @@ export default function KnockMap() {
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     // Full-screen relative container — map fills everything, UI floats on top
-    <div className="relative w-full h-full overflow-hidden bg-slate-950">
+    <div
+      className="relative w-full overflow-hidden bg-slate-950 md:h-full"
+      style={{ height: 'calc(100dvh - env(safe-area-inset-top) - 56px - env(safe-area-inset-bottom))' }}
+    >
 
       {/* ══ MAP ══════════════════════════════════════════════════════════════ */}
       <MapContainer
@@ -516,7 +519,7 @@ export default function KnockMap() {
 
       {/* ══ LEGEND (bottom-left) ═════════════════════════════════════════════ */}
       {mode === null && (
-        <div className="absolute bottom-0 left-0 z-10 p-4 md:pb-4" style={{ paddingBottom: 'calc(56px + max(env(safe-area-inset-bottom), 12px))' }}>
+        <div className="absolute bottom-0 left-0 z-10 p-4">
           <div className="bg-slate-900/85 backdrop-blur-md rounded-2xl px-3 py-2.5 border border-slate-700/40 shadow-xl space-y-1.5">
             <div className="flex items-center gap-2">
               <svg width="12" height="16" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#818cf8"/><circle cx="13" cy="13" r="4.5" fill="white" opacity="0.9"/></svg>
@@ -542,8 +545,7 @@ export default function KnockMap() {
 
       {/* ══ FLOATING ACTION BUTTONS (bottom-right) ════════════════════════════ */}
       {mode === null && (
-        <div className="absolute bottom-0 right-0 z-10 flex flex-col items-end gap-3 p-4 md:pb-4"
-          style={{ paddingBottom: 'calc(56px + max(env(safe-area-inset-bottom), 12px))' }}>
+        <div className="absolute bottom-0 right-0 z-10 flex flex-col items-end gap-3 p-4">
 
           {/* Recenter on location */}
           {userLoc && (
@@ -583,10 +585,7 @@ export default function KnockMap() {
         <>
           <div className="absolute inset-0 z-30 bg-black/30 md:hidden" onClick={cancel} />
 
-          <div
-            className="absolute z-40 left-0 right-0 rounded-t-3xl md:rounded-3xl md:right-6 md:left-auto md:w-88 bg-slate-900 border border-slate-700/60 shadow-2xl"
-            style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}
-          >
+          <div className="absolute z-40 bottom-0 left-0 right-0 rounded-t-3xl md:rounded-3xl md:bottom-6 md:right-6 md:left-auto md:w-88 bg-slate-900 border border-slate-700/60 shadow-2xl">
             {/* Sheet handle (mobile) */}
             <div className="flex justify-center pt-3 pb-0.5 md:hidden">
               <div className="w-9 h-1 rounded-full bg-slate-600/70" />
