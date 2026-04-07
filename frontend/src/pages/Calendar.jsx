@@ -237,7 +237,7 @@ export default function Calendar() {
 
   // Drag state
   const [draggingDealId, setDraggingDealId] = useState(null)
-  const [dragOverDate, setDragOverDate]     = useState(null)
+  const [dragOverDate, setDragOverDate]     = useState(undefined)
 
   const load = useCallback(() => {
     api.get('/deals/', { params: { limit: 1000 } })
@@ -365,7 +365,7 @@ export default function Calendar() {
           <div
             className="grid grid-cols-7 flex-1 overflow-y-auto"
             style={{ gridAutoRows: 'minmax(80px, 1fr)' }}
-            onDragEnd={() => { setDraggingDealId(null); setDragOverDate(null) }}
+            onDragEnd={() => { setDraggingDealId(null); setDragOverDate(undefined) }}
           >
             {Array.from({ length: totalCells }, (_, i) => {
               const dayNum  = i - firstDayOfWeek + 1
@@ -389,18 +389,18 @@ export default function Calendar() {
                     isDragOver={dragOverDate === dateStr}
                     draggingDealId={draggingDealId}
                     onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverDate(dateStr) }}
-                    onDragLeave={() => setDragOverDate(null)}
+                    onDragLeave={() => setDragOverDate(undefined)}
                     onDrop={e => {
                       e.preventDefault()
                       const dealId = parseInt(e.dataTransfer.getData('dealId'))
                       if (dealId && dateStr) dropDeal(dealId, dateStr)
                       setDraggingDealId(null)
-                      setDragOverDate(null)
+                      setDragOverDate(undefined)
                     }}
                     onUpdate={updateStatus}
                     onReschedule={rescheduleLocal}
                     onDragStart={id => setDraggingDealId(id)}
-                    onDragEnd={() => { setDraggingDealId(null); setDragOverDate(null) }}
+                    onDragEnd={() => { setDraggingDealId(null); setDragOverDate(undefined) }}
                     isAdmin={isAdmin}
                   />
                 </div>
