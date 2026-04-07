@@ -32,6 +32,38 @@ function RequireAdmin({ children }) {
   return user?.role === 'admin' ? children : <Navigate to="/" replace />
 }
 
+function DesktopBlock() {
+  const url = window.location.origin
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-8">
+      <div className="text-center max-w-sm">
+        <div className="w-20 h-20 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto mb-6 text-4xl font-black text-white">W</div>
+        <h1 className="text-2xl font-bold text-white mb-2">WMB CRM</h1>
+        <p className="text-slate-400 text-sm mb-8">This app is designed for mobile use. Open it on your phone to get started.</p>
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 inline-block mb-6">
+          {/* QR code rendered via Google Charts API — no library needed */}
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&bgcolor=1e293b&color=ffffff&data=${encodeURIComponent(url)}`}
+            alt="QR code to open on phone"
+            width={180}
+            height={180}
+            className="rounded-lg"
+          />
+        </div>
+        <p className="text-slate-600 text-xs">Scan with your phone camera</p>
+        <p className="text-slate-700 text-xs mt-1 break-all">{url}</p>
+      </div>
+    </div>
+  )
+}
+
+function MobileGate({ children }) {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    || window.innerWidth < 768
+  if (!isMobile) return <DesktopBlock />
+  return children
+}
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user')) } catch { return null }
@@ -53,6 +85,7 @@ export default function App() {
   }
 
   return (
+    <MobileGate>
     <AuthContext.Provider value={{ user, token, login, logout }}>
       <BrowserRouter>
         <Routes>
@@ -74,5 +107,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthContext.Provider>
+    </MobileGate>
   )
 }
