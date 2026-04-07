@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, TrendingUp, Search,
-  Menu, Building2, MapPin, UserCog, LogOut, X, Activity, MessageSquare, Globe, CalendarDays,
+  Menu, MapPin, UserCog, LogOut, X, MessageSquare, Globe, CalendarDays,
 } from 'lucide-react'
 
 export default function BottomNav() {
@@ -70,8 +70,6 @@ export default function BottomNav() {
 
             <div className="space-y-1">
               {[
-                { to: '/activities', label: 'Activities', icon: Activity },
-                { to: '/companies', label: 'Companies', icon: Building2 },
                 { to: '/map', label: 'My Map', icon: MapPin },
                 { to: '/team-map', label: 'Team Map', icon: Globe },
                 ...(isAdmin ? [{ to: '/chats', label: 'Chats', icon: MessageSquare }] : []),

@@ -4,9 +4,7 @@ import Layout from './components/Layout.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Contacts from './pages/Contacts.jsx'
-import Companies from './pages/Companies.jsx'
 import Deals from './pages/Deals.jsx'
-import Activities from './pages/Activities.jsx'
 import Users from './pages/Users.jsx'
 import KnockMap from './pages/KnockMap.jsx'
 import TeamMap from './pages/TeamMap.jsx'
@@ -61,10 +59,8 @@ export default function App() {
           <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="contacts" element={<Contacts />} />
-            <Route path="companies" element={<Companies />} />
             <Route path="deals" element={<Deals />} />
             <Route path="calendar" element={<Calendar />} />
-            <Route path="activities" element={<Activities />} />
             <Route path="users" element={<Users />} />
             <Route path="map" element={<KnockMap />} />
             <Route path="team-map" element={<TeamMap />} />
