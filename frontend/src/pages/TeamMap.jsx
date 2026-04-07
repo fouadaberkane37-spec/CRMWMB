@@ -240,7 +240,7 @@ export default function TeamMap() {
       </div>
 
       {/* ══ LEGEND ══════════════════════════════════════════════════════════ */}
-      <div className="absolute bottom-0 left-0 z-10 p-4" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
+      <div className="absolute bottom-0 left-0 z-10 p-4" style={{ paddingBottom: 'calc(56px + max(env(safe-area-inset-bottom), 12px))' }}>
         <div className="bg-slate-900/85 backdrop-blur-md rounded-2xl border border-slate-700/40 shadow-xl px-3 py-2.5 space-y-1.5">
           <div className="flex items-center gap-2">
             <svg width="10" height="14" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#818cf8"/><circle cx="13" cy="13" r="4.5" fill="white" opacity="0.9"/></svg>
@@ -274,7 +274,7 @@ export default function TeamMap() {
         </div>
       </div>
 
-      <div className="absolute bottom-0 right-0 z-10 p-4" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
+      <div className="absolute bottom-0 right-0 z-10 p-4" style={{ paddingBottom: 'calc(56px + max(env(safe-area-inset-bottom), 12px))' }}>
         <div className="bg-slate-900/70 backdrop-blur-sm rounded-xl border border-slate-700/30 px-3 py-1.5">
           <p className="text-slate-500 text-xs">View only · syncs every 8s</p>
         </div>
