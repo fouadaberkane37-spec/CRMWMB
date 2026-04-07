@@ -60,7 +60,11 @@ export default function App() {
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
           <Route path="/invite/:token" element={<AcceptInvite />} />
           <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
-            <Route index element={<Dashboard />} />
+            <Route index element={
+            user?.role === 'technician'
+              ? <Navigate to="/calendar" replace />
+              : <Dashboard />
+          } />
             <Route path="contacts" element={<Contacts />} />
             <Route path="booking" element={<Booking />} />
             <Route path="calendar" element={<Calendar />} />
