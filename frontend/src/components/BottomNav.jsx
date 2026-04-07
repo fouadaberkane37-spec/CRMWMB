@@ -23,12 +23,18 @@ export default function BottomNav() {
         { to: '/calendar',  label: 'Calendar',    icon: CalendarDays },
         { to: '/clock',     label: 'Clock In/Out', icon: Timer },
       ]
+    : isSales
+    ? [
+        { to: '/map',       label: 'Map',     icon: MapPin },
+        { to: '/booking',   label: 'Booking', icon: BookOpen },
+        { to: '/contacts',  label: 'Contacts', icon: Users },
+      ]
     : [
         { to: '/',          label: 'Dashboard', icon: LayoutDashboard, exact: true },
         { to: '/contacts',  label: 'Contacts',  icon: Users },
         { to: '/booking',   label: 'Booking',   icon: BookOpen },
         { to: '/calendar',  label: 'Calendar',  icon: CalendarDays },
-        ...(!isSales ? [{ to: '/clock', label: 'Clock', icon: Timer }] : []),
+        { to: '/clock',     label: 'Clock',     icon: Timer },
       ]
 
   function handleLogout() {
@@ -96,8 +102,14 @@ export default function BottomNav() {
 
             <div className="space-y-1">
               {[
-                { to: '/map',       label: 'My Map',     icon: MapPin },
-                { to: '/team-map',  label: 'Team Map',   icon: Globe },
+                ...(isSales ? [
+                  { to: '/',          label: 'Dashboard',  icon: LayoutDashboard },
+                  { to: '/calendar',  label: 'Calendar',   icon: CalendarDays },
+                  { to: '/team-map',  label: 'Team Map',   icon: Globe },
+                ] : [
+                  { to: '/map',       label: 'My Map',     icon: MapPin },
+                  { to: '/team-map',  label: 'Team Map',   icon: Globe },
+                ]),
                 ...(canSeeChats ? [{ to: '/chats',     label: 'Chats',      icon: MessageSquare }] : []),
                 ...(isAdmin ? [{ to: '/timesheet', label: 'Timesheet',  icon: ClipboardList }] : []),
                 ...(isAdmin ? [{ to: '/users',     label: 'Users',      icon: UserCog }] : []),
