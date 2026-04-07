@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api.js'
-import { Users, ChevronDown } from 'lucide-react'
+import { Users, ChevronDown, Navigation } from 'lucide-react'
 
 // ─── User color palette ───────────────────────────────────────────────────────
 const USER_COLORS = [
@@ -193,27 +193,32 @@ export default function TeamMap() {
 
       {/* ══ TOP BAR ══════════════════════════════════════════════════════════ */}
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
-        <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          <div className="pointer-events-auto bg-slate-900/85 backdrop-blur-md rounded-2xl px-4 py-2.5 flex items-center gap-3 shadow-xl border border-slate-700/40">
-            <Users size={16} className="text-indigo-400 flex-shrink-0" />
-            <span className="text-white font-bold text-sm">Team Map</span>
-            <span className="text-slate-500 text-xs">·</span>
-            <span className="text-slate-400 text-xs">{knocks.length} knocks</span>
-            <span className="text-slate-500 text-xs">·</span>
-            <span className="text-indigo-400 text-xs">{geocodedContacts.length} contacts</span>
-            {doneContactIds.size > 0 && <><span className="text-slate-500 text-xs">·</span><span className="text-emerald-400 text-xs font-semibold">✓ {doneContactIds.size} done</span></>}
-            {bookedContactIds.size > 0 && <><span className="text-slate-500 text-xs">·</span><span className="text-amber-400 text-xs font-semibold">📅 {bookedContactIds.size} booked</span></>}
+        <div className="px-3 pt-3 pb-2">
+          <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-xl border border-slate-700/40 flex items-center h-11 px-3 gap-2">
+            {/* Fixed title */}
+            <Users size={13} className="text-indigo-400 flex-shrink-0" />
+            <span className="text-white font-bold text-xs flex-shrink-0">Team Map</span>
+            <div className="w-px h-4 bg-slate-700 flex-shrink-0" />
+            {/* Scrollable stats */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none flex-1 min-w-0">
+              <span className="text-slate-400 text-xs whitespace-nowrap">{knocks.length} knocks</span>
+              <span className="text-indigo-400 text-xs whitespace-nowrap">{geocodedContacts.length} contacts</span>
+              {bookedContactIds.size > 0 && <span className="text-amber-400 text-xs font-semibold whitespace-nowrap">📅 {bookedContactIds.size}</span>}
+              {doneContactIds.size > 0 && <span className="text-emerald-400 text-xs font-semibold whitespace-nowrap">✓ {doneContactIds.size}</span>}
+            </div>
+            <div className="w-px h-4 bg-slate-700 flex-shrink-0" />
+            {/* Agent filter button */}
+            <button
+              onClick={() => setFilterOpen((v) => !v)}
+              className="flex items-center gap-1 text-xs font-semibold flex-shrink-0"
+              style={{ color: activeColor || '#94a3b8' }}
+            >
+              {activeUser && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: activeColor }} />}
+              {activeUser ? userName(activeUser) : 'All'}
+              <ChevronDown size={11} className={`transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+            </button>
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${synced ? 'bg-emerald-400' : 'bg-red-400'}`} />
           </div>
-
-          <button onClick={() => setFilterOpen((v) => !v)}
-            className="pointer-events-auto bg-slate-900/85 backdrop-blur-md rounded-2xl px-3.5 py-2.5 flex items-center gap-2 shadow-xl border border-slate-700/40 text-sm font-medium transition-colors"
-            style={{ color: activeColor || '#94a3b8' }}>
-            {activeUser
-              ? <><span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: activeColor }} />{userName(activeUser)}</>
-              : 'All agents'}
-            <ChevronDown size={14} className={`transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </button>
         </div>
 
         {filterOpen && (
