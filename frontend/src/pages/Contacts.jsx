@@ -204,59 +204,60 @@ export default function Contacts() {
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="px-4 pt-6 pb-4 md:p-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Contacts</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-100">Contacts</h1>
           <p className="text-slate-500 text-sm mt-0.5">{contacts.length} records</p>
         </div>
         <div className="flex items-center gap-2">
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
+          {/* Mobile: just Import + Add */}
           <button
             onClick={() => fileRef.current?.click()}
             disabled={importing}
-            className="flex items-center gap-1.5 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 border border-slate-600 text-slate-300 text-sm font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
           >
-            <Upload size={15} /> {importing ? 'Importing…' : 'Import'}
+            <Upload size={15} /> {importing ? '…' : 'Import'}
           </button>
-          {user?.role === 'admin' && (
-            <>
-              <button
-                onClick={markAllCustomer}
-                className="flex items-center gap-1.5 border border-emerald-700/60 text-emerald-400 hover:text-emerald-300 hover:border-emerald-600 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors"
-                title="Set all contacts to Customer status"
-              >
-                <ShieldCheck size={15} /> Mark All Closed
-              </button>
-              <button
-                onClick={deduplicateContacts}
-                disabled={deduping}
-                className="flex items-center gap-1.5 border border-amber-700/60 text-amber-400 hover:text-amber-300 hover:border-amber-600 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
-                title="Remove duplicate contacts (keeps oldest per name)"
-              >
-                <ShieldCheck size={15} /> {deduping ? 'Cleaning…' : 'Deduplicate'}
-              </button>
-              <button
-                onClick={geocodeAll}
-                disabled={geocoding}
-                className="flex items-center gap-1.5 border border-indigo-700/60 text-indigo-400 hover:text-indigo-300 hover:border-indigo-600 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
-                title="Add map coordinates to contacts that have an address"
-              >
-                <MapPin size={15} /> {geocoding ? 'Geocoding…' : 'Pin on Map'}
-              </button>
-            </>
-          )}
-          <button
-            onClick={exportCsv}
-            className="flex items-center gap-1.5 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors"
-          >
-            <Download size={15} /> Export
-          </button>
-          <button onClick={openCreate} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
+          <button onClick={openCreate} className="flex items-center gap-1.5 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors">
             <Plus size={16} /> Add
           </button>
         </div>
       </div>
+
+      {/* Admin bulk-action buttons — desktop only */}
+      {user?.role === 'admin' && (
+        <div className="hidden md:flex items-center gap-2 mb-4 flex-wrap">
+          <button
+            onClick={markAllCustomer}
+            className="flex items-center gap-1.5 border border-emerald-700/60 text-emerald-400 text-sm font-medium px-3 py-2 rounded-lg transition-colors"
+          >
+            <ShieldCheck size={15} /> Mark All Closed
+          </button>
+          <button
+            onClick={deduplicateContacts}
+            disabled={deduping}
+            className="flex items-center gap-1.5 border border-amber-700/60 text-amber-400 text-sm font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <ShieldCheck size={15} /> {deduping ? 'Cleaning…' : 'Deduplicate'}
+          </button>
+          <button
+            onClick={geocodeAll}
+            disabled={geocoding}
+            className="flex items-center gap-1.5 border border-indigo-700/60 text-indigo-400 text-sm font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <MapPin size={15} /> {geocoding ? 'Geocoding…' : 'Pin on Map'}
+          </button>
+          <button
+            onClick={exportCsv}
+            className="flex items-center gap-1.5 border border-slate-600 text-slate-300 text-sm font-medium px-3 py-2 rounded-lg transition-colors"
+          >
+            <Download size={15} /> Export
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 mb-5">
