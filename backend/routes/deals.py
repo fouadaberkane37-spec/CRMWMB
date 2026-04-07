@@ -33,8 +33,8 @@ def list_deals(
         joinedload(models.Deal.contact),
         joinedload(models.Deal.company),
     )
-    # Technicians see all deals (read-only calendar view); sales see only their own
-    if current_user.role in ("sales", "user"):
+    # Admin + technician see all deals; sales/user see only their own
+    if current_user.role not in ("admin", "technician"):
         q = q.filter(
             or_(
                 models.Deal.assigned_to == current_user.id,

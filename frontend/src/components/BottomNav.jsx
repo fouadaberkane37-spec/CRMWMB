@@ -66,16 +66,14 @@ export default function BottomNav() {
           </NavLink>
         ))}
 
-        {!isTech && (
-          <button
-            onClick={() => setShowMore(true)}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-500"
-            style={{ minHeight: '68px', paddingTop: '12px', paddingBottom: '12px' }}
-          >
-            <Menu size={24} />
-            <span className="text-[10px] font-medium leading-none">More</span>
-          </button>
-        )}
+        <button
+          onClick={() => setShowMore(true)}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-500"
+          style={{ minHeight: '68px', paddingTop: '12px', paddingBottom: '12px' }}
+        >
+          <Menu size={24} />
+          <span className="text-[10px] font-medium leading-none">More</span>
+        </button>
       </nav>
 
       {/* More drawer */}
@@ -101,7 +99,7 @@ export default function BottomNav() {
             </div>
 
             <div className="space-y-1">
-              {[
+              {!isTech && [
                 ...(isSales ? [
                   { to: '/',          label: 'Dashboard',  icon: LayoutDashboard },
                   { to: '/calendar',  label: 'Calendar',   icon: CalendarDays },
