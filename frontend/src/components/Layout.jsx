@@ -23,7 +23,7 @@ export default function Layout() {
         </div>
 
         {/* Main scrollable content */}
-        <main className="flex-1 min-h-0 overflow-y-auto">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <Outlet />
           {/* Bottom padding so last item clears the nav */}
           <div className="md:hidden" style={{ height: '1rem' }} />
