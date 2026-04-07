@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from typing import List, Optional
+import os
 from database import get_db
 import models
 import schemas
@@ -72,7 +73,66 @@ def create_deal(deal: schemas.DealCreate, db: Session = Depends(get_db), current
     db.add(db_deal)
     db.commit()
     db.refresh(db_deal)
+
+    # Auto-send booking confirmation SMS if contact has a phone
+    if db_deal.contact_id and db_deal.expected_close_date:
+        contact = db.query(models.Contact).filter(models.Contact.id == db_deal.contact_id).first()
+        if contact and contact.phone:
+            _send_booking_confirmation(db, db_deal, contact, current_user.id)
+
     return db_deal
+
+
+def _send_booking_confirmation(db: Session, deal: models.Deal, contact: models.Contact, sender_id: int):
+    """Build confirmation SMS, save as ChatMessage, and fire Twilio — best-effort."""
+    from datetime import timezone
+
+    dt = deal.expected_close_date
+    try:
+        date_str = dt.strftime("%A, %B %-d")
+        time_str = dt.strftime("%-I:%M %p")
+    except Exception:
+        date_str = str(dt.date())
+        time_str = str(dt.time())[:5]
+
+    lines = [f"Hi {contact.first_name}! Your appointment is confirmed ✅"]
+    lines.append(f"📅 {date_str} at {time_str}")
+    if contact.address:
+        lines.append(f"📍 {contact.address}")
+    # Services from deal title (format: "Name — Services")
+    if deal.title and " — " in deal.title:
+        lines.append(f"🔧 {deal.title.split(' — ', 1)[1]}")
+    if deal.value and deal.value > 0:
+        lines.append(f"💰 Estimate: ${deal.value:.2f}")
+    if deal.notes:
+        lines.append(f"📝 {deal.notes}")
+    lines.append("\nReply anytime if you have questions. See you soon!")
+
+    body = "\n".join(lines)
+
+    # Save to chat thread
+    try:
+        msg = models.ChatMessage(
+            contact_id=contact.id,
+            sender_id=sender_id,
+            body=body,
+            direction="outbound",
+        )
+        db.add(msg)
+        db.commit()
+    except Exception:
+        pass
+
+    # Fire Twilio SMS
+    sid   = os.getenv("TWILIO_ACCOUNT_SID")
+    token = os.getenv("TWILIO_AUTH_TOKEN")
+    frm   = os.getenv("TWILIO_FROM_NUMBER")
+    if sid and token and frm:
+        try:
+            from twilio.rest import Client
+            Client(sid, token).messages.create(body=body, from_=frm, to=contact.phone)
+        except Exception:
+            pass
 
 
 @router.put("/{deal_id}", response_model=schemas.Deal)
