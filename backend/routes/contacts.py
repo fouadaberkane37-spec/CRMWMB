@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from collections import defaultdict
 import csv, io
-from database import get_db
+from database import get_db, SessionLocal
 import models
 import schemas
 from auth import get_current_user, require_admin
@@ -284,13 +284,36 @@ async def import_contacts_csv(
     return {"imported": created}
 
 
+def _run_geocode_all(contact_ids: list):
+    """Background worker — geocodes contacts one by one, writes each result immediately."""
+    import time
+    db = SessionLocal()
+    try:
+        for cid in contact_ids:
+            c = db.query(models.Contact).filter(models.Contact.id == cid).first()
+            if not c or not c.address:
+                continue
+            lat, lng = geocode_address(c.address)
+            if lat and lng:
+                c.lat = lat
+                c.lng = lng
+                db.commit()
+            time.sleep(1)  # Nominatim rate limit: 1 req/s
+    except Exception as e:
+        print(f"[ERR] background geocode: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 @router.post("/geocode-all")
 def geocode_all_contacts(
+    background_tasks: BackgroundTasks,
     force: bool = False,
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
-    """Geocode contacts with an address. Pass ?force=true to re-geocode all, including already geocoded ones."""
+    """Start background geocoding. Returns immediately; pins appear on map as they resolve."""
     q = db.query(models.Contact).filter(
         models.Contact.address.isnot(None),
         models.Contact.address != "",
@@ -299,14 +322,8 @@ def geocode_all_contacts(
         q = q.filter(
             (models.Contact.lat == None) | (models.Contact.lng == None)
         )
-    contacts = q.all()
-    updated = 0
-    for c in contacts:
-        lat, lng = geocode_address(c.address)
-        if lat and lng:
-            c.lat = lat
-            c.lng = lng
-            updated += 1
-        time.sleep(1)  # Nominatim rate-limit: 1 req/s
-    db.commit()
-    return {"geocoded": updated, "total": len(contacts)}
+    contact_ids = [c.id for c in q.all()]
+    if not contact_ids:
+        return {"status": "nothing_to_geocode", "total": 0}
+    background_tasks.add_task(_run_geocode_all, contact_ids)
+    return {"status": "started", "total": len(contact_ids)}

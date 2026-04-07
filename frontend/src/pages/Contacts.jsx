@@ -174,15 +174,30 @@ export default function Contacts() {
   }
 
   async function geocodeAll() {
-    if (!window.confirm('This will geocode all contacts that have an address but no map coordinates. It can take a minute for large lists (1 req/sec). Continue?')) return
+    if (!window.confirm('This will pin all contacts with an address onto the map. Pins appear one by one as they resolve (~1/sec). Continue?')) return
     setGeocoding(true)
     try {
       const { data } = await api.post('/contacts/geocode-all?force=true')
-      alert(`Geocoded ${data.geocoded} of ${data.total} contacts. They will now appear as pins on the map.`)
-      load()
+      if (data.status === 'nothing_to_geocode') {
+        alert('All contacts already have map coordinates.')
+        setGeocoding(false)
+        return
+      }
+      // Poll contacts every 3s until geocoding finishes (pins fill in live)
+      let polls = 0
+      const maxPolls = Math.ceil(data.total * 1.5) + 10 // ~1.5s per contact + buffer
+      const interval = setInterval(async () => {
+        polls++
+        await load()
+        if (polls >= maxPolls) {
+          clearInterval(interval)
+          setGeocoding(false)
+        }
+      }, 3000)
     } catch (err) {
-      alert(err.response?.data?.detail || 'Geocoding failed')
-    } finally { setGeocoding(false) }
+      alert(err.response?.data?.detail || 'Geocoding failed — check server logs')
+      setGeocoding(false)
+    }
   }
 
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
