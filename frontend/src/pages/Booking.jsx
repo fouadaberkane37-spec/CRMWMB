@@ -29,6 +29,8 @@ function Field({ label, icon: Icon, children }) {
 
 const INPUT = "w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
 
+const MAX_PER_DAY = 3
+
 export default function Booking() {
   const { user } = useAuth()
   const navigate  = useNavigate()
@@ -44,9 +46,11 @@ export default function Booking() {
     time:      '',
     notes:     '',
   })
-  const [saving, setSaving]   = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError]     = useState('')
+  const [saving, setSaving]         = useState(false)
+  const [success, setSuccess]       = useState(false)
+  const [error, setError]           = useState('')
+  const [dayCount, setDayCount]     = useState(null)   // bookings on selected date
+  const [checking, setChecking]     = useState(false)
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
@@ -59,11 +63,33 @@ export default function Booking() {
     }))
   }
 
+  async function handleDateChange(dateStr) {
+    set('date', dateStr)
+    if (!dateStr) { setDayCount(null); return }
+    setChecking(true)
+    try {
+      const { data } = await api.get('/deals/', { params: { limit: 1000 } })
+      const count = data.filter(d => {
+        if (!d.expected_close_date) return false
+        return d.expected_close_date.slice(0, 10) === dateStr
+      }).length
+      setDayCount(count)
+    } catch {
+      setDayCount(null)
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const dayFull = dayCount !== null && dayCount >= MAX_PER_DAY
+  const slotsLeft = dayCount !== null ? Math.max(0, MAX_PER_DAY - dayCount) : null
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     if (!form.firstName.trim()) { setError('First name is required'); return }
     if (!form.date)              { setError('Date is required'); return }
+    if (dayFull)                 { setError(`This day is fully booked (${MAX_PER_DAY}/${MAX_PER_DAY}). Choose another date.`); return }
     setSaving(true)
     try {
       // 1. Create or find contact
@@ -187,16 +213,36 @@ export default function Booking() {
             <CalendarDays size={12} /> Date & Time
           </h2>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Date *">
-              <input
-                type="date"
-                value={form.date}
-                onChange={e => set('date', e.target.value)}
-                className={INPUT + ' [color-scheme:dark]'}
-                style={{ height: '48px' }}
-                required
-              />
-            </Field>
+            <div>
+              <Field label="Date *">
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={e => handleDateChange(e.target.value)}
+                  className={`${INPUT} [color-scheme:dark] ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
+                  style={{ height: '48px' }}
+                  required
+                />
+              </Field>
+              {/* Availability indicator */}
+              {checking && (
+                <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
+                  <Loader2 size={11} className="animate-spin" /> Checking…
+                </p>
+              )}
+              {!checking && slotsLeft !== null && (
+                <p className={`mt-1.5 text-xs font-semibold flex items-center gap-1 ${
+                  slotsLeft === 0 ? 'text-red-400' : slotsLeft === 1 ? 'text-amber-400' : 'text-emerald-400'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                    slotsLeft === 0 ? 'bg-red-400' : slotsLeft === 1 ? 'bg-amber-400' : 'bg-emerald-400'
+                  }`} />
+                  {slotsLeft === 0
+                    ? 'Fully booked'
+                    : `${slotsLeft} slot${slotsLeft > 1 ? 's' : ''} left`}
+                </p>
+              )}
+            </div>
             <Field label="Time" icon={Clock}>
               <input
                 type="time"
@@ -272,12 +318,16 @@ export default function Booking() {
 
         <button
           type="submit"
-          disabled={saving}
-          className="w-full bg-indigo-600 active:bg-indigo-700 text-white font-bold rounded-2xl text-base transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          disabled={saving || dayFull}
+          className={`w-full font-bold rounded-2xl text-base transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
+            dayFull
+              ? 'bg-red-900/40 border border-red-700/50 text-red-400 cursor-not-allowed'
+              : 'bg-indigo-600 active:bg-indigo-700 text-white'
+          }`}
           style={{ height: '56px' }}
         >
           {saving ? <Loader2 size={20} className="animate-spin" /> : <CalendarDays size={20} />}
-          {saving ? 'Saving…' : 'Book Appointment'}
+          {saving ? 'Saving…' : dayFull ? `Day fully booked (${MAX_PER_DAY}/${MAX_PER_DAY})` : 'Book Appointment'}
         </button>
 
       </form>
