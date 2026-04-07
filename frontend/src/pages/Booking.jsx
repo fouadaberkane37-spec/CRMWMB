@@ -208,7 +208,7 @@ export default function Booking() {
         </div>
 
         {/* Date & Time */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4">
+        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4 overflow-hidden">
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
             <CalendarDays size={12} /> Date & Time
           </h2>
@@ -219,7 +219,7 @@ export default function Booking() {
                 value={form.date}
                 onChange={e => handleDateChange(e.target.value)}
                 className={`${INPUT} ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
-                style={{ height: '48px', colorScheme: 'dark' }}
+                style={{ height: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', WebkitAppearance: 'none' }}
                 required
               />
             </Field>
@@ -247,7 +247,7 @@ export default function Booking() {
               value={form.time}
               onChange={e => set('time', e.target.value)}
               className={INPUT}
-              style={{ height: '48px', colorScheme: 'dark' }}
+              style={{ height: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', WebkitAppearance: 'none' }}
             />
           </Field>
         </div>
