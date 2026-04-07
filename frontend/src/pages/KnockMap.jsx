@@ -395,7 +395,7 @@ export default function KnockMap() {
 
       {/* ══ TOP BAR (floating) ════════════════════════════════════════════════ */}
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
-        <div className="px-3 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}>
+        <div className="px-3 pt-3 pb-2">
           <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-xl border border-slate-700/40 flex items-center h-11 px-3 gap-2">
             {/* Fixed title */}
             <MapPin size={13} className="text-indigo-400 flex-shrink-0" />
@@ -451,7 +451,7 @@ export default function KnockMap() {
 
       {/* ══ STATUS COUNT BAR (floating bottom of top area) ════════════════════ */}
       {!filterOpen && mode === null && (
-        <div className="absolute left-0 right-0 z-10 px-4 pointer-events-none" style={{ top: 'calc(max(env(safe-area-inset-top), 12px) + 52px)' }}>
+        <div className="absolute top-14 left-0 right-0 z-10 px-4 pointer-events-none">
           <div className="flex gap-2 overflow-x-auto pb-1 pointer-events-auto" style={{ scrollbarWidth: 'none' }}>
             {STATUSES.filter((s) => counts[s.key] > 0).map((s) => (
               <button

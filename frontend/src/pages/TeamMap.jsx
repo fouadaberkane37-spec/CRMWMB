@@ -193,7 +193,7 @@ export default function TeamMap() {
 
       {/* ══ TOP BAR ══════════════════════════════════════════════════════════ */}
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
-        <div className="flex items-center justify-between px-4 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}>
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
           <div className="pointer-events-auto bg-slate-900/85 backdrop-blur-md rounded-2xl px-4 py-2.5 flex items-center gap-3 shadow-xl border border-slate-700/40">
             <Users size={16} className="text-indigo-400 flex-shrink-0" />
             <span className="text-white font-bold text-sm">Team Map</span>
