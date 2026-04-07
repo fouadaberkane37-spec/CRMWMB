@@ -3,6 +3,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from collections import defaultdict
+from datetime import datetime
 import csv, io
 from database import get_db, SessionLocal
 import models
@@ -13,8 +14,8 @@ router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
 
 def _own_contact(contact, user):
-    """Return True if user owns this contact."""
-    return contact.created_by == user.id
+    """Return True if admin or owner."""
+    return user.role == "admin" or contact.created_by == user.id
 
 
 def geocode_address(address: str):
@@ -106,13 +107,19 @@ def list_contacts(
     search: Optional[str] = None,
     status: Optional[str] = None,
     company_id: Optional[int] = None,
+    trashed: bool = False,
     skip: int = 0,
     limit: int = 200,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     q = db.query(models.Contact).options(joinedload(models.Contact.company))
-    # Admin sees all contacts; everyone else only sees their own
+    # Filter by trash state
+    if trashed:
+        q = q.filter(models.Contact.deleted_at.isnot(None))
+    else:
+        q = q.filter(models.Contact.deleted_at.is_(None))
+    # Admin sees all; others see only their own
     if current_user.role != "admin":
         q = q.filter(models.Contact.created_by == current_user.id)
     if search:
@@ -195,6 +202,33 @@ def update_contact_location(
 
 @router.delete("/{contact_id}")
 def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Soft-delete: moves contact to trash."""
+    db_contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+    if not db_contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    if not _own_contact(db_contact, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
+    db_contact.deleted_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Moved to trash"}
+
+
+@router.post("/{contact_id}/restore")
+def restore_contact(contact_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Recover a trashed contact."""
+    db_contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+    if not db_contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    if not _own_contact(db_contact, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
+    db_contact.deleted_at = None
+    db.commit()
+    return {"message": "Restored"}
+
+
+@router.delete("/{contact_id}/permanent")
+def permanent_delete(contact_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Hard-delete: permanently removes contact and all associated data."""
     db_contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
     if not db_contact:
         raise HTTPException(status_code=404, detail="Contact not found")
@@ -202,7 +236,7 @@ def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user=
         raise HTTPException(status_code=403, detail="Access denied")
     db.delete(db_contact)
     db.commit()
-    return {"message": "Deleted"}
+    return {"message": "Permanently deleted"}
 
 
 @router.post("/mark-all-customer")

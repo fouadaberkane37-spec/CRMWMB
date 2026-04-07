@@ -54,6 +54,7 @@ class Contact(Base):
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     company = relationship("Company", back_populates="contacts")
     deals = relationship("Deal", back_populates="contact")

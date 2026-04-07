@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
 import { useAuth } from '../App.jsx'
-import { Plus, Search, Pencil, Trash2, Phone, Download, Upload, MessageSquare, MapPin, Wrench, DollarSign, ShieldCheck } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Phone, Download, Upload, MessageSquare, MapPin, Wrench, DollarSign, ShieldCheck, RotateCcw, X } from 'lucide-react'
 
 const STATUS_COLORS = {
   lead: 'bg-blue-900/40 text-blue-400',
@@ -49,6 +49,8 @@ export default function Contacts() {
   const [importing, setImporting] = useState(false)
   const [deduping, setDeduping] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
+  const [showTrash, setShowTrash] = useState(false)
+  const [trashedContacts, setTrashedContacts] = useState([])
   const [smsContact, setSmsContact] = useState(null)
   const [smsMessage, setSmsMessage] = useState('')
   const [smsSending, setSmsSending] = useState(false)
@@ -95,6 +97,29 @@ export default function Contacts() {
   async function del() {
     await api.delete(`/contacts/${deleteId}`)
     setDeleteId(null)
+    load()
+  }
+
+  async function loadTrash() {
+    const { data } = await api.get('/contacts/', { params: { trashed: true, limit: 200 } })
+    setTrashedContacts(data)
+  }
+
+  async function openTrash() {
+    await loadTrash()
+    setShowTrash(true)
+  }
+
+  async function restore(id) {
+    await api.post(`/contacts/${id}/restore`)
+    await loadTrash()
+    load()
+  }
+
+  async function permanentDelete(id) {
+    if (!window.confirm('Delete forever? This cannot be undone.')) return
+    await api.delete(`/contacts/${id}/permanent`)
+    await loadTrash()
     load()
   }
 
@@ -220,6 +245,9 @@ export default function Contacts() {
             className="flex items-center gap-1.5 border border-slate-600 text-slate-300 text-sm font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
           >
             <Upload size={15} /> {importing ? '…' : 'Import'}
+          </button>
+          <button onClick={openTrash} className="flex items-center gap-1.5 border border-slate-700 text-slate-400 text-sm font-medium px-3 py-2 rounded-lg transition-colors">
+            <Trash2 size={15} />
           </button>
           <button onClick={openCreate} className="flex items-center gap-1.5 bg-indigo-600 text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors">
             <Plus size={16} /> Add
@@ -479,6 +507,59 @@ export default function Contacts() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Trash drawer */}
+      {showTrash && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTrash(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl flex flex-col"
+            style={{ maxHeight: '80vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
+            {/* Handle */}
+            <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mt-3 mb-1 flex-shrink-0" />
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Trash2 size={16} className="text-red-400" />
+                <span className="text-white font-semibold">Trash</span>
+                {trashedContacts.length > 0 && (
+                  <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">{trashedContacts.length}</span>
+                )}
+              </div>
+              <button onClick={() => setShowTrash(false)} className="text-slate-400 p-1"><X size={18} /></button>
+            </div>
+            {/* List */}
+            <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
+              {trashedContacts.length === 0 ? (
+                <p className="text-slate-500 text-sm text-center py-8">Trash is empty</p>
+              ) : trashedContacts.map(c => (
+                <div key={c.id} className="bg-slate-800 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 text-slate-400 font-bold text-sm">
+                    {c.first_name?.[0]?.toUpperCase()}{c.last_name?.[0]?.toUpperCase() || ''}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-slate-200 font-medium text-sm truncate">{c.first_name} {c.last_name || ''}</p>
+                    {c.phone && <p className="text-slate-500 text-xs">{c.phone}</p>}
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => restore(c.id)}
+                      className="flex items-center gap-1 text-xs text-emerald-400 border border-emerald-700/50 px-2.5 py-1.5 rounded-lg"
+                    >
+                      <RotateCcw size={12} /> Recover
+                    </button>
+                    <button
+                      onClick={() => permanentDelete(c.id)}
+                      className="flex items-center gap-1 text-xs text-red-400 border border-red-700/50 px-2.5 py-1.5 rounded-lg"
+                    >
+                      <Trash2 size={12} /> Forever
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
