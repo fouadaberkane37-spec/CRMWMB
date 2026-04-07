@@ -1,10 +1,43 @@
 {
-  "name": "Team CRM",
-  "short_name": "CRM",
-  "description": "Team CRM – Contacts, Deals, Activities",
+  "name": "Groupe WMB CRM",
+  "short_name": "WMB CRM",
+  "description": "Team CRM for Groupe WMB window cleaning",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
-  "orientation": "portrait-primary"
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Calendar",
+      "url": "/calendar",
+      "description": "View appointments"
+    },
+    {
+      "name": "Contacts",
+      "url": "/contacts",
+      "description": "View contacts"
+    },
+    {
+      "name": "Clock In/Out",
+      "url": "/clock",
+      "description": "Clock in or out"
+    }
+  ]
 }
