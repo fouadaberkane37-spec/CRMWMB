@@ -18,52 +18,65 @@ def _own_contact(contact, user):
 
 
 def geocode_address(address: str):
-    """Geocode an address locked to Canada.
+    """Geocode an address restricted to the Greater Montreal area (~1 h drive).
 
-    Uses direct HTTP calls (no geopy) — tries Nominatim then Photon as fallback.
-    Only accepts results inside Canada's bounding box.
+    Bounding box: lat 45.1–46.1, lon -74.6 to -73.0
+    Covers Montreal, Laval, South Shore, Vaudreuil, Saint-Jean-sur-Richelieu.
+    Excludes Granby, Québec City, and all European matches.
     """
     import requests, time
 
     if not address or not address.strip():
         return None, None
 
-    def _in_canada(lat, lng):
-        return 41.0 <= lat <= 84.0 and -141.0 <= lng <= -50.0
+    # Greater Montreal bounding box  (left, top, right, bottom) for Nominatim
+    MTL_VIEWBOX = "-74.6,46.1,-73.0,45.1"
+    # (min_lon, min_lat, max_lon, max_lat) for Photon
+    MTL_BBOX    = "-74.6,45.1,-73.0,46.1"
+
+    def _in_mtl(lat, lng):
+        return 45.1 <= lat <= 46.1 and -74.6 <= lng <= -73.0
 
     addr = address.strip()
-    # Remove any trailing country/province so we control the suffix
-    for tail in [", canada", ", québec", ", quebec", ", qc", ", on", ", ontario"]:
+    for tail in [", canada", ", québec", ", quebec", ", qc", ", ontario", ", on"]:
         if addr.lower().endswith(tail):
             addr = addr[: -len(tail)].strip().rstrip(",").strip()
             break
 
     HEADERS = {"User-Agent": "CRMWMB/1.0 groupewmb@gmail.com"}
 
-    # ── Nominatim (OSM) ───────────────────────────────────────────────────────
-    for suffix in ["Québec, Canada", "Quebec, Canada", "Canada"]:
+    # ── Nominatim bounded to Montreal area ────────────────────────────────────
+    for suffix in ["Québec, Canada", "Montreal, Quebec, Canada", "Quebec, Canada"]:
         query = f"{addr}, {suffix}"
         try:
             r = requests.get(
                 "https://nominatim.openstreetmap.org/search",
-                params={"q": query, "format": "json", "limit": 1, "countrycodes": "ca"},
+                params={
+                    "q": query,
+                    "format": "json",
+                    "limit": 3,
+                    "countrycodes": "ca",
+                    "viewbox": MTL_VIEWBOX,
+                    "bounded": 1,
+                },
                 headers=HEADERS,
                 timeout=8,
             )
-            if r.ok and r.json():
-                lat = float(r.json()[0]["lat"])
-                lng = float(r.json()[0]["lon"])
-                if _in_canada(lat, lng):
-                    return lat, lng
+            if r.ok:
+                for hit in r.json():
+                    lat, lng = float(hit["lat"]), float(hit["lon"])
+                    if _in_mtl(lat, lng):
+                        return lat, lng
         except Exception:
             pass
         time.sleep(1)
 
-    # ── Photon (Komoot) fallback ───────────────────────────────────────────────
+    # ── Photon fallback, filtered to Montreal bbox ─────────────────────────────
     try:
         r = requests.get(
             "https://photon.komoot.io/api/",
-            params={"q": f"{addr}, Canada", "limit": 5, "lang": "fr"},
+            params={"q": f"{addr}, Montreal, Quebec", "limit": 5, "lang": "fr",
+                    "bbox": MTL_BBOX},
             headers=HEADERS,
             timeout=8,
         )
@@ -71,7 +84,7 @@ def geocode_address(address: str):
             for feat in r.json().get("features", []):
                 coords = feat["geometry"]["coordinates"]
                 lng2, lat2 = float(coords[0]), float(coords[1])
-                if _in_canada(lat2, lng2):
+                if _in_mtl(lat2, lng2):
                     return lat2, lng2
     except Exception:
         pass

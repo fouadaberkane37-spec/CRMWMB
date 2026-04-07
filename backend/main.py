@@ -328,17 +328,17 @@ if os.getenv("WIPE_DATA") == "1":
 if os.getenv("SEED_CALENDAR") == "1":
     seed_calendar_data()
 
-# Reset bad geocoding — clear lat/lng that landed outside Canada's bounding box.
-# Runs every startup so re-deploys keep clearing any leftover European pins.
+# Reset bad geocoding — clear lat/lng outside Greater Montreal area.
+# Covers lat 45.1–46.1, lon -74.6 to -73.0 (~1 h from Montreal).
 try:
     with engine.begin() as _conn:
         _conn.execute(text(
             "UPDATE contacts SET lat = NULL, lng = NULL "
             "WHERE lat IS NOT NULL AND ("
-            "  lng > -50 OR lng < -141 OR lat < 41 OR lat > 84"
+            "  lat < 45.1 OR lat > 46.1 OR lng < -74.6 OR lng > -73.0"
             ")"
         ))
-    print("[OK] Cleared non-Canada geocoding from contacts")
+    print("[OK] Cleared out-of-area geocoding (outside Montreal ~1h radius)")
 except Exception as _e:
     print(f"[WARN] geo-reset failed: {_e}")
 
