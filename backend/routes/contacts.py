@@ -18,41 +18,49 @@ def _own_contact(contact, user):
 
 
 def geocode_address(address: str):
-    """Return (lat, lng) for a given address, or (None, None) on failure.
+    """Geocode an address, locked to Canada only.
 
-    Tries progressively broader queries so partial Quebec addresses still resolve:
-    1. Exact address as given
-    2. Address + ", Quebec, Canada"
-    3. Address + ", Québec, Canada"
-    4. Address + ", Montreal, Quebec, Canada"
+    Strategy (tries each until one returns a result inside Canada):
+    1. address + ", Québec, Canada"          ← most contacts are in QC
+    2. address + ", Quebec, Canada"
+    3. address + ", Canada"                  ← catch other provinces
+    4. raw address with country_codes="ca"   ← last resort
     """
     if not address or not address.strip():
         return None, None
+
+    # Canada bounding box sanity check
+    def _in_canada(lat, lng):
+        return 41 <= lat <= 84 and -141 <= lng <= -50
+
     import time
     try:
         from geopy.geocoders import Nominatim
-        geolocator = Nominatim(user_agent="crmwmb/1.0", timeout=8)
+        geo = Nominatim(user_agent="crmwmb_v2", timeout=10)
 
-        # Already contains province/country info — try as-is first
-        candidates = [address]
+        addr = address.strip()
+        # Strip any existing country/province suffix so we control it
+        for suffix in [", canada", ", québec", ", quebec", ", qc", ", ontario", ", on"]:
+            if addr.lower().endswith(suffix):
+                addr = addr[: -len(suffix)].strip().rstrip(",").strip()
 
-        addr_lower = address.lower()
-        already_has_region = any(k in addr_lower for k in ["quebec", "québec", "qc", "ontario", "canada"])
-        if not already_has_region:
-            candidates += [
-                f"{address}, Québec, Canada",
-                f"{address}, Quebec, Canada",
-                f"{address}, Montreal, Quebec, Canada",
-            ]
+        queries = [
+            (f"{addr}, Québec, Canada", None),
+            (f"{addr}, Quebec, Canada", None),
+            (f"{addr}, Canada", None),
+            (addr, "ca"),
+        ]
 
-        for query in candidates:
+        for query, country_codes in queries:
             try:
-                location = geolocator.geocode(query, country_codes="ca")
-                if location:
-                    return location.latitude, location.longitude
-                time.sleep(1)  # Nominatim rate limit between attempts
+                kwargs = {"country_codes": country_codes} if country_codes else {}
+                loc = geo.geocode(query, **kwargs)
+                if loc and _in_canada(loc.latitude, loc.longitude):
+                    return loc.latitude, loc.longitude
             except Exception:
-                time.sleep(1)
+                pass
+            time.sleep(1)
+
     except Exception:
         pass
     return None, None
