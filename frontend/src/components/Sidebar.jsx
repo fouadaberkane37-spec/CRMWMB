@@ -2,23 +2,22 @@ import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
-  LayoutDashboard, Users,
-  TrendingUp,
+  LayoutDashboard, Users, BookOpen,
   UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe, CalendarDays,
   Timer, ClipboardList,
 } from 'lucide-react'
 
 const ALL_NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true, hideForTech: true },
-  { to: '/contacts', label: 'Contacts', icon: Users, hideForTech: true },
-  { to: '/deals', label: 'Deals', icon: TrendingUp, hideForTech: true },
-  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { to: '/clock', label: 'Clock In/Out', icon: Timer },
-  { to: '/chats', label: 'Chats', icon: MessageSquare, adminOnly: true, hideForTech: true },
-  { to: '/map', label: 'My Map', icon: MapPin, hideForTech: true },
-  { to: '/team-map', label: 'Team Map', icon: Globe, hideForTech: true },
-  { to: '/search', label: 'Search', icon: Search, hideForTech: true },
-  { to: '/timesheet', label: 'Timesheet', icon: ClipboardList, adminOnly: true },
+  { to: '/',        label: 'Dashboard',  icon: LayoutDashboard, exact: true, hideForTech: true },
+  { to: '/contacts',label: 'Contacts',   icon: Users,           hideForTech: true },
+  { to: '/booking', label: 'Booking',    icon: BookOpen,        hideForTech: true },
+  { to: '/calendar',label: 'Calendar',   icon: CalendarDays },
+  { to: '/clock',   label: 'Clock In/Out', icon: Timer },
+  { to: '/chats',   label: 'Chats',      icon: MessageSquare,   adminOnly: true, hideForTech: true },
+  { to: '/map',     label: 'My Map',     icon: MapPin,          hideForTech: true },
+  { to: '/team-map',label: 'Team Map',   icon: Globe,           hideForTech: true },
+  { to: '/search',  label: 'Search',     icon: Search,          hideForTech: true },
+  { to: '/timesheet',label: 'Timesheet', icon: ClipboardList,   adminOnly: true },
 ]
 
 export default function Sidebar() {

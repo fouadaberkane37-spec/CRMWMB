@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
-  LayoutDashboard, Users, TrendingUp, Search,
+  LayoutDashboard, Users, BookOpen, Search,
   Menu, MapPin, UserCog, LogOut, X, MessageSquare, Globe, CalendarDays,
   Timer, ClipboardList,
 } from 'lucide-react'
@@ -22,9 +22,9 @@ export default function BottomNav() {
     : [
         { to: '/',          label: 'Dashboard', icon: LayoutDashboard, exact: true },
         { to: '/contacts',  label: 'Contacts',  icon: Users },
+        { to: '/booking',   label: 'Booking',   icon: BookOpen },
         { to: '/calendar',  label: 'Calendar',  icon: CalendarDays },
         { to: '/clock',     label: 'Clock',     icon: Timer },
-        { to: '/search',    label: 'Search',    icon: Search },
       ]
 
   function handleLogout() {
@@ -92,7 +92,6 @@ export default function BottomNav() {
 
             <div className="space-y-1">
               {[
-                { to: '/deals',     label: 'Deals',      icon: TrendingUp },
                 { to: '/map',       label: 'My Map',     icon: MapPin },
                 { to: '/team-map',  label: 'Team Map',   icon: Globe },
                 ...(isAdmin ? [{ to: '/chats',     label: 'Chats',      icon: MessageSquare }] : []),

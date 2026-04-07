@@ -4,7 +4,7 @@ import Layout from './components/Layout.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Contacts from './pages/Contacts.jsx'
-import Deals from './pages/Deals.jsx'
+import Booking from './pages/Booking.jsx'
 import Users from './pages/Users.jsx'
 import KnockMap from './pages/KnockMap.jsx'
 import TeamMap from './pages/TeamMap.jsx'
@@ -62,7 +62,7 @@ export default function App() {
           <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="contacts" element={<Contacts />} />
-            <Route path="deals" element={<Deals />} />
+            <Route path="booking" element={<Booking />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="users" element={<Users />} />
             <Route path="map" element={<KnockMap />} />
