@@ -245,10 +245,7 @@ export default function KnockMap() {
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     // Full-screen relative container — map fills everything, UI floats on top
-    <div
-      className="relative w-full overflow-hidden bg-slate-950 md:h-full"
-      style={{ height: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 56px)' }}
-    >
+    <div className="relative flex-1 min-h-0 w-full overflow-hidden bg-slate-950">
 
       {/* ══ MAP ══════════════════════════════════════════════════════════════ */}
       <MapContainer
@@ -398,37 +395,37 @@ export default function KnockMap() {
 
       {/* ══ TOP BAR (floating) ════════════════════════════════════════════════ */}
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
-        <div className="flex items-center justify-between px-4 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}>
-          {/* Title + live badge */}
-          <div className="pointer-events-auto bg-slate-900/85 backdrop-blur-md rounded-2xl px-4 py-2.5 flex items-center gap-3 shadow-xl border border-slate-700/40">
-            <MapPin size={16} className="text-indigo-400 flex-shrink-0" />
-            <span className="text-white font-bold text-sm">My Map</span>
-            <span className="text-slate-500 text-xs">·</span>
-            <span className="text-slate-400 text-xs">{myKnocks.length} knocks</span>
-            <span className="text-slate-500 text-xs">·</span>
-            <span className="text-indigo-400 text-xs">{contacts.filter(c => c.lat && c.lng).length}/{contacts.length} contacts</span>
-            <span className="text-slate-500 text-xs">·</span>
-            {bookedContactIds.size > 0 && (
-              <span className="text-amber-400 text-xs font-semibold">📅 {bookedContactIds.size} booked</span>
-            )}
-            {doneContactIds.size > 0 && (
-              <span className="text-emerald-400 text-xs font-semibold">✓ {doneContactIds.size} done</span>
-            )}
-            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${synced ? 'bg-emerald-400' : 'bg-red-400'}`}
-              title={synced ? 'Live' : 'Offline'} />
+        <div className="flex items-center gap-2 px-3 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}>
+          {/* Info pill — scrollable so it never clips the filter */}
+          <div className="pointer-events-auto bg-slate-900/85 backdrop-blur-md rounded-2xl px-3 py-2 flex items-center gap-2 shadow-xl border border-slate-700/40 flex-1 min-w-0 overflow-x-auto scrollbar-none">
+            <MapPin size={14} className="text-indigo-400 flex-shrink-0" />
+            <span className="text-white font-bold text-xs flex-shrink-0">My Map</span>
+            <span className="text-slate-600 text-xs flex-shrink-0">·</span>
+            <span className="text-slate-400 text-xs flex-shrink-0">{myKnocks.length} knocks</span>
+            <span className="text-slate-600 text-xs flex-shrink-0">·</span>
+            <span className="text-indigo-400 text-xs flex-shrink-0">{contacts.filter(c => c.lat && c.lng).length}/{contacts.length}</span>
+            {bookedContactIds.size > 0 && <>
+              <span className="text-slate-600 text-xs flex-shrink-0">·</span>
+              <span className="text-amber-400 text-xs font-semibold flex-shrink-0">📅 {bookedContactIds.size}</span>
+            </>}
+            {doneContactIds.size > 0 && <>
+              <span className="text-slate-600 text-xs flex-shrink-0">·</span>
+              <span className="text-emerald-400 text-xs font-semibold flex-shrink-0">✓ {doneContactIds.size}</span>
+            </>}
+            <div className={`w-2 h-2 rounded-full flex-shrink-0 ml-1 ${synced ? 'bg-emerald-400' : 'bg-red-400'}`} />
           </div>
 
-          {/* Filter chip */}
+          {/* Filter chip — always visible, fixed width */}
           <button
             onClick={() => setFilterOpen((v) => !v)}
-            className="pointer-events-auto bg-slate-900/85 backdrop-blur-md rounded-2xl px-3.5 py-2.5 flex items-center gap-2 shadow-xl border border-slate-700/40 text-sm font-medium transition-colors"
+            className="pointer-events-auto bg-slate-900/85 backdrop-blur-md rounded-2xl px-3 py-2 flex items-center gap-1.5 shadow-xl border border-slate-700/40 text-xs font-semibold flex-shrink-0 transition-colors"
             style={{ color: activeStatus ? activeStatus.color : '#94a3b8' }}
           >
             {activeStatus
-              ? <><span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: activeStatus.color }} />{activeStatus.label}</>
-              : 'All pins'
-            }
-            <ChevronDown size={14} className={`transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+              ? <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: activeStatus.color }} />
+              : null}
+            {activeStatus ? activeStatus.label : 'All'}
+            <ChevronDown size={12} className={`transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
 

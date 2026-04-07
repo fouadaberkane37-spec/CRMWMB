@@ -11,11 +11,14 @@ export default function Layout() {
         <Sidebar />
       </div>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto flex flex-col">
-        <Outlet />
-        {/* Spacer on mobile so content isn't hidden under bottom nav */}
-        <div className="md:hidden flex-shrink-0" style={{ height: 'calc(4rem + env(safe-area-inset-bottom))' }} />
+      {/* Main content — flex col so flex-1 children (like maps) fill correctly */}
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {/* Scrollable wrapper for normal pages; maps override with flex-1 */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+          <Outlet />
+          {/* Spacer so non-map content clears the bottom nav */}
+          <div className="md:hidden flex-shrink-0" style={{ height: 'calc(3.5rem + env(safe-area-inset-bottom))' }} />
+        </div>
       </main>
 
       {/* Bottom nav — mobile only */}

@@ -128,10 +128,7 @@ export default function TeamMap() {
   function userName(u) { return u.full_name || u.username }
 
   return (
-    <div
-      className="relative w-full overflow-hidden bg-slate-950 md:h-full"
-      style={{ height: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 56px)' }}
-    >
+    <div className="relative flex-1 min-h-0 w-full overflow-hidden bg-slate-950">
 
       {/* ══ MAP ══════════════════════════════════════════════════════════════ */}
       <MapContainer center={[39.5, -98.35]} zoom={4}
