@@ -267,7 +267,7 @@ export default function KnockMap() {
           <Marker position={[userLoc.lat, userLoc.lng]} icon={locationDotIcon} zIndexOffset={1000} />
         )}
 
-        {/* Geocoded client/lead pins */}
+        {/* Geocoded client/lead pins — draggable to correct position */}
         {contacts.filter((c) => c.lat && c.lng).map((c) => {
           const isDone   = doneContactIds.has(c.id)
           const isBooked = bookedContactIds.has(c.id)
@@ -277,7 +277,19 @@ export default function KnockMap() {
               key={`client-${c.id}`}
               position={[c.lat, c.lng]}
               icon={icon}
+              draggable={true}
               zIndexOffset={isDone ? 600 : isBooked ? 500 : 0}
+              eventHandlers={{
+                dragend: async (e) => {
+                  const { lat, lng } = e.target.getLatLng()
+                  try {
+                    await api.patch(`/contacts/${c.id}/location`, { lat, lng })
+                    setContacts(prev => prev.map(x =>
+                      x.id === c.id ? { ...x, lat, lng } : x
+                    ))
+                  } catch { /* silent — pin snaps back on next poll */ }
+                },
+              }}
             >
               <Popup minWidth={200} className="knock-popup">
                 <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
@@ -316,6 +328,9 @@ export default function KnockMap() {
                         fontSize: 10, fontWeight: 700,
                       }}>📅 Booked</span>
                     )}
+                  </div>
+                  <div style={{ color: '#94a3b8', fontSize: 10, marginTop: 6 }}>
+                    ✥ Drag pin to reposition
                   </div>
                 </div>
               </Popup>

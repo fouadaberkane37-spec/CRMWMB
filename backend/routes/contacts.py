@@ -172,6 +172,23 @@ def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session 
         db_contact.lat = lat
         db_contact.lng = lng
     db.commit()
+
+
+@router.patch("/{contact_id}/location")
+def update_contact_location(
+    contact_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Manually set lat/lng for a contact (drag-to-reposition on map)."""
+    db_contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+    if not db_contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    db_contact.lat = body.get("lat")
+    db_contact.lng = body.get("lng")
+    db.commit()
+    return {"lat": db_contact.lat, "lng": db_contact.lng}
     db.refresh(db_contact)
     return db_contact
 
