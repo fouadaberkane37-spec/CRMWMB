@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
-import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
+         Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
+         ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -112,10 +114,310 @@ function ReschedulePopup({ deal, onSave, onClose }) {
   )
 }
 
+// ── Service label map ──────────────────────────────────────────────────────────
+const SERVICE_LABELS = {
+  'window-ext':  'Windows (Exterior)',
+  'window-int':  'Windows (Interior)',
+  'gutters':     'Gutter Cleaning',
+  'pressure':    'Pressure Washing',
+  'roof':        'Roof Cleaning',
+  'screens':     'Screen Cleaning',
+  'solar':       'Solar Panels',
+}
+
+// ── Technician Job Details Modal ───────────────────────────────────────────────
+function TechJobModal({ deal, allDeals, onClose, onClockAction }) {
+  const [jobNote, setJobNote]       = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [noteSaved, setNoteSaved]   = useState(false)
+  const [clocking, setClocking]     = useState(false)
+  const [todayClocks, setTodayClocks] = useState([])
+
+  const idx   = allDeals.findIndex(d => d.id === deal.id)
+  const prev  = allDeals[idx - 1] || null
+  const next  = allDeals[idx + 1] || null
+
+  const contact  = deal.contact || {}
+  const fullName = [contact.first_name, contact.last_name].filter(Boolean).join(' ') || deal.title
+  const address  = contact.address || ''
+  const mapsUrl  = address ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}` : null
+
+  const apptDate = deal.expected_close_date ? new Date(deal.expected_close_date) : null
+  const apptDateStr = apptDate
+    ? apptDate.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    : '—'
+  const apptTimeStr = apptDate
+    ? apptDate.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : '—'
+
+  const services = (contact.services || '').split(',').map(s => s.trim()).filter(Boolean)
+
+  const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
+  const statusColor = {
+    todo: 'text-indigo-400 bg-indigo-900/30 border-indigo-700/40',
+    payment_pending: 'text-amber-400 bg-amber-900/30 border-amber-700/40',
+    done: 'text-emerald-400 bg-emerald-900/30 border-emerald-700/40',
+    cancelled: 'text-slate-400 bg-slate-800 border-slate-700/40',
+  }[deal.job_status] || 'text-indigo-400 bg-indigo-900/30 border-indigo-700/40'
+
+  // Load today's clock entries for this deal
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    api.get('/timeclock/', { params: { deal_id: deal.id, date: today } })
+      .then(r => setTodayClocks(r.data))
+      .catch(() => {})
+  }, [deal.id])
+
+  const lastClock = todayClocks[todayClocks.length - 1]
+  const clockedIn = lastClock?.clock_type === 'in'
+
+  async function handleClock() {
+    setClocking(true)
+    try {
+      const type = clockedIn ? 'out' : 'in'
+      const res = await api.post('/timeclock/', { clock_type: type, deal_id: deal.id })
+      setTodayClocks(prev => [...prev, res.data])
+      if (onClockAction) onClockAction()
+    } finally {
+      setClocking(false)
+    }
+  }
+
+  async function saveNote() {
+    if (!jobNote.trim()) return
+    setSavingNote(true)
+    try {
+      await api.post('/activities/', {
+        type: 'note',
+        title: `Tech note — ${fullName}`,
+        description: jobNote.trim(),
+        deal_id: deal.id,
+        contact_id: contact.id || null,
+      })
+      setJobNote('')
+      setNoteSaved(true)
+      setTimeout(() => setNoteSaved(false), 2500)
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  // Calculate hours clocked today
+  const pairs = []
+  let pendingIn = null
+  for (const e of todayClocks) {
+    if (e.clock_type === 'in') pendingIn = e
+    else if (e.clock_type === 'out' && pendingIn) {
+      pairs.push({ in: pendingIn, out: e })
+      pendingIn = null
+    }
+  }
+  const totalMs = pairs.reduce((acc, p) => acc + (new Date(p.out.clocked_at) - new Date(p.in.clocked_at)), 0)
+  const totalHrs = Math.floor(totalMs / 3600000)
+  const totalMins = Math.floor((totalMs % 3600000) / 60000)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="relative bg-slate-900 border border-slate-700/60 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-slate-700/50">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${statusColor}`}>{s.label}</span>
+              <span className="text-slate-600 text-xs">#{deal.id}</span>
+            </div>
+            <h2 className="text-lg font-bold text-white truncate">{fullName}</h2>
+            <p className="text-slate-400 text-sm">{deal.title}</p>
+          </div>
+          <button onClick={onClose} className="ml-3 text-slate-500 hover:text-white transition-colors flex-shrink-0">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5">
+
+          {/* Appointment Date & Time */}
+          <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <CalendarDays size={12} /> Appointment
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-slate-500 mb-0.5">Date</p>
+                <p className="text-sm text-white font-medium">{apptDateStr}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-0.5">Time</p>
+                <p className="text-sm text-white font-medium">{apptTimeStr}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer Info */}
+          <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <ClipboardList size={12} /> Customer
+            </h3>
+            <div className="space-y-2">
+              {contact.phone && (
+                <a href={`tel:${contact.phone}`} className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors group">
+                  <Phone size={14} className="text-slate-500 group-hover:text-indigo-400 flex-shrink-0" />
+                  {contact.phone}
+                </a>
+              )}
+              {contact.email && (
+                <a href={`mailto:${contact.email}`} className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors group">
+                  <Mail size={14} className="text-slate-500 group-hover:text-indigo-400 flex-shrink-0" />
+                  {contact.email}
+                </a>
+              )}
+              {address && (
+                <div className="flex items-start gap-2">
+                  <MapPin size={14} className="text-slate-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-sm text-slate-300">{address}</span>
+                </div>
+              )}
+              {mapsUrl && (
+                <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+                   className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-medium mt-1 transition-colors">
+                  <Navigation size={12} /> Get Directions
+                  <ExternalLink size={10} />
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Services */}
+          {services.length > 0 && (
+            <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Services Requested</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {services.map(svc => (
+                  <span key={svc} className="text-xs px-2 py-1 bg-indigo-900/40 text-indigo-300 border border-indigo-700/40 rounded-full">
+                    {SERVICE_LABELS[svc] || svc}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pricing */}
+          <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <DollarSign size={12} /> Pricing & Billing
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-slate-500 mb-0.5">Quoted Price</p>
+                <p className="text-xl font-bold text-emerald-400">${(deal.value || 0).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-0.5">Payment Status</p>
+                <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${statusColor}`}>{s.label}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes / Special Instructions */}
+          {deal.notes && (
+            <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <AlertCircle size={12} /> Special Instructions
+              </h3>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{deal.notes}</p>
+            </div>
+          )}
+
+          {/* Clock In / Out */}
+          <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Timer size={12} /> Job Timer
+            </h3>
+            {totalMs > 0 && (
+              <p className="text-xs text-slate-400 mb-3">
+                Time logged today: <span className="text-white font-semibold">{totalHrs}h {totalMins}m</span>
+              </p>
+            )}
+            <button
+              onClick={handleClock}
+              disabled={clocking}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 ${
+                clockedIn
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+              }`}
+            >
+              {clockedIn ? <LogOut size={16} /> : <LogIn size={16} />}
+              {clocking ? 'Saving…' : clockedIn ? 'Clock Out' : 'Clock In'}
+            </button>
+            {todayClocks.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {todayClocks.map((e, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-slate-500">
+                    <span className={e.clock_type === 'in' ? 'text-emerald-500' : 'text-amber-500'}>
+                      {e.clock_type === 'in' ? '▶' : '■'}
+                    </span>
+                    {e.clock_type === 'in' ? 'Clocked in' : 'Clocked out'} at{' '}
+                    {new Date(e.clocked_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add Job Note */}
+          <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <MessageSquare size={12} /> Add Job Note
+            </h3>
+            <textarea
+              value={jobNote}
+              onChange={e => setJobNote(e.target.value)}
+              placeholder="Document work performed, issues found, recommendations…"
+              rows={3}
+              className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-600"
+            />
+            <button
+              onClick={saveNote}
+              disabled={savingNote || !jobNote.trim()}
+              className="mt-2 w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              {noteSaved ? '✓ Saved!' : savingNote ? 'Saving…' : 'Save Note'}
+            </button>
+          </div>
+        </div>
+
+        {/* Navigation footer */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-700/50">
+          <button
+            onClick={() => { /* handled by parent */ }}
+            disabled={!prev}
+            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft size={14} /> Prev
+          </button>
+          <span className="text-xs text-slate-600">{idx + 1} of {allDeals.length}</span>
+          <button
+            onClick={() => { /* handled by parent */ }}
+            disabled={!next}
+            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            Next <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Deal chip — draggable ──────────────────────────────────────────────────────
-function DealChip({ deal, onUpdate, onReschedule, onDragStart, onDragEnd, isDragging, isAdmin }) {
-  const [open, setOpen]             = useState(false)
+function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragEnd, isDragging, isAdmin, isTech }) {
+  const [open, setOpen]           = useState(false)
   const [reschedule, setReschedule] = useState(false)
+  const [techModal, setTechModal] = useState(false)
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
 
   const time = deal.expected_close_date
@@ -134,49 +436,61 @@ function DealChip({ deal, onUpdate, onReschedule, onDragStart, onDragEnd, isDrag
   }
 
   return (
-    <div
-      draggable={isAdmin}
-      onDragStart={handleDragStart}
-      onDragEnd={isAdmin ? onDragEnd : undefined}
-      className={`relative group transition-opacity select-none ${isDragging ? 'opacity-30 scale-95' : ''}`}
-      style={{ cursor: isAdmin ? 'grab' : 'default' }}
-    >
-      {/* Main chip */}
-      <button
-        onClick={e => {
-          if (!isAdmin || isDragging) return
-          e.stopPropagation()
-          setReschedule(false)
-          setOpen(v => !v)
-        }}
-        className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight ${s.color} ${s.text} ${!isAdmin ? 'cursor-default' : ''}`}
-        title={isAdmin ? `${clientName} — $${deal.value} · Click to change status` : clientName}
+    <>
+      <div
+        draggable={isAdmin}
+        onDragStart={handleDragStart}
+        onDragEnd={isAdmin ? onDragEnd : undefined}
+        className={`relative group transition-opacity select-none ${isDragging ? 'opacity-30 scale-95' : ''}`}
+        style={{ cursor: isAdmin ? 'grab' : isTech ? 'pointer' : 'default' }}
       >
-        {time && <span className="opacity-75 mr-1">{time}</span>}
-        <span className="truncate">{clientName}</span>
-        {/* Lock icon for non-admins */}
-        {!isAdmin && <Lock size={8} className="inline ml-1 opacity-40" />}
-      </button>
-
-      {/* Reschedule icon — admin only */}
-      {isAdmin && (
+        {/* Main chip */}
         <button
-          onClick={e => { e.stopPropagation(); setOpen(false); setReschedule(v => !v) }}
-          className="absolute right-0.5 top-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded bg-black/30 hover:bg-black/50 text-white/80"
-          title="Reschedule"
+          onClick={e => {
+            e.stopPropagation()
+            if (isDragging) return
+            if (isTech) { setTechModal(true); return }
+            if (!isAdmin) return
+            setReschedule(false)
+            setOpen(v => !v)
+          }}
+          className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight ${s.color} ${s.text} ${!isAdmin && !isTech ? 'cursor-default' : ''}`}
+          title={isAdmin ? `${clientName} — $${deal.value} · Click to change status` : clientName}
         >
-          <CalendarDays size={9} />
+          {time && <span className="opacity-75 mr-1">{time}</span>}
+          <span className="truncate">{clientName}</span>
+          {isTech && <ExternalLink size={8} className="inline ml-1 opacity-60" />}
+          {!isAdmin && !isTech && <Lock size={8} className="inline ml-1 opacity-40" />}
         </button>
-      )}
 
-      {open && isAdmin && <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setOpen(false)} />}
-      {reschedule && isAdmin && <ReschedulePopup deal={deal} onSave={onReschedule} onClose={() => setReschedule(false)} />}
-    </div>
+        {/* Reschedule icon — admin only */}
+        {isAdmin && (
+          <button
+            onClick={e => { e.stopPropagation(); setOpen(false); setReschedule(v => !v) }}
+            className="absolute right-0.5 top-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded bg-black/30 hover:bg-black/50 text-white/80"
+            title="Reschedule"
+          >
+            <CalendarDays size={9} />
+          </button>
+        )}
+
+        {open && isAdmin && <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setOpen(false)} />}
+        {reschedule && isAdmin && <ReschedulePopup deal={deal} onSave={onReschedule} onClose={() => setReschedule(false)} />}
+      </div>
+
+      {techModal && (
+        <TechJobModal
+          deal={deal}
+          allDeals={allDeals}
+          onClose={() => setTechModal(false)}
+        />
+      )}
+    </>
   )
 }
 
 // ── Day cell — drop target ─────────────────────────────────────────────────────
-function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, isDragOver, onDragOver, onDragLeave, onDrop, onUpdate, onReschedule, onDragStart, onDragEnd, draggingDealId, isAdmin }) {
+function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, isDragOver, onDragOver, onDragLeave, onDrop, onUpdate, onReschedule, onDragStart, onDragEnd, draggingDealId, isAdmin, isTech }) {
   return (
     <div
       className={`border-b border-r border-slate-700/30 p-1.5 flex flex-col gap-1 transition-colors ${
@@ -212,7 +526,9 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, isDragOver,
         <DealChip
           key={deal.id}
           isAdmin={isAdmin}
+          isTech={isTech}
           deal={deal}
+          allDeals={allDeals}
           onUpdate={onUpdate}
           onReschedule={onReschedule}
           onDragStart={onDragStart}
@@ -228,6 +544,7 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, isDragOver,
 export default function Calendar() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
+  const isTech  = user?.role === 'technician'
 
   const today = new Date()
   const [year, setYear]   = useState(today.getFullYear())
@@ -388,6 +705,7 @@ export default function Calendar() {
                     deals={dayDeals}
                     isDragOver={dragOverDate === dateStr}
                     draggingDealId={draggingDealId}
+                    allDeals={[...deals].sort((a,b) => new Date(a.expected_close_date) - new Date(b.expected_close_date))}
                     onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverDate(dateStr) }}
                     onDragLeave={() => setDragOverDate(undefined)}
                     onDrop={e => {
@@ -402,6 +720,7 @@ export default function Calendar() {
                     onDragStart={id => setDraggingDealId(id)}
                     onDragEnd={() => { setDraggingDealId(null); setDragOverDate(undefined) }}
                     isAdmin={isAdmin}
+                    isTech={isTech}
                   />
                 </div>
               )
@@ -413,7 +732,7 @@ export default function Calendar() {
       {/* ── Legend ── */}
       <div className="flex items-center gap-4 mt-3 flex-shrink-0">
         <span className="text-xs text-slate-600">
-          {isAdmin ? 'Click to change status · Drag to reschedule' : 'View only — admin can change status'}
+          {isAdmin ? 'Click to change status · Drag to reschedule' : isTech ? 'Click any appointment to view details & clock in/out' : 'View only — admin can change status'}
         </span>
         <div className="flex items-center gap-3 ml-auto">
           {JOB_STATUSES.map(s => (

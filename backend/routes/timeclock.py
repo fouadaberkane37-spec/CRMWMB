@@ -62,6 +62,7 @@ def clock_in_out(
 @router.get("/", response_model=List[schemas.TimeClockOut])
 def list_entries(
     user_id: Optional[int] = None,
+    deal_id: Optional[int] = None,
     date: Optional[str] = None,        # YYYY-MM-DD
     from_date: Optional[str] = None,   # YYYY-MM-DD
     to_date: Optional[str] = None,     # YYYY-MM-DD
@@ -78,6 +79,9 @@ def list_entries(
         q = q.filter(models.TimeClock.user_id == current_user.id)
     elif user_id is not None:
         q = q.filter(models.TimeClock.user_id == user_id)
+
+    if deal_id is not None:
+        q = q.filter(models.TimeClock.deal_id == deal_id)
 
     # Date filtering
     if date:
