@@ -12,7 +12,7 @@ const ALL_NAV = [
   { to: '/contacts',label: 'Contacts',   icon: Users,           hideForTech: true },
   { to: '/booking', label: 'Booking',    icon: BookOpen,        hideForTech: true },
   { to: '/calendar',label: 'Calendar',   icon: CalendarDays },
-  { to: '/clock',   label: 'Clock In/Out', icon: Timer },
+  { to: '/clock',   label: 'Clock In/Out', icon: Timer, hideForSales: true },
   { to: '/chats',   label: 'Chats',      icon: MessageSquare,   adminOnly: true, hideForTech: true },
   { to: '/map',     label: 'My Map',     icon: MapPin,          hideForTech: true },
   { to: '/team-map',label: 'Team Map',   icon: Globe,           hideForTech: true },
@@ -27,6 +27,7 @@ export default function Sidebar() {
   const navItems = ALL_NAV.filter(item => {
     if (item.adminOnly && user?.role !== 'admin') return false
     if (item.hideForTech && user?.role === 'technician') return false
+    if (item.hideForSales && user?.role === 'sales') return false
     return true
   })
 

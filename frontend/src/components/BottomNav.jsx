@@ -10,8 +10,9 @@ import {
 export default function BottomNav() {
   const [showMore, setShowMore] = useState(false)
   const { user, logout } = useAuth()
-  const isAdmin = user?.role === 'admin'
-  const isTech  = user?.role === 'technician'
+  const isAdmin  = user?.role === 'admin'
+  const isTech   = user?.role === 'technician'
+  const isSales  = user?.role === 'sales'
   const navigate = useNavigate()
 
   const primaryNav = isTech
@@ -24,7 +25,7 @@ export default function BottomNav() {
         { to: '/contacts',  label: 'Contacts',  icon: Users },
         { to: '/booking',   label: 'Booking',   icon: BookOpen },
         { to: '/calendar',  label: 'Calendar',  icon: CalendarDays },
-        { to: '/clock',     label: 'Clock',     icon: Timer },
+        ...(!isSales ? [{ to: '/clock', label: 'Clock', icon: Timer }] : []),
       ]
 
   function handleLogout() {
