@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
-import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X } from 'lucide-react'
+import { useAuth } from '../App.jsx'
+import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -112,8 +113,8 @@ function ReschedulePopup({ deal, onSave, onClose }) {
 }
 
 // ── Deal chip — draggable ──────────────────────────────────────────────────────
-function DealChip({ deal, onUpdate, onReschedule, onDragStart, onDragEnd, isDragging }) {
-  const [open, setOpen]           = useState(false)
+function DealChip({ deal, onUpdate, onReschedule, onDragStart, onDragEnd, isDragging, isAdmin }) {
+  const [open, setOpen]             = useState(false)
   const [reschedule, setReschedule] = useState(false)
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
 
@@ -126,50 +127,56 @@ function DealChip({ deal, onUpdate, onReschedule, onDragStart, onDragEnd, isDrag
     : deal.title
 
   function handleDragStart(e) {
+    if (!isAdmin) { e.preventDefault(); return }
     e.dataTransfer.setData('dealId', String(deal.id))
     e.dataTransfer.effectAllowed = 'move'
-    // Small delay so the chip visually dims after the drag ghost is captured
     setTimeout(() => onDragStart(deal.id), 0)
   }
 
   return (
     <div
-      draggable
+      draggable={isAdmin}
       onDragStart={handleDragStart}
-      onDragEnd={onDragEnd}
+      onDragEnd={isAdmin ? onDragEnd : undefined}
       className={`relative group transition-opacity select-none ${isDragging ? 'opacity-30 scale-95' : ''}`}
-      style={{ cursor: 'grab' }}
+      style={{ cursor: isAdmin ? 'grab' : 'default' }}
     >
-      {/* Drag handle visual indicator */}
-      <div className={`absolute inset-0 rounded-md ring-2 ring-white/60 pointer-events-none transition-opacity ${isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-30'}`} />
-
-      {/* Main chip — click = status menu */}
+      {/* Main chip */}
       <button
-        onClick={e => { if (isDragging) return; e.stopPropagation(); setReschedule(false); setOpen(v => !v) }}
-        className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight ${s.color} ${s.text}`}
-        title={`${clientName} — $${deal.value} · Click to change status · Drag to reschedule`}
+        onClick={e => {
+          if (!isAdmin || isDragging) return
+          e.stopPropagation()
+          setReschedule(false)
+          setOpen(v => !v)
+        }}
+        className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight ${s.color} ${s.text} ${!isAdmin ? 'cursor-default' : ''}`}
+        title={isAdmin ? `${clientName} — $${deal.value} · Click to change status` : clientName}
       >
         {time && <span className="opacity-75 mr-1">{time}</span>}
         <span className="truncate">{clientName}</span>
+        {/* Lock icon for non-admins */}
+        {!isAdmin && <Lock size={8} className="inline ml-1 opacity-40" />}
       </button>
 
-      {/* Reschedule icon */}
-      <button
-        onClick={e => { e.stopPropagation(); setOpen(false); setReschedule(v => !v) }}
-        className="absolute right-0.5 top-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded bg-black/30 hover:bg-black/50 text-white/80"
-        title="Reschedule"
-      >
-        <CalendarDays size={9} />
-      </button>
+      {/* Reschedule icon — admin only */}
+      {isAdmin && (
+        <button
+          onClick={e => { e.stopPropagation(); setOpen(false); setReschedule(v => !v) }}
+          className="absolute right-0.5 top-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded bg-black/30 hover:bg-black/50 text-white/80"
+          title="Reschedule"
+        >
+          <CalendarDays size={9} />
+        </button>
+      )}
 
-      {open && <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setOpen(false)} />}
-      {reschedule && <ReschedulePopup deal={deal} onSave={onReschedule} onClose={() => setReschedule(false)} />}
+      {open && isAdmin && <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setOpen(false)} />}
+      {reschedule && isAdmin && <ReschedulePopup deal={deal} onSave={onReschedule} onClose={() => setReschedule(false)} />}
     </div>
   )
 }
 
 // ── Day cell — drop target ─────────────────────────────────────────────────────
-function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, isDragOver, onDragOver, onDragLeave, onDrop, onUpdate, onReschedule, onDragStart, onDragEnd, draggingDealId }) {
+function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, isDragOver, onDragOver, onDragLeave, onDrop, onUpdate, onReschedule, onDragStart, onDragEnd, draggingDealId, isAdmin }) {
   return (
     <div
       className={`border-b border-r border-slate-700/30 p-1.5 flex flex-col gap-1 transition-colors ${
@@ -177,9 +184,9 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, isDragOver,
         isDragOver ? 'bg-indigo-900/25 border-indigo-500/60' :
         isPast     ? 'bg-slate-900/60' : 'bg-slate-900'
       }`}
-      onDragOver={isValid ? onDragOver : undefined}
-      onDragLeave={isValid ? onDragLeave : undefined}
-      onDrop={isValid ? onDrop : undefined}
+      onDragOver={isValid && isAdmin ? onDragOver : undefined}
+      onDragLeave={isValid && isAdmin ? onDragLeave : undefined}
+      onDrop={isValid && isAdmin ? onDrop : undefined}
     >
       {/* Drop zone highlight ring */}
       {isDragOver && isValid && (
@@ -204,6 +211,7 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, isDragOver,
       {deals.map(deal => (
         <DealChip
           key={deal.id}
+          isAdmin={isAdmin}
           deal={deal}
           onUpdate={onUpdate}
           onReschedule={onReschedule}
@@ -218,6 +226,9 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, isDragOver,
 
 // ── Main Calendar ──────────────────────────────────────────────────────────────
 export default function Calendar() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+
   const today = new Date()
   const [year, setYear]   = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -237,6 +248,7 @@ export default function Calendar() {
   useEffect(() => { load() }, [load])
 
   async function updateStatus(dealId, jobStatus) {
+    if (!isAdmin) return
     await api.patch(`/deals/${dealId}/job-status`, null, { params: { job_status: jobStatus } })
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, job_status: jobStatus } : d))
   }
@@ -247,6 +259,7 @@ export default function Calendar() {
 
   // Drop a deal onto a new date — keeps original time
   async function dropDeal(dealId, newDateStr) {
+    if (!isAdmin) return
     const deal = deals.find(d => d.id === dealId)
     if (!deal || !newDateStr) return
 
@@ -388,6 +401,7 @@ export default function Calendar() {
                     onReschedule={rescheduleLocal}
                     onDragStart={id => setDraggingDealId(id)}
                     onDragEnd={() => { setDraggingDealId(null); setDragOverDate(null) }}
+                    isAdmin={isAdmin}
                   />
                 </div>
               )
@@ -398,7 +412,9 @@ export default function Calendar() {
 
       {/* ── Legend ── */}
       <div className="flex items-center gap-4 mt-3 flex-shrink-0">
-        <span className="text-xs text-slate-600">Click to change status · Drag to reschedule</span>
+        <span className="text-xs text-slate-600">
+          {isAdmin ? 'Click to change status · Drag to reschedule' : 'View only — admin can change status'}
+        </span>
         <div className="flex items-center gap-3 ml-auto">
           {JOB_STATUSES.map(s => (
             <span key={s.key} className="flex items-center gap-1.5 text-xs text-slate-500">
