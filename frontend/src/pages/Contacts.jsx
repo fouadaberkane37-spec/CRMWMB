@@ -195,7 +195,8 @@ export default function Contacts() {
         }
       }, 3000)
     } catch (err) {
-      alert(err.response?.data?.detail || 'Geocoding failed — check server logs')
+      const msg = err.response?.data?.detail || err.message || 'Unknown error'
+      alert(`Geocoding request failed: ${msg}`)
       setGeocoding(false)
     }
   }

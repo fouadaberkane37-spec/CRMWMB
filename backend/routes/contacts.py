@@ -18,51 +18,64 @@ def _own_contact(contact, user):
 
 
 def geocode_address(address: str):
-    """Geocode an address, locked to Canada only.
+    """Geocode an address locked to Canada.
 
-    Strategy (tries each until one returns a result inside Canada):
-    1. address + ", Québec, Canada"          ← most contacts are in QC
-    2. address + ", Quebec, Canada"
-    3. address + ", Canada"                  ← catch other provinces
-    4. raw address with country_codes="ca"   ← last resort
+    Uses direct HTTP calls (no geopy) — tries Nominatim then Photon as fallback.
+    Only accepts results inside Canada's bounding box.
     """
+    import requests, time
+
     if not address or not address.strip():
         return None, None
 
-    # Canada bounding box sanity check
     def _in_canada(lat, lng):
-        return 41 <= lat <= 84 and -141 <= lng <= -50
+        return 41.0 <= lat <= 84.0 and -141.0 <= lng <= -50.0
 
-    import time
+    addr = address.strip()
+    # Remove any trailing country/province so we control the suffix
+    for tail in [", canada", ", québec", ", quebec", ", qc", ", on", ", ontario"]:
+        if addr.lower().endswith(tail):
+            addr = addr[: -len(tail)].strip().rstrip(",").strip()
+            break
+
+    HEADERS = {"User-Agent": "CRMWMB/1.0 groupewmb@gmail.com"}
+
+    # ── Nominatim (OSM) ───────────────────────────────────────────────────────
+    for suffix in ["Québec, Canada", "Quebec, Canada", "Canada"]:
+        query = f"{addr}, {suffix}"
+        try:
+            r = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": query, "format": "json", "limit": 1, "countrycodes": "ca"},
+                headers=HEADERS,
+                timeout=8,
+            )
+            if r.ok and r.json():
+                lat = float(r.json()[0]["lat"])
+                lng = float(r.json()[0]["lon"])
+                if _in_canada(lat, lng):
+                    return lat, lng
+        except Exception:
+            pass
+        time.sleep(1)
+
+    # ── Photon (Komoot) fallback ───────────────────────────────────────────────
     try:
-        from geopy.geocoders import Nominatim
-        geo = Nominatim(user_agent="crmwmb_v2", timeout=10)
-
-        addr = address.strip()
-        # Strip any existing country/province suffix so we control it
-        for suffix in [", canada", ", québec", ", quebec", ", qc", ", ontario", ", on"]:
-            if addr.lower().endswith(suffix):
-                addr = addr[: -len(suffix)].strip().rstrip(",").strip()
-
-        queries = [
-            (f"{addr}, Québec, Canada", None),
-            (f"{addr}, Quebec, Canada", None),
-            (f"{addr}, Canada", None),
-            (addr, "ca"),
-        ]
-
-        for query, country_codes in queries:
-            try:
-                kwargs = {"country_codes": country_codes} if country_codes else {}
-                loc = geo.geocode(query, **kwargs)
-                if loc and _in_canada(loc.latitude, loc.longitude):
-                    return loc.latitude, loc.longitude
-            except Exception:
-                pass
-            time.sleep(1)
-
+        r = requests.get(
+            "https://photon.komoot.io/api/",
+            params={"q": f"{addr}, Canada", "limit": 5, "lang": "fr"},
+            headers=HEADERS,
+            timeout=8,
+        )
+        if r.ok:
+            for feat in r.json().get("features", []):
+                coords = feat["geometry"]["coordinates"]
+                lng2, lat2 = float(coords[0]), float(coords[1])
+                if _in_canada(lat2, lng2):
+                    return lat2, lng2
     except Exception:
         pass
+
     return None, None
 
 
