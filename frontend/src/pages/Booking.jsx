@@ -28,6 +28,7 @@ function Field({ label, icon: Icon, children }) {
 }
 
 const INPUT = "w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+const INPUT_CENTER = INPUT + " text-center"
 
 const MAX_PER_DAY = 3
 
@@ -218,8 +219,8 @@ export default function Booking() {
                 type="date"
                 value={form.date}
                 onChange={e => handleDateChange(e.target.value)}
-                className={`${INPUT} ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
-                style={{ height: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', WebkitAppearance: 'none' }}
+                className={`${INPUT_CENTER} ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
+                style={{ height: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', WebkitAppearance: 'none', textAlign: 'center' }}
                 required
               />
             </Field>
@@ -246,8 +247,8 @@ export default function Booking() {
               type="time"
               value={form.time}
               onChange={e => set('time', e.target.value)}
-              className={INPUT}
-              style={{ height: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', WebkitAppearance: 'none' }}
+              className={INPUT_CENTER}
+              style={{ height: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', WebkitAppearance: 'none', textAlign: 'center' }}
             />
           </Field>
         </div>
