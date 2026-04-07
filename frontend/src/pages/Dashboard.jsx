@@ -1,24 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api.js'
-import { Users, UserCheck, DollarSign, CalendarDays } from 'lucide-react'
+import { Users, CheckCircle, DollarSign, CalendarDays } from 'lucide-react'
 
-function StatCard({ icon: Icon, label, value, sub, color, to }) {
-  const palette = {
-    indigo:  { card: 'border-indigo-500/20 hover:border-indigo-500/40',  icon: 'bg-indigo-500/10 text-indigo-400'  },
-    emerald: { card: 'border-emerald-500/20 hover:border-emerald-500/40', icon: 'bg-emerald-500/10 text-emerald-400' },
-    green:   { card: 'border-green-500/20 hover:border-green-500/40',    icon: 'bg-green-500/10 text-green-400'    },
-    amber:   { card: 'border-amber-500/20 hover:border-amber-500/40',    icon: 'bg-amber-500/10 text-amber-400'    },
-  }
-  const p = palette[color] || palette.indigo
-
+function StatCard({ icon: Icon, label, value, sub, colorClass, iconClass, to }) {
   const inner = (
-    <div className={`bg-slate-900 rounded-2xl border p-6 transition-colors ${p.card}`}>
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${p.icon}`}>
+    <div className={`bg-slate-900 rounded-2xl border p-6 transition-colors ${colorClass}`}>
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${iconClass}`}>
         <Icon size={22} />
       </div>
       <p className="text-3xl font-bold text-slate-100 leading-none">{value}</p>
-      {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-slate-500 mt-1.5">{sub}</p>}
       <p className="text-sm text-slate-400 mt-2 font-medium">{label}</p>
     </div>
   )
@@ -32,14 +24,14 @@ const STATUS_COLORS = {
   inactive: 'bg-slate-700 text-slate-400',
 }
 
-const JOB_STATUS_COLORS = {
-  todo:            'bg-indigo-900/40 text-indigo-400',
-  payment_pending: 'bg-amber-900/40 text-amber-400',
-  done:            'bg-emerald-900/40 text-emerald-400',
+const JOB_COLORS = {
+  todo:            'bg-indigo-900/40 text-indigo-300',
+  payment_pending: 'bg-amber-900/40 text-amber-300',
+  done:            'bg-emerald-900/40 text-emerald-300',
   cancelled:       'bg-slate-700 text-slate-400',
 }
 
-const JOB_STATUS_LABELS = {
+const JOB_LABELS = {
   todo: 'To Do', payment_pending: 'Payment Pending', done: 'Done', cancelled: 'Cancelled',
 }
 
@@ -50,21 +42,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/contacts/?limit=200'),
-      api.get('/deals/?limit=1000'),
+      api.get('/contacts/', { params: { limit: 500 } }),
+      api.get('/deals/',    { params: { limit: 1000 } }),
     ]).then(([c, d]) => {
       setContacts(c.data)
       setDeals(d.data)
-    }).finally(() => setLoading(false))
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  // ── Metrics ────────────────────────────────────────────────────────────────
   const totalLeads     = contacts.length
   const totalCustomers = contacts.filter(c => c.status === 'customer').length
   const totalDealValue = deals.reduce((sum, d) => sum + (d.value || 0), 0)
-  const amountMade     = totalDealValue * 0.30   // 30% margin
+  const amountMade     = totalDealValue * 0.30
 
-  // Upcoming appointments (deals with a future date)
   const now = new Date()
   const upcoming = deals
     .filter(d => d.expected_close_date && new Date(d.expected_close_date) >= now)
@@ -88,28 +78,30 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-1">Groupe WMB — business overview</p>
       </div>
 
-      {/* ── Stats ── */}
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={Users}
           label="Total Leads"
           value={loading ? '…' : totalLeads}
           sub="all contacts"
-          color="indigo"
+          colorClass="border-indigo-500/20 hover:border-indigo-500/40"
+          iconClass="bg-indigo-500/10 text-indigo-400"
           to="/contacts"
         />
         <StatCard
-          icon={UserCheck}
+          icon={CheckCircle}
           label="Customers"
           value={loading ? '…' : totalCustomers}
           sub="closed contacts"
-          color="emerald"
+          colorClass="border-emerald-500/20 hover:border-emerald-500/40"
+          iconClass="bg-emerald-500/10 text-emerald-400"
           to="/contacts"
         />
         <StatCard
@@ -117,19 +109,21 @@ export default function Dashboard() {
           label="Revenue Made"
           value={loading ? '…' : fmtMoney(amountMade)}
           sub={`30% of ${fmtMoney(totalDealValue)} total`}
-          color="green"
+          colorClass="border-emerald-500/20 hover:border-emerald-500/40"
+          iconClass="bg-emerald-500/10 text-emerald-400"
         />
         <StatCard
           icon={CalendarDays}
           label="Appointments"
           value={loading ? '…' : deals.filter(d => d.expected_close_date).length}
           sub={`${upcoming.length} upcoming`}
-          color="amber"
+          colorClass="border-amber-500/20 hover:border-amber-500/40"
+          iconClass="bg-amber-500/10 text-amber-400"
           to="/calendar"
         />
       </div>
 
-      {/* ── Recent rows ── */}
+      {/* Recent rows */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Contacts */}
         <div className="bg-slate-900 rounded-2xl border border-slate-700/50">
@@ -175,8 +169,8 @@ export default function Dashboard() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-emerald-400">{d.value > 0 ? `$${d.value.toFixed(0)}` : '—'}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[d.job_status] || JOB_STATUS_COLORS.todo}`}>
-                    {JOB_STATUS_LABELS[d.job_status] || 'To Do'}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_COLORS[d.job_status] || JOB_COLORS.todo}`}>
+                    {JOB_LABELS[d.job_status] || 'To Do'}
                   </span>
                 </div>
               </div>
