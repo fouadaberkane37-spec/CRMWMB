@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
-import { Timer, Clock, Briefcase, ChevronDown, LogIn, LogOut } from 'lucide-react'
+import { Timer, Clock, LogIn, LogOut } from 'lucide-react'
 
 function formatTime(iso) {
   if (!iso) return '—'
@@ -23,12 +23,9 @@ function getTodayISO() {
 
 export default function ClockInOut() {
   const { user } = useAuth()
-  const [entries, setEntries]         = useState([])
-  const [deals, setDeals]             = useState([])
-  const [selectedDeal, setSelectedDeal] = useState('')
-  const [notes, setNotes]             = useState('')
-  const [loading, setLoading]         = useState(false)
-  const [now, setNow]                 = useState(new Date())
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [now, setNow]         = useState(new Date())
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60000)
@@ -42,24 +39,10 @@ export default function ClockInOut() {
     } catch {}
   }, [])
 
-  const loadDeals = useCallback(async () => {
-    try {
-      const today = getTodayISO()
-      const res = await api.get('/deals/', { params: { limit: 50 } })
-      const todayDeals = res.data.filter(d => {
-        if (!d.expected_close_date) return false
-        const dd = new Date(d.expected_close_date)
-        const td = new Date(today)
-        return dd.getFullYear() === td.getFullYear() && dd.getMonth() === td.getMonth() && dd.getDate() === td.getDate()
-      })
-      setDeals(todayDeals.length > 0 ? todayDeals : res.data.slice(0, 20))
-    } catch {}
-  }, [])
+  useEffect(() => { loadEntries() }, [loadEntries])
 
-  useEffect(() => { loadEntries(); loadDeals() }, [loadEntries, loadDeals])
-
-  const myEntries  = entries.filter(e => e.user_id === user?.id)
-  const lastEntry  = myEntries[myEntries.length - 1]
+  const myEntries   = entries.filter(e => e.user_id === user?.id)
+  const lastEntry   = myEntries[myEntries.length - 1]
   const isClockedIn = lastEntry?.clock_type === 'in'
   const nextAction  = isClockedIn ? 'out' : 'in'
 
@@ -78,12 +61,7 @@ export default function ClockInOut() {
   async function handleClock() {
     setLoading(true)
     try {
-      await api.post('/timeclock/', {
-        clock_type: nextAction,
-        deal_id: selectedDeal ? parseInt(selectedDeal) : null,
-        notes: notes.trim() || null,
-      })
-      setNotes('')
+      await api.post('/timeclock/', { clock_type: nextAction })
       await loadEntries()
     } catch {}
     finally { setLoading(false) }
@@ -128,64 +106,20 @@ export default function ClockInOut() {
         </div>
       </div>
 
-      {/* Clock action form */}
-      <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-5 mb-4">
-        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
-          Clock {nextAction === 'in' ? 'In' : 'Out'}
-        </h2>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5">
-              Link to Appointment <span className="text-slate-600 font-normal">(optional)</span>
-            </label>
-            <div className="relative">
-              <select
-                value={selectedDeal}
-                onChange={e => setSelectedDeal(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-xl px-4 pr-10 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                style={{ height: '48px' }}
-              >
-                <option value="">— No appointment —</option>
-                {deals.map(d => (
-                  <option key={d.id} value={d.id}>
-                    {d.title}{d.expected_close_date
-                      ? ` · ${new Date(d.expected_close_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                      : ''}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5">
-              Notes <span className="text-slate-600 font-normal">(optional)</span>
-            </label>
-            <input
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Add a note…"
-              className="w-full bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              style={{ height: '48px' }}
-            />
-          </div>
-
-          <button
-            onClick={handleClock}
-            disabled={loading}
-            className={`w-full rounded-2xl text-base font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
-              nextAction === 'in'
-                ? 'bg-emerald-600 active:bg-emerald-700 text-white'
-                : 'bg-red-600 active:bg-red-700 text-white'
-            }`}
-            style={{ height: '56px' }}
-          >
-            {nextAction === 'in' ? <LogIn size={20} /> : <LogOut size={20} />}
-            {loading ? 'Processing…' : `CLOCK ${nextAction.toUpperCase()}`}
-          </button>
-        </div>
-      </div>
+      {/* Big clock button */}
+      <button
+        onClick={handleClock}
+        disabled={loading}
+        className={`w-full rounded-2xl text-base font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 mb-4 ${
+          nextAction === 'in'
+            ? 'bg-emerald-600 active:bg-emerald-700 text-white'
+            : 'bg-red-600 active:bg-red-700 text-white'
+        }`}
+        style={{ height: '64px' }}
+      >
+        {nextAction === 'in' ? <LogIn size={22} /> : <LogOut size={22} />}
+        {loading ? 'Processing…' : `CLOCK ${nextAction.toUpperCase()}`}
+      </button>
 
       {/* Today's timeline */}
       {myEntries.length > 0 && (
@@ -195,16 +129,13 @@ export default function ClockInOut() {
           </h2>
           <div className="space-y-1">
             {myEntries.map((entry, idx) => (
-              <div key={entry.id} className="flex items-center gap-3" style={{ minHeight: '44px' }}>
+              <div key={entry.id} className="flex items-center gap-3" style={{ minHeight: '40px' }}>
                 <div className={`w-2 h-2 rounded-full flex-shrink-0 ${entry.clock_type === 'in' ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-bold uppercase ${entry.clock_type === 'in' ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {entry.clock_type === 'in' ? 'In' : 'Out'}
-                    </span>
-                    <span className="text-slate-300 text-sm font-medium">{formatTime(entry.clocked_at)}</span>
-                    {entry.deal_title && <span className="text-slate-500 text-xs truncate">{entry.deal_title}</span>}
-                  </div>
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <span className={`text-xs font-bold uppercase ${entry.clock_type === 'in' ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {entry.clock_type === 'in' ? 'In' : 'Out'}
+                  </span>
+                  <span className="text-slate-300 text-sm font-medium">{formatTime(entry.clocked_at)}</span>
                 </div>
                 {entry.clock_type === 'out' && idx > 0 && myEntries[idx - 1]?.clock_type === 'in' && (
                   <span className="text-xs text-slate-500 flex-shrink-0">
