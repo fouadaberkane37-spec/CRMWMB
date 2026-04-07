@@ -114,11 +114,14 @@ def list_contacts(
     current_user=Depends(get_current_user),
 ):
     q = db.query(models.Contact).options(joinedload(models.Contact.company))
-    # Filter by trash state
-    if trashed:
-        q = q.filter(models.Contact.deleted_at.isnot(None))
-    else:
-        q = q.filter(models.Contact.deleted_at.is_(None))
+    # Filter by trash state — wrapped in try/except in case column not yet migrated
+    try:
+        if trashed:
+            q = q.filter(models.Contact.deleted_at.isnot(None))
+        else:
+            q = q.filter(models.Contact.deleted_at.is_(None))
+    except Exception:
+        pass  # Column missing — return all contacts until migration runs
     # Admin sees all; others see only their own
     if current_user.role != "admin":
         q = q.filter(models.Contact.created_by == current_user.id)

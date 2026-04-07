@@ -135,7 +135,7 @@ _contact_migrations = [
     ("price",      "ALTER TABLE contacts ADD COLUMN{if_not_exists} price FLOAT"),
     ("lat",        "ALTER TABLE contacts ADD COLUMN{if_not_exists} lat FLOAT"),
     ("lng",        "ALTER TABLE contacts ADD COLUMN{if_not_exists} lng FLOAT"),
-    ("deleted_at", "ALTER TABLE contacts ADD COLUMN{if_not_exists} deleted_at DATETIME"),
+    ("deleted_at", "ALTER TABLE contacts ADD COLUMN{if_not_exists} deleted_at " + ("DATETIME" if _is_sqlite else "TIMESTAMP")),
 ]
 for _col, _stmt in _contact_migrations:
     if _is_sqlite:
