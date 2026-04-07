@@ -177,7 +177,7 @@ export default function Contacts() {
     if (!window.confirm('This will geocode all contacts that have an address but no map coordinates. It can take a minute for large lists (1 req/sec). Continue?')) return
     setGeocoding(true)
     try {
-      const { data } = await api.post('/contacts/geocode-all')
+      const { data } = await api.post('/contacts/geocode-all?force=true')
       alert(`Geocoded ${data.geocoded} of ${data.total} contacts. They will now appear as pins on the map.`)
       load()
     } catch (err) {

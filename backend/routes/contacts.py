@@ -18,15 +18,41 @@ def _own_contact(contact, user):
 
 
 def geocode_address(address: str):
-    """Return (lat, lng) for a given address, or (None, None) on failure."""
+    """Return (lat, lng) for a given address, or (None, None) on failure.
+
+    Tries progressively broader queries so partial Quebec addresses still resolve:
+    1. Exact address as given
+    2. Address + ", Quebec, Canada"
+    3. Address + ", Québec, Canada"
+    4. Address + ", Montreal, Quebec, Canada"
+    """
     if not address or not address.strip():
         return None, None
+    import time
     try:
         from geopy.geocoders import Nominatim
-        geolocator = Nominatim(user_agent="crmwmb/1.0", timeout=5)
-        location = geolocator.geocode(address)
-        if location:
-            return location.latitude, location.longitude
+        geolocator = Nominatim(user_agent="crmwmb/1.0", timeout=8)
+
+        # Already contains province/country info — try as-is first
+        candidates = [address]
+
+        addr_lower = address.lower()
+        already_has_region = any(k in addr_lower for k in ["quebec", "québec", "qc", "ontario", "canada"])
+        if not already_has_region:
+            candidates += [
+                f"{address}, Québec, Canada",
+                f"{address}, Quebec, Canada",
+                f"{address}, Montreal, Quebec, Canada",
+            ]
+
+        for query in candidates:
+            try:
+                location = geolocator.geocode(query, country_codes="ca")
+                if location:
+                    return location.latitude, location.longitude
+                time.sleep(1)  # Nominatim rate limit between attempts
+            except Exception:
+                time.sleep(1)
     except Exception:
         pass
     return None, None
@@ -252,20 +278,22 @@ async def import_contacts_csv(
 
 @router.post("/geocode-all")
 def geocode_all_contacts(
+    force: bool = False,
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
-    """Re-geocode every contact that has an address but no lat/lng."""
-    import time
+    """Geocode contacts with an address. Pass ?force=true to re-geocode all, including already geocoded ones."""
     q = db.query(models.Contact).filter(
         models.Contact.address.isnot(None),
         models.Contact.address != "",
     )
+    if not force:
+        q = q.filter(
+            (models.Contact.lat == None) | (models.Contact.lng == None)
+        )
     contacts = q.all()
     updated = 0
     for c in contacts:
-        if c.lat and c.lng:
-            continue  # already geocoded
         lat, lng = geocode_address(c.address)
         if lat and lng:
             c.lat = lat
