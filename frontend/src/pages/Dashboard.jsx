@@ -52,13 +52,14 @@ export default function Dashboard() {
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
+  const myDeals        = deals.filter(d => d.created_by === user?.id || d.assigned_to === user?.id)
   const totalLeads     = contacts.length
   const totalCustomers = contacts.filter(c => c.status === 'customer').length
-  const totalDealValue = deals.reduce((sum, d) => sum + (d.value || 0), 0)
+  const totalDealValue = myDeals.reduce((sum, d) => sum + (d.value || 0), 0)
   const amountMade     = totalDealValue * 0.30
 
   const now = new Date()
-  const upcoming = deals
+  const upcoming = myDeals
     .filter(d => d.expected_close_date && new Date(d.expected_close_date) >= now)
     .sort((a, b) => new Date(a.expected_close_date) - new Date(b.expected_close_date))
     .slice(0, 5)
@@ -117,7 +118,7 @@ export default function Dashboard() {
         <StatCard
           icon={CalendarDays}
           label="Appointments"
-          value={loading ? '…' : deals.filter(d => d.expected_close_date).length}
+          value={loading ? '…' : myDeals.filter(d => d.expected_close_date).length}
           sub={`${upcoming.length} upcoming`}
           accent={{ border: 'border-amber-500/20', icon: 'bg-amber-500/10 text-amber-400' }}
           to="/calendar"
