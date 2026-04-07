@@ -50,7 +50,7 @@ export default function BottomNav() {
                 isActive ? 'text-indigo-400' : 'text-slate-500'
               }`
             }
-            style={{ minHeight: '56px', paddingTop: '8px', paddingBottom: '8px' }}
+            style={{ minHeight: '68px', paddingTop: '12px', paddingBottom: '12px' }}
           >
             <Icon size={24} />
             <span className="text-[10px] font-medium leading-none">{label}</span>
@@ -61,7 +61,7 @@ export default function BottomNav() {
           <button
             onClick={() => setShowMore(true)}
             className="flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-500"
-            style={{ minHeight: '56px', paddingTop: '8px', paddingBottom: '8px' }}
+            style={{ minHeight: '68px', paddingTop: '12px', paddingBottom: '12px' }}
           >
             <Menu size={24} />
             <span className="text-[10px] font-medium leading-none">More</span>
