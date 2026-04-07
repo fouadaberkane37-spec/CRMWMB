@@ -280,8 +280,40 @@ export default function Contacts() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {contacts.length === 0 && (
+          <div className="bg-slate-900 rounded-xl border border-slate-700/50 px-4 py-10 text-center text-slate-500 text-sm">No contacts found</div>
+        )}
+        {contacts.map((c) => (
+          <div key={c.id} className="bg-slate-900 rounded-xl border border-slate-700/50 px-4 py-3 flex items-center gap-3">
+            {/* Avatar */}
+            <div className="w-9 h-9 rounded-full bg-indigo-600/30 flex items-center justify-center flex-shrink-0 text-indigo-300 font-bold text-sm">
+              {c.first_name?.[0]?.toUpperCase()}{c.last_name?.[0]?.toUpperCase() || ''}
+            </div>
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <p className="text-slate-100 font-medium text-sm truncate">{c.first_name} {c.last_name || ''}</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {c.phone && <span className="text-slate-400 text-xs">{c.phone}</span>}
+                {c.address && <span className="text-slate-500 text-xs truncate max-w-[150px]">{c.address}</span>}
+              </div>
+            </div>
+            {/* Status + actions */}
+            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_COLORS[c.status] || 'bg-slate-700 text-slate-400'}`}>{c.status}</span>
+              <div className="flex items-center gap-1">
+                {c.phone && <button onClick={() => { setSmsContact(c); setSmsMessage('') }} className="p-1 text-slate-500 hover:text-emerald-400 rounded-md"><MessageSquare size={13} /></button>}
+                <button onClick={() => openEdit(c)} className="p-1 text-slate-500 hover:text-slate-200 rounded-md"><Pencil size={13} /></button>
+                <button onClick={() => setDeleteId(c.id)} className="p-1 text-slate-500 hover:text-red-400 rounded-md"><Trash2 size={13} /></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-800 border-b border-slate-700/50">
@@ -312,22 +344,16 @@ export default function Contacts() {
                 <td className="px-6 py-3.5 text-slate-400 whitespace-nowrap">
                   {c.phone ? <span className="flex items-center gap-1"><Phone size={13} />{c.phone}</span> : '—'}
                 </td>
-                <td className="px-6 py-3.5">
-                  <ServicesDisplay services={c.services} />
-                </td>
+                <td className="px-6 py-3.5"><ServicesDisplay services={c.services} /></td>
                 <td className="px-6 py-3.5 text-slate-300 whitespace-nowrap">
-                  {c.price != null
-                    ? <span className="flex items-center gap-1"><DollarSign size={13} className="text-emerald-500" />{c.price.toFixed(2)}</span>
-                    : '—'}
+                  {c.price != null ? <span className="flex items-center gap-1"><DollarSign size={13} className="text-emerald-500" />{c.price.toFixed(2)}</span> : '—'}
                 </td>
                 <td className="px-6 py-3.5">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${STATUS_COLORS[c.status] || 'bg-slate-700 text-slate-400'}`}>{c.status}</span>
                 </td>
                 <td className="px-6 py-3.5">
                   <div className="flex items-center gap-1 justify-end">
-                    {c.phone && (
-                      <button onClick={() => { setSmsContact(c); setSmsMessage('') }} className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-900/20 rounded-lg" title="Send SMS"><MessageSquare size={14} /></button>
-                    )}
+                    {c.phone && <button onClick={() => { setSmsContact(c); setSmsMessage('') }} className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-900/20 rounded-lg"><MessageSquare size={14} /></button>}
                     <button onClick={() => openEdit(c)} className="p-1.5 text-slate-500 hover:text-slate-200 hover:bg-slate-700 rounded-lg"><Pencil size={14} /></button>
                     <button onClick={() => setDeleteId(c.id)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
                   </div>
