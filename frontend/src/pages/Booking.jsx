@@ -212,47 +212,44 @@ export default function Booking() {
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
             <CalendarDays size={12} /> Date & Time
           </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Field label="Date *">
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={e => handleDateChange(e.target.value)}
-                  className={`${INPUT} [color-scheme:dark] ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
-                  style={{ height: '48px' }}
-                  required
-                />
-              </Field>
-              {/* Availability indicator */}
-              {checking && (
-                <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
-                  <Loader2 size={11} className="animate-spin" /> Checking…
-                </p>
-              )}
-              {!checking && slotsLeft !== null && (
-                <p className={`mt-1.5 text-xs font-semibold flex items-center gap-1 ${
-                  slotsLeft === 0 ? 'text-red-400' : slotsLeft === 1 ? 'text-amber-400' : 'text-emerald-400'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full inline-block ${
-                    slotsLeft === 0 ? 'bg-red-400' : slotsLeft === 1 ? 'bg-amber-400' : 'bg-emerald-400'
-                  }`} />
-                  {slotsLeft === 0
-                    ? 'Fully booked'
-                    : `${slotsLeft} slot${slotsLeft > 1 ? 's' : ''} left`}
-                </p>
-              )}
-            </div>
-            <Field label="Time" icon={Clock}>
+          <div>
+            <Field label="Date *">
               <input
-                type="time"
-                value={form.time}
-                onChange={e => set('time', e.target.value)}
-                className={INPUT + ' [color-scheme:dark]'}
+                type="date"
+                value={form.date}
+                onChange={e => handleDateChange(e.target.value)}
+                className={`${INPUT} [color-scheme:dark] ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
                 style={{ height: '48px' }}
+                required
               />
             </Field>
+            {checking && (
+              <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
+                <Loader2 size={11} className="animate-spin" /> Checking…
+              </p>
+            )}
+            {!checking && slotsLeft !== null && (
+              <p className={`mt-1.5 text-xs font-semibold flex items-center gap-1 ${
+                slotsLeft === 0 ? 'text-red-400' : slotsLeft === 1 ? 'text-amber-400' : 'text-emerald-400'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                  slotsLeft === 0 ? 'bg-red-400' : slotsLeft === 1 ? 'bg-amber-400' : 'bg-emerald-400'
+                }`} />
+                {slotsLeft === 0
+                  ? 'Fully booked'
+                  : `${slotsLeft} slot${slotsLeft > 1 ? 's' : ''} left`}
+              </p>
+            )}
           </div>
+          <Field label="Time" icon={Clock}>
+            <input
+              type="time"
+              value={form.time}
+              onChange={e => set('time', e.target.value)}
+              className={INPUT + ' [color-scheme:dark]'}
+              style={{ height: '48px' }}
+            />
+          </Field>
         </div>
 
         {/* Services */}
