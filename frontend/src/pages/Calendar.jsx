@@ -694,7 +694,9 @@ export default function Calendar() {
                 <p className="text-sm">No appointments this month</p>
               </div>
             ) : agendaDays.map(([dateStr, dayDeals]) => {
-              const dt = new Date(dateStr)
+              // Parse as local time (not UTC midnight) to avoid off-by-one on dates
+              const [_y, _m, _d] = dateStr.split('-').map(Number)
+              const dt = new Date(_y, _m - 1, _d)
               const isToday = dateStr === todayStr
               const isPast  = dt < new Date(today.getFullYear(), today.getMonth(), today.getDate())
               return (
