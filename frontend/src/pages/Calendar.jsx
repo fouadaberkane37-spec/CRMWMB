@@ -4,10 +4,10 @@ import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X } from 'l
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
-  { key: 'todo',            label: 'To Do',           color: 'bg-indigo-500',  text: 'text-white',         dot: 'bg-indigo-400',  badge: 'bg-indigo-900/50 text-indigo-300 border-indigo-700/50' },
-  { key: 'payment_pending', label: 'Payment Pending', color: 'bg-amber-500',   text: 'text-white',         dot: 'bg-amber-400',   badge: 'bg-amber-900/50 text-amber-300 border-amber-700/50'   },
-  { key: 'done',            label: 'Done',            color: 'bg-emerald-500', text: 'text-white',         dot: 'bg-emerald-400', badge: 'bg-emerald-900/50 text-emerald-300 border-emerald-700/50' },
-  { key: 'cancelled',       label: 'Cancelled',       color: 'bg-slate-600',   text: 'text-slate-300',     dot: 'bg-slate-500',   badge: 'bg-slate-800 text-slate-400 border-slate-700/50'      },
+  { key: 'todo',            label: 'To Do',           color: 'bg-indigo-500',  text: 'text-white',     dot: 'bg-indigo-400',  badge: 'bg-indigo-900/50 text-indigo-300 border-indigo-700/50' },
+  { key: 'payment_pending', label: 'Payment Pending', color: 'bg-amber-500',   text: 'text-white',     dot: 'bg-amber-400',   badge: 'bg-amber-900/50 text-amber-300 border-amber-700/50'   },
+  { key: 'done',            label: 'Done',            color: 'bg-emerald-500', text: 'text-white',     dot: 'bg-emerald-400', badge: 'bg-emerald-900/50 text-emerald-300 border-emerald-700/50' },
+  { key: 'cancelled',       label: 'Cancelled',       color: 'bg-slate-600',   text: 'text-slate-300', dot: 'bg-slate-500',   badge: 'bg-slate-800 text-slate-400 border-slate-700/50'      },
 ]
 
 const STATUS_MAP = Object.fromEntries(JOB_STATUSES.map(s => [s.key, s]))
@@ -15,28 +15,18 @@ const STATUS_MAP = Object.fromEntries(JOB_STATUSES.map(s => [s.key, s]))
 const DAYS   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
-function fmt(date) {
-  return date.toLocaleDateString('en-CA') // YYYY-MM-DD
-}
+function fmt(date) { return date.toLocaleDateString('en-CA') }
 
-function getDaysInMonth(year, month) {
-  return new Date(year, month + 1, 0).getDate()
-}
+function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
+function getFirstDayOfWeek(year, month) { return new Date(year, month, 1).getDay() }
 
-function getFirstDayOfWeek(year, month) {
-  return new Date(year, month, 1).getDay()
-}
-
-// ── Status dropdown (popup) ────────────────────────────────────────────────────
+// ── Status dropdown ────────────────────────────────────────────────────────────
 function StatusMenu({ deal, onUpdate, onClose }) {
   const ref = useRef(null)
-
   useEffect(() => {
-    function handler(e) {
-      if (ref.current && !ref.current.contains(e.target)) onClose()
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    function h(e) { if (ref.current && !ref.current.contains(e.target)) onClose() }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
   }, [onClose])
 
   return (
@@ -49,18 +39,13 @@ function StatusMenu({ deal, onUpdate, onClose }) {
         <p className="text-xs text-slate-500">${deal.value.toFixed(0)}</p>
       </div>
       {JOB_STATUSES.map(s => (
-        <button
-          key={s.key}
+        <button key={s.key}
           onClick={() => { onUpdate(deal.id, s.key); onClose() }}
-          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-slate-800 ${
-            deal.job_status === s.key ? 'text-white' : 'text-slate-400'
-          }`}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-slate-800 ${deal.job_status === s.key ? 'text-white' : 'text-slate-400'}`}
         >
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
           {s.label}
-          {deal.job_status === s.key && (
-            <span className="ml-auto text-indigo-400 text-xs">✓</span>
-          )}
+          {deal.job_status === s.key && <span className="ml-auto text-indigo-400 text-xs">✓</span>}
         </button>
       ))}
     </div>
@@ -71,19 +56,14 @@ function StatusMenu({ deal, onUpdate, onClose }) {
 function ReschedulePopup({ deal, onSave, onClose }) {
   const ref = useRef(null)
   const current = deal.expected_close_date ? new Date(deal.expected_close_date) : new Date()
-
   const [date, setDate] = useState(current.toISOString().slice(0, 10))
-  const [time, setTime] = useState(
-    `${String(current.getHours()).padStart(2,'0')}:${String(current.getMinutes()).padStart(2,'0')}`
-  )
+  const [time, setTime] = useState(`${String(current.getHours()).padStart(2,'0')}:${String(current.getMinutes()).padStart(2,'0')}`)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    function handler(e) {
-      if (ref.current && !ref.current.contains(e.target)) onClose()
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    function h(e) { if (ref.current && !ref.current.contains(e.target)) onClose() }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
   }, [onClose])
 
   async function handleSave() {
@@ -97,9 +77,7 @@ function ReschedulePopup({ deal, onSave, onClose }) {
     } finally { setSaving(false) }
   }
 
-  const clientName = deal.contact
-    ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim()
-    : deal.title
+  const clientName = deal.contact ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim() : deal.title
 
   return (
     <div ref={ref}
@@ -113,29 +91,18 @@ function ReschedulePopup({ deal, onSave, onClose }) {
       <div className="space-y-3">
         <div>
           <label className="flex items-center gap-1.5 text-xs text-slate-400 mb-1"><CalendarDays size={12} /> Date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
           <label className="flex items-center gap-1.5 text-xs text-slate-400 mb-1"><Clock size={12} /> Time</label>
-          <input
-            type="time"
-            value={time}
-            onChange={e => setTime(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <input type="time" value={time} onChange={e => setTime(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="flex-1 border border-slate-700 text-slate-400 py-2 rounded-lg text-xs hover:bg-slate-800">Cancel</button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !date}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-          >
+          <button onClick={handleSave} disabled={saving || !date}
+            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-semibold disabled:opacity-50">
             {saving ? 'Saving…' : 'Reschedule'}
           </button>
         </div>
@@ -144,9 +111,9 @@ function ReschedulePopup({ deal, onSave, onClose }) {
   )
 }
 
-// ── Deal chip ──────────────────────────────────────────────────────────────────
-function DealChip({ deal, onUpdate, onReschedule }) {
-  const [open, setOpen] = useState(false)       // status menu
+// ── Deal chip — draggable ──────────────────────────────────────────────────────
+function DealChip({ deal, onUpdate, onReschedule, onDragStart, onDragEnd, isDragging }) {
+  const [open, setOpen]           = useState(false)
   const [reschedule, setReschedule] = useState(false)
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
 
@@ -158,19 +125,35 @@ function DealChip({ deal, onUpdate, onReschedule }) {
     ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim()
     : deal.title
 
+  function handleDragStart(e) {
+    e.dataTransfer.setData('dealId', String(deal.id))
+    e.dataTransfer.effectAllowed = 'move'
+    // Small delay so the chip visually dims after the drag ghost is captured
+    setTimeout(() => onDragStart(deal.id), 0)
+  }
+
   return (
-    <div className="relative group">
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+      className={`relative group transition-opacity select-none ${isDragging ? 'opacity-30 scale-95' : ''}`}
+      style={{ cursor: 'grab' }}
+    >
+      {/* Drag handle visual indicator */}
+      <div className={`absolute inset-0 rounded-md ring-2 ring-white/60 pointer-events-none transition-opacity ${isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-30'}`} />
+
       {/* Main chip — click = status menu */}
       <button
-        onClick={e => { e.stopPropagation(); setReschedule(false); setOpen(v => !v) }}
-        className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight transition-opacity hover:opacity-90 ${s.color} ${s.text}`}
-        title={`${clientName} — $${deal.value} · Click to change status`}
+        onClick={e => { if (isDragging) return; e.stopPropagation(); setReschedule(false); setOpen(v => !v) }}
+        className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight ${s.color} ${s.text}`}
+        title={`${clientName} — $${deal.value} · Click to change status · Drag to reschedule`}
       >
         {time && <span className="opacity-75 mr-1">{time}</span>}
         <span className="truncate">{clientName}</span>
       </button>
 
-      {/* Reschedule icon — appears on hover */}
+      {/* Reschedule icon */}
       <button
         onClick={e => { e.stopPropagation(); setOpen(false); setReschedule(v => !v) }}
         className="absolute right-0.5 top-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded bg-black/30 hover:bg-black/50 text-white/80"
@@ -179,16 +162,56 @@ function DealChip({ deal, onUpdate, onReschedule }) {
         <CalendarDays size={9} />
       </button>
 
-      {open && (
-        <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setOpen(false)} />
+      {open && <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setOpen(false)} />}
+      {reschedule && <ReschedulePopup deal={deal} onSave={onReschedule} onClose={() => setReschedule(false)} />}
+    </div>
+  )
+}
+
+// ── Day cell — drop target ─────────────────────────────────────────────────────
+function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, isDragOver, onDragOver, onDragLeave, onDrop, onUpdate, onReschedule, onDragStart, onDragEnd, draggingDealId }) {
+  return (
+    <div
+      className={`border-b border-r border-slate-700/30 p-1.5 flex flex-col gap-1 transition-colors ${
+        !isValid   ? 'bg-slate-900/30' :
+        isDragOver ? 'bg-indigo-900/25 border-indigo-500/60' :
+        isPast     ? 'bg-slate-900/60' : 'bg-slate-900'
+      }`}
+      onDragOver={isValid ? onDragOver : undefined}
+      onDragLeave={isValid ? onDragLeave : undefined}
+      onDrop={isValid ? onDrop : undefined}
+    >
+      {/* Drop zone highlight ring */}
+      {isDragOver && isValid && (
+        <div className="absolute inset-0 rounded pointer-events-none ring-2 ring-indigo-400/50 ring-inset" />
       )}
-      {reschedule && (
-        <ReschedulePopup
+
+      {isValid && (
+        <span className={`text-xs font-semibold self-start w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 ${
+          isToday ? 'bg-indigo-600 text-white' : isPast ? 'text-slate-600' : 'text-slate-400'
+        }`}>
+          {dayNum}
+        </span>
+      )}
+
+      {/* Drop hint when dragging over an empty day */}
+      {isDragOver && deals.length === 0 && (
+        <div className="flex-1 flex items-center justify-center">
+          <span className="text-indigo-400/60 text-xs font-medium">Drop here</span>
+        </div>
+      )}
+
+      {deals.map(deal => (
+        <DealChip
+          key={deal.id}
           deal={deal}
-          onSave={onReschedule}
-          onClose={() => setReschedule(false)}
+          onUpdate={onUpdate}
+          onReschedule={onReschedule}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          isDragging={draggingDealId === deal.id}
         />
-      )}
+      ))}
     </div>
   )
 }
@@ -200,6 +223,10 @@ export default function Calendar() {
   const [month, setMonth] = useState(today.getMonth())
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
+
+  // Drag state
+  const [draggingDealId, setDraggingDealId] = useState(null)
+  const [dragOverDate, setDragOverDate]     = useState(null)
 
   const load = useCallback(() => {
     api.get('/deals/', { params: { limit: 1000 } })
@@ -218,7 +245,26 @@ export default function Calendar() {
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, expected_close_date: newIso } : d))
   }
 
-  // Navigate months
+  // Drop a deal onto a new date — keeps original time
+  async function dropDeal(dealId, newDateStr) {
+    const deal = deals.find(d => d.id === dealId)
+    if (!deal || !newDateStr) return
+
+    const orig = deal.expected_close_date ? new Date(deal.expected_close_date) : new Date()
+    const hh   = String(orig.getHours()).padStart(2, '0')
+    const mm   = String(orig.getMinutes()).padStart(2, '0')
+    const newIso = new Date(`${newDateStr}T${hh}:${mm}:00`).toISOString()
+
+    // Optimistic update
+    rescheduleLocal(dealId, newIso)
+
+    try {
+      await api.put(`/deals/${dealId}`, { ...deal, expected_close_date: newIso, contact_id: deal.contact_id })
+    } catch {
+      rescheduleLocal(dealId, deal.expected_close_date) // revert on error
+    }
+  }
+
   function prevMonth() {
     if (month === 0) { setYear(y => y - 1); setMonth(11) }
     else setMonth(m => m - 1)
@@ -228,12 +274,10 @@ export default function Calendar() {
     else setMonth(m => m + 1)
   }
 
-  // Build calendar grid
-  const daysInMonth  = getDaysInMonth(year, month)
+  const daysInMonth    = getDaysInMonth(year, month)
   const firstDayOfWeek = getFirstDayOfWeek(year, month)
-  const totalCells   = Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7
+  const totalCells     = Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7
 
-  // Index deals by date string YYYY-MM-DD
   const dealsByDate = {}
   deals.forEach(d => {
     const key = fmt(new Date(d.expected_close_date))
@@ -241,21 +285,16 @@ export default function Calendar() {
     dealsByDate[key].push(d)
   })
 
-  // Month-level deals (for this month's summary)
   const monthDeals = deals.filter(d => {
     const dt = new Date(d.expected_close_date)
     return dt.getFullYear() === year && dt.getMonth() === month
   })
 
   const counts = Object.fromEntries(JOB_STATUSES.map(s => [
-    s.key,
-    monthDeals.filter(d => (d.job_status || 'todo') === s.key).length
+    s.key, monthDeals.filter(d => (d.job_status || 'todo') === s.key).length
   ]))
-  const monthRevenue = monthDeals
-    .filter(d => (d.job_status || 'todo') === 'done')
-    .reduce((sum, d) => sum + (d.value || 0), 0)
-  const monthPipeline = monthDeals.reduce((sum, d) => sum + (d.value || 0), 0)
-
+  const monthRevenue  = monthDeals.filter(d => d.job_status === 'done').reduce((s, d) => s + (d.value || 0), 0)
+  const monthPipeline = monthDeals.reduce((s, d) => s + (d.value || 0), 0)
   const todayStr = fmt(today)
 
   return (
@@ -264,9 +303,11 @@ export default function Calendar() {
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">Calendar</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{monthDeals.length} appointments this month</p>
+          <p className="text-slate-500 text-sm mt-0.5">
+            {monthDeals.length} appointments this month
+            {draggingDealId && <span className="ml-2 text-indigo-400 font-medium">· Drop on any day to reschedule</span>}
+          </p>
         </div>
-        {/* Month navigator */}
         <div className="flex items-center gap-2">
           <button onClick={prevMonth} className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
             <ChevronLeft size={18} />
@@ -301,46 +342,53 @@ export default function Calendar() {
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b border-slate-700/50 flex-shrink-0">
           {DAYS.map(d => (
-            <div key={d} className="px-2 py-2 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              {d}
-            </div>
+            <div key={d} className="px-2 py-2 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">{d}</div>
           ))}
         </div>
 
-        {/* Cells */}
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">Loading…</div>
         ) : (
-          <div className="grid grid-cols-7 flex-1 overflow-y-auto" style={{ gridAutoRows: 'minmax(80px, 1fr)' }}>
+          <div
+            className="grid grid-cols-7 flex-1 overflow-y-auto"
+            style={{ gridAutoRows: 'minmax(80px, 1fr)' }}
+            onDragEnd={() => { setDraggingDealId(null); setDragOverDate(null) }}
+          >
             {Array.from({ length: totalCells }, (_, i) => {
-              const dayNum = i - firstDayOfWeek + 1
+              const dayNum  = i - firstDayOfWeek + 1
               const isValid = dayNum >= 1 && dayNum <= daysInMonth
               const dateStr = isValid
-                ? `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
+                ? `${year}-${String(month + 1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`
                 : null
               const dayDeals = dateStr ? (dealsByDate[dateStr] || []) : []
-              const isToday = dateStr === todayStr
-              const isPast  = isValid && new Date(year, month, dayNum) < new Date(today.getFullYear(), today.getMonth(), today.getDate())
+              const isToday  = dateStr === todayStr
+              const isPast   = isValid && new Date(year, month, dayNum) < new Date(today.getFullYear(), today.getMonth(), today.getDate())
 
               return (
-                <div
-                  key={i}
-                  className={`border-b border-r border-slate-700/30 p-1.5 flex flex-col gap-1 ${
-                    !isValid ? 'bg-slate-900/30' : isPast ? 'bg-slate-900/60' : 'bg-slate-900'
-                  }`}
-                >
-                  {isValid && (
-                    <span className={`text-xs font-semibold self-start w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 ${
-                      isToday
-                        ? 'bg-indigo-600 text-white'
-                        : isPast ? 'text-slate-600' : 'text-slate-400'
-                    }`}>
-                      {dayNum}
-                    </span>
-                  )}
-                  {dayDeals.map(deal => (
-                    <DealChip key={deal.id} deal={deal} onUpdate={updateStatus} onReschedule={rescheduleLocal} />
-                  ))}
+                <div key={i} style={{ position: 'relative' }}>
+                  <DayCell
+                    dayNum={dayNum}
+                    dateStr={dateStr}
+                    isValid={isValid}
+                    isToday={isToday}
+                    isPast={isPast}
+                    deals={dayDeals}
+                    isDragOver={dragOverDate === dateStr}
+                    draggingDealId={draggingDealId}
+                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverDate(dateStr) }}
+                    onDragLeave={() => setDragOverDate(null)}
+                    onDrop={e => {
+                      e.preventDefault()
+                      const dealId = parseInt(e.dataTransfer.getData('dealId'))
+                      if (dealId && dateStr) dropDeal(dealId, dateStr)
+                      setDraggingDealId(null)
+                      setDragOverDate(null)
+                    }}
+                    onUpdate={updateStatus}
+                    onReschedule={rescheduleLocal}
+                    onDragStart={id => setDraggingDealId(id)}
+                    onDragEnd={() => { setDraggingDealId(null); setDragOverDate(null) }}
+                  />
                 </div>
               )
             })}
@@ -350,12 +398,11 @@ export default function Calendar() {
 
       {/* ── Legend ── */}
       <div className="flex items-center gap-4 mt-3 flex-shrink-0">
-        <span className="text-xs text-slate-600">Click any appointment to change its status</span>
+        <span className="text-xs text-slate-600">Click to change status · Drag to reschedule</span>
         <div className="flex items-center gap-3 ml-auto">
           {JOB_STATUSES.map(s => (
             <span key={s.key} className="flex items-center gap-1.5 text-xs text-slate-500">
-              <span className={`w-2.5 h-2.5 rounded-sm ${s.color}`} />
-              {s.label}
+              <span className={`w-2.5 h-2.5 rounded-sm ${s.color}`} /> {s.label}
             </span>
           ))}
         </div>
