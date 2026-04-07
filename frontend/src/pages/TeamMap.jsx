@@ -194,10 +194,10 @@ export default function TeamMap() {
       {/* ══ TOP BAR ══════════════════════════════════════════════════════════ */}
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
         <div className="px-3 pt-3 pb-2">
-          <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-xl border border-slate-700/40 flex items-center h-11 px-3 gap-2">
+          <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-xl border border-slate-700/40 flex items-center h-11 px-3 gap-2 w-full overflow-hidden">
             {/* Fixed title */}
             <Users size={13} className="text-indigo-400 flex-shrink-0" />
-            <span className="text-white font-bold text-xs flex-shrink-0">Team Map</span>
+            <span className="text-white font-bold text-xs flex-shrink-0 whitespace-nowrap">Team Map</span>
             <div className="w-px h-4 bg-slate-700 flex-shrink-0" />
             {/* Scrollable stats */}
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none flex-1 min-w-0">
@@ -259,23 +259,6 @@ export default function TeamMap() {
             <svg width="10" height="14" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#10b981"/><circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/><polyline points="9,13 11.5,15.5 17,10" fill="none" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <span className="text-emerald-400 text-xs">Done</span>
           </div>
-          {teamUsers.length > 0 && (
-            <div className="border-t border-slate-700/40 pt-1.5 mt-0.5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Agents</p>
-              {teamUsers.map((u) => {
-                const color = getUserColor(u.id, userOrder)
-                return (
-                  <button key={u.id}
-                    onClick={() => setFilterUserId(filterUserId === u.id ? null : u.id)}
-                    className={`flex items-center gap-2 text-xs w-full text-left rounded-lg px-1 py-0.5 transition-colors ${filterUserId === u.id ? 'text-white' : 'text-slate-400 hover:text-white'}`}>
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
-                    <span className="truncate max-w-[100px]">{userName(u)}</span>
-                    <span className="ml-auto text-slate-600 font-bold">{countsByUser[u.id] || 0}</span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
         </div>
       </div>
 
