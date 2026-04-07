@@ -4,22 +4,30 @@ import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, TrendingUp, Search,
   Menu, MapPin, UserCog, LogOut, X, MessageSquare, Globe, CalendarDays,
+  Timer, ClipboardList,
 } from 'lucide-react'
 
 export default function BottomNav() {
   const [showMore, setShowMore] = useState(false)
   const { user, logout } = useAuth()
   const isAdmin = user?.role === 'admin'
+  const isTech = user?.role === 'technician'
 
-  // Chats is admin-only; keeping 4 primary items ensures the bar doesn't look empty for sales users
-  const primaryNav = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-    { to: '/contacts', label: 'Contacts', icon: Users },
-    { to: '/calendar', label: 'Calendar', icon: CalendarDays },
-    { to: '/deals', label: 'Deals', icon: TrendingUp },
-    { to: '/search', label: 'Search', icon: Search },
-  ]
   const navigate = useNavigate()
+
+  // Primary nav items vary by role
+  const primaryNav = isTech
+    ? [
+        { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+        { to: '/clock', label: 'Clock In/Out', icon: Timer },
+      ]
+    : [
+        { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+        { to: '/contacts', label: 'Contacts', icon: Users },
+        { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+        { to: '/clock', label: 'Clock In/Out', icon: Timer },
+        { to: '/search', label: 'Search', icon: Search },
+      ]
 
   function handleLogout() {
     setShowMore(false)
@@ -47,13 +55,15 @@ export default function BottomNav() {
           </NavLink>
         ))}
 
-        <button
-          onClick={() => setShowMore(true)}
-          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs font-medium text-slate-500"
-        >
-          <Menu size={22} />
-          <span>More</span>
-        </button>
+        {!isTech && (
+          <button
+            onClick={() => setShowMore(true)}
+            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs font-medium text-slate-500"
+          >
+            <Menu size={22} />
+            <span>More</span>
+          </button>
+        )}
       </nav>
 
       {showMore && (
@@ -70,9 +80,11 @@ export default function BottomNav() {
 
             <div className="space-y-1">
               {[
+                { to: '/deals', label: 'Deals', icon: TrendingUp },
                 { to: '/map', label: 'My Map', icon: MapPin },
                 { to: '/team-map', label: 'Team Map', icon: Globe },
                 ...(isAdmin ? [{ to: '/chats', label: 'Chats', icon: MessageSquare }] : []),
+                ...(isAdmin ? [{ to: '/timesheet', label: 'Timesheet', icon: ClipboardList }] : []),
                 ...(isAdmin ? [{ to: '/users', label: 'Users', icon: UserCog }] : []),
               ].map(({ to, label, icon: Icon }) => (
                 <NavLink

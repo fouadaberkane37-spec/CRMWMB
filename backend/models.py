@@ -144,3 +144,16 @@ class Invite(Base):
     used_at = Column(DateTime, nullable=True)
 
     inviter = relationship("User", foreign_keys=[created_by])
+
+
+class TimeClock(Base):
+    __tablename__ = "timeclocks"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    deal_id = Column(Integer, ForeignKey("deals.id"), nullable=True)
+    clock_type = Column(String, nullable=False)  # "in" | "out"
+    clocked_at = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+    deal = relationship("Deal", foreign_keys=[deal_id])

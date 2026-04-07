@@ -5,23 +5,31 @@ import {
   LayoutDashboard, Users,
   TrendingUp,
   UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe, CalendarDays,
+  Timer, ClipboardList,
 } from 'lucide-react'
 
 const ALL_NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { to: '/contacts', label: 'Contacts', icon: Users },
-  { to: '/deals', label: 'Deals', icon: TrendingUp },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true, hideForTech: true },
+  { to: '/contacts', label: 'Contacts', icon: Users, hideForTech: true },
+  { to: '/deals', label: 'Deals', icon: TrendingUp, hideForTech: true },
   { to: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { to: '/chats', label: 'Chats', icon: MessageSquare, adminOnly: true },
-  { to: '/map', label: 'My Map', icon: MapPin },
-  { to: '/team-map', label: 'Team Map', icon: Globe },
-  { to: '/search', label: 'Search', icon: Search },
+  { to: '/clock', label: 'Clock In/Out', icon: Timer },
+  { to: '/chats', label: 'Chats', icon: MessageSquare, adminOnly: true, hideForTech: true },
+  { to: '/map', label: 'My Map', icon: MapPin, hideForTech: true },
+  { to: '/team-map', label: 'Team Map', icon: Globe, hideForTech: true },
+  { to: '/search', label: 'Search', icon: Search, hideForTech: true },
+  { to: '/timesheet', label: 'Timesheet', icon: ClipboardList, adminOnly: true },
 ]
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
-  const navItems = ALL_NAV.filter((item) => !item.adminOnly || user?.role === 'admin')
   const navigate = useNavigate()
+
+  const navItems = ALL_NAV.filter(item => {
+    if (item.adminOnly && user?.role !== 'admin') return false
+    if (item.hideForTech && user?.role === 'technician') return false
+    return true
+  })
 
   function handleLogout() {
     logout()

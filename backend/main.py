@@ -6,6 +6,7 @@ from sqlalchemy import text
 from database import engine, Base, SessionLocal, DATABASE_URL
 import models
 from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search, sms, chats, invites, twilio as twilio_routes
+from routes import timeclock as timeclock_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
@@ -91,6 +92,28 @@ try:
     print("[OK] invites table ready")
 except Exception as _e:
     print(f"[WARN] invites DDL: {_e}")
+
+
+# Ensure timeclocks table exists (handles DBs created before this model was added)
+_timeclocks_ddl = """
+    CREATE TABLE IF NOT EXISTS timeclocks (
+        id         {pk},
+        user_id    INTEGER NOT NULL REFERENCES users(id),
+        deal_id    INTEGER REFERENCES deals(id),
+        clock_type VARCHAR NOT NULL,
+        clocked_at {ts},
+        notes      TEXT
+    )
+""".format(
+    pk="INTEGER PRIMARY KEY AUTOINCREMENT" if _is_sqlite else "SERIAL PRIMARY KEY",
+    ts="DATETIME DEFAULT CURRENT_TIMESTAMP" if _is_sqlite else "TIMESTAMP DEFAULT NOW()",
+)
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_timeclocks_ddl))
+    print("[OK] timeclocks table ready")
+except Exception as _e:
+    print(f"[WARN] timeclocks DDL: {_e}")
 
 
 # Add new contact columns (address, services, price) for existing production DBs
@@ -452,6 +475,7 @@ app.include_router(sms.router)
 app.include_router(chats.router)
 app.include_router(invites.router)
 app.include_router(twilio_routes.router)
+app.include_router(timeclock_routes.router)
 
 # --- Serve built React frontend (production) ---
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")

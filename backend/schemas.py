@@ -275,3 +275,25 @@ class DashboardStats(BaseModel):
     total_deal_value: float
     won_deals: int
     activities_today: int
+
+
+# ── TimeClock ─────────────────────────────────────────────────────────────────
+class TimeClockCreate(BaseModel):
+    clock_type: str  # "in" | "out"
+    deal_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class TimeClockOut(BaseModel):
+    id: int
+    user_id: int
+    username: str
+    full_name: Optional[str]
+    deal_id: Optional[int]
+    deal_title: Optional[str]
+    clock_type: str
+    clocked_at: datetime
+    notes: Optional[str]
+
+    class Config:
+        from_attributes = True
