@@ -16,12 +16,20 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* Use dynamic viewport height for full-screen feel on iOS Safari */
+/* Full viewport height — 100dvh on mobile avoids Safari URL-bar gap */
 #root {
   height: 100dvh;
   overflow: hidden;
   /* Push content below Dynamic Island / notch */
   padding-top: env(safe-area-inset-top);
+}
+
+/* On desktop restore normal layout flow */
+@media (min-width: 768px) {
+  #root {
+    height: 100vh;
+    padding-top: 0;
+  }
 }
 
 /* Hide horizontal scrollbar on stats pills */
