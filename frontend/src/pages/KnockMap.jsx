@@ -247,7 +247,7 @@ export default function KnockMap() {
     // Full-screen relative container — map fills everything, UI floats on top
     <div
       className="relative w-full overflow-hidden bg-slate-950 md:h-full"
-      style={{ height: 'calc(100dvh - env(safe-area-inset-top) - 56px - env(safe-area-inset-bottom))' }}
+      style={{ height: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 56px)' }}
     >
 
       {/* ══ MAP ══════════════════════════════════════════════════════════════ */}
@@ -398,7 +398,7 @@ export default function KnockMap() {
 
       {/* ══ TOP BAR (floating) ════════════════════════════════════════════════ */}
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
-        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between px-4 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}>
           {/* Title + live badge */}
           <div className="pointer-events-auto bg-slate-900/85 backdrop-blur-md rounded-2xl px-4 py-2.5 flex items-center gap-3 shadow-xl border border-slate-700/40">
             <MapPin size={16} className="text-indigo-400 flex-shrink-0" />
@@ -460,7 +460,7 @@ export default function KnockMap() {
 
       {/* ══ STATUS COUNT BAR (floating bottom of top area) ════════════════════ */}
       {!filterOpen && mode === null && (
-        <div className="absolute top-16 left-0 right-0 z-10 px-4 pointer-events-none">
+        <div className="absolute left-0 right-0 z-10 px-4 pointer-events-none" style={{ top: 'calc(max(env(safe-area-inset-top), 12px) + 52px)' }}>
           <div className="flex gap-2 overflow-x-auto pb-1 pointer-events-auto" style={{ scrollbarWidth: 'none' }}>
             {STATUSES.filter((s) => counts[s.key] > 0).map((s) => (
               <button
