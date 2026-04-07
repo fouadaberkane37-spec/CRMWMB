@@ -37,7 +37,7 @@ export default function BottomNav() {
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-700/50 flex"
+        className="bg-slate-900/95 backdrop-blur-md border-t border-slate-700/50 flex flex-shrink-0"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {primaryNav.map(({ to, label, icon: Icon, exact }) => (

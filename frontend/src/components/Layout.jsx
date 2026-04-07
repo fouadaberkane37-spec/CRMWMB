@@ -5,26 +5,24 @@ import BottomNav from './BottomNav.jsx'
 
 export default function Layout() {
   return (
-    <div className="flex bg-slate-950 overflow-hidden" style={{ height: '100dvh' }}>
-      {/* Sidebar — desktop only */}
-      <div className="hidden md:flex">
+    // Outer: full screen, vertical flex on mobile, horizontal on desktop
+    <div className="flex flex-col md:flex-row bg-slate-950 overflow-hidden" style={{ height: '100dvh' }}>
+
+      {/* Sidebar — desktop only (horizontal sibling) */}
+      <div className="hidden md:flex flex-shrink-0">
         <Sidebar />
       </div>
 
-      {/* Main content — flex col so flex-1 children (like maps) fill correctly */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Scrollable wrapper for normal pages; maps override with flex-1 */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-          <Outlet />
-          {/* Spacer so non-map content clears the bottom nav */}
-          <div className="md:hidden flex-shrink-0" style={{ height: 'calc(3.5rem + env(safe-area-inset-bottom))' }} />
-        </div>
+      {/* Content area — fills remaining space, scrollable */}
+      <main className="flex-1 min-h-0 overflow-y-auto">
+        <Outlet />
       </main>
 
-      {/* Bottom nav — mobile only */}
-      <div className="md:hidden">
+      {/* Bottom nav — mobile only (stacked below content) */}
+      <div className="md:hidden flex-shrink-0">
         <BottomNav />
       </div>
+
     </div>
   )
 }

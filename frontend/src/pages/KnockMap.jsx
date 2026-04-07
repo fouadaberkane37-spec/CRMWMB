@@ -245,7 +245,7 @@ export default function KnockMap() {
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     // Full-screen relative container — map fills everything, UI floats on top
-    <div className="relative flex-1 min-h-0 w-full overflow-hidden bg-slate-950">
+    <div className="relative w-full h-full overflow-hidden bg-slate-950">
 
       {/* ══ MAP ══════════════════════════════════════════════════════════════ */}
       <MapContainer
