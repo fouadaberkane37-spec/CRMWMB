@@ -38,6 +38,19 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Force date/time inputs to respect container width on iOS Safari */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  display: block !important;
+}
+
 @layer components {
   .input {
     @apply w-full border border-slate-600 rounded-lg px-3 py-2 text-sm bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
