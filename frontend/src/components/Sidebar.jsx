@@ -32,7 +32,7 @@ export default function Sidebar() {
     if (item.adminOnly && user?.role !== 'admin') return false
     if (item.chatsOnly && !canSeeChats) return false
     if (item.hideForTech && user?.role === 'technician') return false
-    if (item.hideForSales && user?.role === 'sales') return false
+    if (item.hideForSales && (user?.role === 'sales' || user?.role === 'user')) return false
     return true
   })
 

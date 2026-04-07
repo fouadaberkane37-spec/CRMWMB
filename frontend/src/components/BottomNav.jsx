@@ -12,7 +12,7 @@ export default function BottomNav() {
   const { user, logout } = useAuth()
   const isAdmin  = user?.role === 'admin'
   const isTech   = user?.role === 'technician'
-  const isSales  = user?.role === 'sales'
+  const isSales  = user?.role === 'sales' || user?.role === 'user'
   const canSeeChats = isAdmin ||
     user?.username?.toLowerCase().includes('fouad') ||
     user?.full_name?.toLowerCase().includes('fouad')

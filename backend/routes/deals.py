@@ -34,7 +34,7 @@ def list_deals(
         joinedload(models.Deal.company),
     )
     # Technicians see all deals (read-only calendar view); sales see only their own
-    if current_user.role == "sales":
+    if current_user.role in ("sales", "user"):
         q = q.filter(
             or_(
                 models.Deal.assigned_to == current_user.id,
