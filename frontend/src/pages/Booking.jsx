@@ -218,8 +218,8 @@ export default function Booking() {
                 type="date"
                 value={form.date}
                 onChange={e => handleDateChange(e.target.value)}
-                className={`${INPUT} [color-scheme:dark] ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
-                style={{ height: '48px' }}
+                className={`${INPUT} ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
+                style={{ height: '48px', colorScheme: 'dark' }}
                 required
               />
             </Field>
@@ -246,8 +246,8 @@ export default function Booking() {
               type="time"
               value={form.time}
               onChange={e => set('time', e.target.value)}
-              className={INPUT + ' [color-scheme:dark]'}
-              style={{ height: '48px' }}
+              className={INPUT}
+              style={{ height: '48px', colorScheme: 'dark' }}
             />
           </Field>
         </div>
