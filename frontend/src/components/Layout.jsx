@@ -7,7 +7,7 @@ export default function Layout() {
   return (
     <div
       className="flex flex-col md:flex-row bg-slate-950"
-      style={{ height: '100dvh' }}
+      style={{ height: '100%' }}
     >
       {/* Top safe area (notch / Dynamic Island) — mobile only */}
       <div
