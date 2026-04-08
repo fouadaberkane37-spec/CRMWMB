@@ -31,10 +31,9 @@ export default function BottomNav() {
         { to: '/analytics',  label: 'Analytics', icon: TrendingUp },
       ]
     : [
-        { to: '/map',        label: 'Map',       icon: MapPin },
+        { to: '/calendar',   label: 'Calendar',  icon: CalendarDays },
         { to: '/booking',    label: 'Booking',   icon: BookOpen },
-        { to: '/contacts',   label: 'Contacts',  icon: Users },
-        { to: '/analytics',  label: 'Analytics', icon: TrendingUp },
+        { to: '/map',        label: 'Map',        icon: MapPin },
       ]
 
   function handleLogout() {
