@@ -4,7 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
-import { Plus, Navigation, X, MapPin, ChevronDown } from 'lucide-react'
+import { Plus, Navigation, X, MapPin, ChevronDown, CalendarDays, CheckCircle2 } from 'lucide-react'
 
 // Fix Vite broken Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl
@@ -402,11 +402,18 @@ export default function KnockMap() {
             <span className="text-white font-bold text-xs flex-shrink-0">My Map</span>
             <div className="w-px h-4 bg-slate-700 flex-shrink-0" />
             {/* Scrollable stats */}
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none flex-1 min-w-0">
-              <span className="text-slate-400 text-xs whitespace-nowrap">{myKnocks.length} knocks</span>
-              <span className="text-indigo-400 text-xs whitespace-nowrap">{contacts.filter(c=>c.lat&&c.lng).length}/{contacts.length} pins</span>
-              {bookedContactIds.size > 0 && <span className="text-amber-400 text-xs font-semibold whitespace-nowrap">📅 {bookedContactIds.size}</span>}
-              {doneContactIds.size > 0 && <span className="text-emerald-400 text-xs font-semibold whitespace-nowrap">✓ {doneContactIds.size}</span>}
+            <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
+              <span className="text-slate-300 text-xs font-medium whitespace-nowrap">{myKnocks.length} knocks</span>
+              {bookedContactIds.size > 0 && (
+                <span className="flex items-center gap-1 text-amber-400 text-xs font-semibold whitespace-nowrap">
+                  <CalendarDays size={11} />{bookedContactIds.size} booked
+                </span>
+              )}
+              {doneContactIds.size > 0 && (
+                <span className="flex items-center gap-1 text-emerald-400 text-xs font-semibold whitespace-nowrap">
+                  <CheckCircle2 size={11} />{doneContactIds.size} done
+                </span>
+              )}
             </div>
             <div className="w-px h-4 bg-slate-700 flex-shrink-0" />
             {/* Filter button */}
