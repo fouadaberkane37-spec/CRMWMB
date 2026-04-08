@@ -51,6 +51,7 @@ export default function Contacts() {
   const [geocoding, setGeocoding] = useState(false)
   const [showTrash, setShowTrash] = useState(false)
   const [trashedContacts, setTrashedContacts] = useState([])
+  const [confirmPermDelete, setConfirmPermDelete] = useState(null) // contact id pending permanent delete
   const [smsContact, setSmsContact] = useState(null)
   const [smsMessage, setSmsMessage] = useState('')
   const [smsSending, setSmsSending] = useState(false)
@@ -117,8 +118,8 @@ export default function Contacts() {
   }
 
   async function permanentDelete(id) {
-    if (!window.confirm('Delete forever? This cannot be undone.')) return
     await api.delete(`/contacts/${id}/permanent`)
+    setConfirmPermDelete(null)
     await loadTrash()
     load()
   }
@@ -558,13 +559,32 @@ export default function Contacts() {
                     >
                       <RotateCcw size={11} /> Recover
                     </button>
-                    <button
-                      onClick={() => permanentDelete(c.id)}
-                      className="flex items-center gap-1 text-xs font-medium text-red-400 bg-red-900/20 border border-red-700/40 px-3 py-1.5 rounded-xl"
-                      style={{ minHeight: '36px' }}
-                    >
-                      <Trash2 size={11} /> Delete
-                    </button>
+                    {confirmPermDelete === c.id ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => permanentDelete(c.id)}
+                          className="text-xs font-bold text-white bg-red-600 px-3 py-1.5 rounded-xl"
+                          style={{ minHeight: '36px' }}
+                        >
+                          Sure?
+                        </button>
+                        <button
+                          onClick={() => setConfirmPermDelete(null)}
+                          className="text-xs text-slate-400 bg-slate-700 px-2 py-1.5 rounded-xl"
+                          style={{ minHeight: '36px' }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmPermDelete(c.id)}
+                        className="flex items-center gap-1 text-xs font-medium text-red-400 bg-red-900/20 border border-red-700/40 px-3 py-1.5 rounded-xl"
+                        style={{ minHeight: '36px' }}
+                      >
+                        <Trash2 size={11} /> Forever
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
