@@ -7,6 +7,7 @@ from database import engine, Base, SessionLocal, DATABASE_URL
 import models
 from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search, sms, chats, invites, twilio as twilio_routes
 from routes import timeclock as timeclock_routes
+from routes import analytics as analytics_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
@@ -477,6 +478,7 @@ app.include_router(chats.router)
 app.include_router(invites.router)
 app.include_router(twilio_routes.router)
 app.include_router(timeclock_routes.router)
+app.include_router(analytics_routes.router)
 
 # --- Serve built React frontend (production) ---
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")

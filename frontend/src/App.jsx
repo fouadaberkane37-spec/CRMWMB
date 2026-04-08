@@ -14,6 +14,7 @@ import AcceptInvite from './pages/AcceptInvite.jsx'
 import Calendar from './pages/Calendar.jsx'
 import ClockInOut from './pages/ClockInOut.jsx'
 import Timesheet from './pages/Timesheet.jsx'
+import Analytics from './pages/Analytics.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -75,6 +76,7 @@ export default function App() {
             <Route path="chats" element={<RequireAdmin><Chats /></RequireAdmin>} />
             <Route path="clock" element={<ClockInOut />} />
             <Route path="timesheet" element={<RequireAdmin><Timesheet /></RequireAdmin>} />
+            <Route path="analytics" element={<Analytics />} />
           </Route>
         </Routes>
       </BrowserRouter>

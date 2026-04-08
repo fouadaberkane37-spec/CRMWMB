@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, BookOpen, Search,
   Menu, MapPin, UserCog, LogOut, X, MessageSquare, Globe, CalendarDays,
-  Timer, ClipboardList,
+  Timer, ClipboardList, TrendingUp,
 } from 'lucide-react'
 
 export default function BottomNav() {
@@ -101,12 +101,14 @@ export default function BottomNav() {
             <div className="space-y-1">
               {!isTech && [
                 ...(isSales ? [
-                  { to: '/',          label: 'Dashboard',  icon: LayoutDashboard },
-                  { to: '/calendar',  label: 'Calendar',   icon: CalendarDays },
-                  { to: '/team-map',  label: 'Team Map',   icon: Globe },
+                  { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
+                  { to: '/analytics',  label: 'Analytics',  icon: TrendingUp },
+                  { to: '/calendar',   label: 'Calendar',   icon: CalendarDays },
+                  { to: '/team-map',   label: 'Team Map',   icon: Globe },
                 ] : [
-                  { to: '/map',       label: 'My Map',     icon: MapPin },
-                  { to: '/team-map',  label: 'Team Map',   icon: Globe },
+                  { to: '/analytics',  label: 'Analytics',  icon: TrendingUp },
+                  { to: '/map',        label: 'My Map',     icon: MapPin },
+                  { to: '/team-map',   label: 'Team Map',   icon: Globe },
                 ]),
                 ...(canSeeChats ? [{ to: '/chats',     label: 'Chats',      icon: MessageSquare }] : []),
                 ...(isAdmin ? [{ to: '/timesheet', label: 'Timesheet',  icon: ClipboardList }] : []),
