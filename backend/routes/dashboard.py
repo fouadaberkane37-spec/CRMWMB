@@ -39,10 +39,10 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
     won_deals = deals_q.filter(models.Deal.stage == "won").with_entities(func.count(models.Deal.id)).scalar() or 0
 
     # Blended revenue: 80% for admin-created deals, 35% for everyone else
+    # Counts ALL deals regardless of stage (not just open/active)
     revenue_deals = (
         db.query(models.Deal.value, models.User.role)
         .join(models.User, models.Deal.created_by == models.User.id)
-        .filter(models.Deal.stage.notin_(["won", "lost"]))
     )
     if not is_admin:
         revenue_deals = revenue_deals.filter(
