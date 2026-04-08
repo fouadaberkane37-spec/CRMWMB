@@ -25,16 +25,17 @@ export default function BottomNav() {
       ]
     : isSales
     ? [
-        { to: '/map',       label: 'Map',     icon: MapPin },
-        { to: '/booking',   label: 'Booking', icon: BookOpen },
-        { to: '/contacts',  label: 'Contacts', icon: Users },
+        { to: '/map',        label: 'Map',       icon: MapPin },
+        { to: '/booking',    label: 'Booking',   icon: BookOpen },
+        { to: '/contacts',   label: 'Contacts',  icon: Users },
+        { to: '/analytics',  label: 'Analytics', icon: TrendingUp },
       ]
     : [
-        { to: '/',          label: 'Dashboard', icon: LayoutDashboard, exact: true },
-        { to: '/contacts',  label: 'Contacts',  icon: Users },
-        { to: '/booking',   label: 'Booking',   icon: BookOpen },
-        { to: '/calendar',  label: 'Calendar',  icon: CalendarDays },
-        { to: '/clock',     label: 'Clock',     icon: Timer },
+        { to: '/',           label: 'Dashboard', icon: LayoutDashboard, exact: true },
+        { to: '/contacts',   label: 'Contacts',  icon: Users },
+        { to: '/booking',    label: 'Booking',   icon: BookOpen },
+        { to: '/analytics',  label: 'Analytics', icon: TrendingUp },
+        { to: '/calendar',   label: 'Calendar',  icon: CalendarDays },
       ]
 
   function handleLogout() {
