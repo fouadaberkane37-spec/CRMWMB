@@ -112,7 +112,7 @@ export default function Dashboard() {
         />
         <StatCard
           icon={DollarSign}
-          label="Revenue"
+          label="Profit"
           value={loading ? '…' : fmtMoney(amountMade)}
           accent={{ border: 'border-emerald-500/20', icon: 'bg-emerald-500/10 text-emerald-400' }}
         />
