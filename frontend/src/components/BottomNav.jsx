@@ -106,7 +106,9 @@ export default function BottomNav() {
                   { to: '/calendar',   label: 'Calendar',   icon: CalendarDays },
                   { to: '/team-map',   label: 'Team Map',   icon: Globe },
                 ] : [
+                  { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
                   { to: '/analytics',  label: 'Analytics',  icon: TrendingUp },
+                  { to: '/calendar',   label: 'Calendar',   icon: CalendarDays },
                   { to: '/map',        label: 'My Map',     icon: MapPin },
                   { to: '/team-map',   label: 'Team Map',   icon: Globe },
                 ]),
