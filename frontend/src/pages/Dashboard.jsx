@@ -40,23 +40,25 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [contacts, setContacts] = useState([])
   const [deals, setDeals]       = useState([])
+  const [stats, setStats]       = useState(null)
   const [loading, setLoading]   = useState(true)
 
   useEffect(() => {
     Promise.all([
       api.get('/contacts/', { params: { limit: 500 } }),
       api.get('/deals/',    { params: { limit: 1000 } }),
-    ]).then(([c, d]) => {
+      api.get('/dashboard/stats'),
+    ]).then(([c, d, s]) => {
       setContacts(c.data)
       setDeals(d.data)
+      setStats(s.data)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
   const myDeals        = deals.filter(d => d.created_by === user?.id || d.assigned_to === user?.id)
   const totalLeads     = contacts.length
   const totalCustomers = contacts.filter(c => c.status === 'customer').length
-  const totalDealValue = myDeals.reduce((sum, d) => sum + (d.value || 0), 0)
-  const amountMade     = totalDealValue * 0.30
+  const amountMade     = stats?.revenue_made ?? 0
 
   const now = new Date()
   const upcoming = myDeals
@@ -112,7 +114,6 @@ export default function Dashboard() {
           icon={DollarSign}
           label="Revenue"
           value={loading ? '…' : fmtMoney(amountMade)}
-          sub={`30% of ${fmtMoney(totalDealValue)}`}
           accent={{ border: 'border-emerald-500/20', icon: 'bg-emerald-500/10 text-emerald-400' }}
         />
         <StatCard

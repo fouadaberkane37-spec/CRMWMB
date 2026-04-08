@@ -275,6 +275,7 @@ class DashboardStats(BaseModel):
     total_deal_value: float
     won_deals: int
     activities_today: int
+    revenue_made: float = 0.0
 
 
 # ── TimeClock ─────────────────────────────────────────────────────────────────

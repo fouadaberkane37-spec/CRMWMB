@@ -33,9 +33,28 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
             )
         )
 
-    open_deals = deals_q.filter(models.Deal.stage.notin_(["won", "lost"])).with_entities(func.count(models.Deal.id)).scalar() or 0
-    total_deal_value = deals_q.filter(models.Deal.stage.notin_(["won", "lost"])).with_entities(func.sum(models.Deal.value)).scalar() or 0
+    active_deals = deals_q.filter(models.Deal.stage.notin_(["won", "lost"]))
+    open_deals = active_deals.with_entities(func.count(models.Deal.id)).scalar() or 0
+    total_deal_value = active_deals.with_entities(func.sum(models.Deal.value)).scalar() or 0
     won_deals = deals_q.filter(models.Deal.stage == "won").with_entities(func.count(models.Deal.id)).scalar() or 0
+
+    # Blended revenue: 80% for admin-created deals, 35% for everyone else
+    revenue_deals = (
+        db.query(models.Deal.value, models.User.role)
+        .join(models.User, models.Deal.created_by == models.User.id)
+        .filter(models.Deal.stage.notin_(["won", "lost"]))
+    )
+    if not is_admin:
+        revenue_deals = revenue_deals.filter(
+            or_(
+                models.Deal.assigned_to == current_user.id,
+                models.Deal.created_by == current_user.id,
+            )
+        )
+    revenue_made = sum(
+        (val or 0) * (0.80 if role == "admin" else 0.35)
+        for val, role in revenue_deals.all()
+    )
 
     # Activities — admin sees all, sales sees their own
     today = datetime.utcnow().date()
@@ -51,4 +70,5 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
         "total_deal_value": total_deal_value,
         "won_deals": won_deals,
         "activities_today": activities_today,
+        "revenue_made": revenue_made,
     }
