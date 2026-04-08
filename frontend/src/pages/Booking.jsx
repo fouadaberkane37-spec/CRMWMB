@@ -220,7 +220,7 @@ export default function Booking() {
                 value={form.date}
                 onChange={e => handleDateChange(e.target.value)}
                 className={`${INPUT_CENTER} ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
-                style={{ height: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', WebkitAppearance: 'none', textAlign: 'center' }}
+                style={{ height: '48px', lineHeight: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', WebkitAppearance: 'none', textAlign: 'center' }}
                 required
               />
             </Field>
@@ -248,7 +248,7 @@ export default function Booking() {
               value={form.time}
               onChange={e => set('time', e.target.value)}
               className={INPUT_CENTER}
-              style={{ height: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', WebkitAppearance: 'none', textAlign: 'center' }}
+              style={{ height: '48px', lineHeight: '48px', colorScheme: 'dark', width: '100%', maxWidth: '100%', minWidth: 0, display: 'block', textAlign: 'center' }}
             />
           </Field>
         </div>
