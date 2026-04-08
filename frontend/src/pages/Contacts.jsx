@@ -509,50 +509,61 @@ export default function Contacts() {
         </Modal>
       )}
 
-      {/* Trash drawer */}
+      {/* Trash drawer — z-[9999] to sit above BottomNav backdrop-blur stacking context */}
       {showTrash && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTrash(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl flex flex-col"
-            style={{ maxHeight: '80vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
+        <div className="fixed inset-0" style={{ zIndex: 9999 }}>
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowTrash(false)} />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl flex flex-col"
+            style={{ maxHeight: '70vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
+          >
             {/* Handle */}
-            <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mt-3 mb-1 flex-shrink-0" />
+            <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mt-3 mb-2 flex-shrink-0" />
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 flex-shrink-0">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Trash2 size={16} className="text-red-400" />
-                <span className="text-white font-semibold">Trash</span>
+                <span className="text-white font-bold text-base">Trash</span>
                 {trashedContacts.length > 0 && (
-                  <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">{trashedContacts.length}</span>
+                  <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-medium">
+                    {trashedContacts.length}
+                  </span>
                 )}
               </div>
-              <button onClick={() => setShowTrash(false)} className="text-slate-400 p-1"><X size={18} /></button>
+              <button
+                onClick={() => setShowTrash(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400"
+              >
+                <X size={16} />
+              </button>
             </div>
             {/* List */}
             <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
               {trashedContacts.length === 0 ? (
-                <p className="text-slate-500 text-sm text-center py-8">Trash is empty</p>
+                <p className="text-slate-500 text-sm text-center py-10">Trash is empty</p>
               ) : trashedContacts.map(c => (
-                <div key={c.id} className="bg-slate-800 rounded-xl px-4 py-3 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 text-slate-400 font-bold text-sm">
+                <div key={c.id} className="bg-slate-800/80 border border-slate-700/40 rounded-2xl px-4 py-3 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 text-slate-300 font-bold text-sm">
                     {c.first_name?.[0]?.toUpperCase()}{c.last_name?.[0]?.toUpperCase() || ''}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-slate-200 font-medium text-sm truncate">{c.first_name} {c.last_name || ''}</p>
-                    {c.phone && <p className="text-slate-500 text-xs">{c.phone}</p>}
+                    <p className="text-slate-200 font-semibold text-sm truncate">{c.first_name} {c.last_name || ''}</p>
+                    {c.phone && <p className="text-slate-500 text-xs mt-0.5">{c.phone}</p>}
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       onClick={() => restore(c.id)}
-                      className="flex items-center gap-1 text-xs text-emerald-400 border border-emerald-700/50 px-2.5 py-1.5 rounded-lg"
+                      className="flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-900/20 border border-emerald-700/40 px-3 py-1.5 rounded-xl"
+                      style={{ minHeight: '36px' }}
                     >
-                      <RotateCcw size={12} /> Recover
+                      <RotateCcw size={11} /> Recover
                     </button>
                     <button
                       onClick={() => permanentDelete(c.id)}
-                      className="flex items-center gap-1 text-xs text-red-400 border border-red-700/50 px-2.5 py-1.5 rounded-lg"
+                      className="flex items-center gap-1 text-xs font-medium text-red-400 bg-red-900/20 border border-red-700/40 px-3 py-1.5 rounded-xl"
+                      style={{ minHeight: '36px' }}
                     >
-                      <Trash2 size={12} /> Forever
+                      <Trash2 size={11} /> Delete
                     </button>
                   </div>
                 </div>
