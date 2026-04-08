@@ -237,11 +237,21 @@ def permanent_delete(contact_id: int, db: Session = Depends(get_db), current_use
         raise HTTPException(status_code=404, detail="Contact not found")
     if not _own_contact(db_contact, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
-    # Delete/unlink related records before deleting contact (FK constraints)
-    db.query(models.ChatMessage).filter(models.ChatMessage.contact_id == contact_id).delete(synchronize_session=False)
+    # Cascade delete everything linked to this contact
+    # 1. Get deal IDs so we can delete their activities too
+    deal_ids = [d.id for d in db.query(models.Deal.id).filter(models.Deal.contact_id == contact_id).all()]
+    # 2. Delete activities linked to those deals
+    if deal_ids:
+        db.query(models.Activity).filter(models.Activity.deal_id.in_(deal_ids)).delete(synchronize_session=False)
+    # 3. Delete activities linked directly to contact
     db.query(models.Activity).filter(models.Activity.contact_id == contact_id).delete(synchronize_session=False)
-    db.query(models.Deal).filter(models.Deal.contact_id == contact_id).update({"contact_id": None}, synchronize_session=False)
+    # 4. Delete chat messages
+    db.query(models.ChatMessage).filter(models.ChatMessage.contact_id == contact_id).delete(synchronize_session=False)
+    # 5. Delete deals (removes from calendar)
+    db.query(models.Deal).filter(models.Deal.contact_id == contact_id).delete(synchronize_session=False)
+    # 6. Unlink knock pins (keep the pin, remove contact association)
     db.query(models.Knock).filter(models.Knock.contact_id == contact_id).update({"contact_id": None}, synchronize_session=False)
+    # 7. Delete contact
     db.delete(db_contact)
     db.commit()
     return {"message": "Permanently deleted"}
