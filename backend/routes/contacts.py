@@ -237,6 +237,11 @@ def permanent_delete(contact_id: int, db: Session = Depends(get_db), current_use
         raise HTTPException(status_code=404, detail="Contact not found")
     if not _own_contact(db_contact, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
+    # Delete/unlink related records before deleting contact (FK constraints)
+    db.query(models.ChatMessage).filter(models.ChatMessage.contact_id == contact_id).delete(synchronize_session=False)
+    db.query(models.Activity).filter(models.Activity.contact_id == contact_id).delete(synchronize_session=False)
+    db.query(models.Deal).filter(models.Deal.contact_id == contact_id).update({"contact_id": None}, synchronize_session=False)
+    db.query(models.Knock).filter(models.Knock.contact_id == contact_id).update({"contact_id": None}, synchronize_session=False)
     db.delete(db_contact)
     db.commit()
     return {"message": "Permanently deleted"}
