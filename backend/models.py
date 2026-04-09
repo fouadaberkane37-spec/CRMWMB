@@ -147,6 +147,18 @@ class Invite(Base):
     inviter = relationship("User", foreign_keys=[created_by])
 
 
+class InboundLead(Base):
+    """Unknown callers/texters — not yet in Contacts."""
+    __tablename__ = "inbound_leads"
+    id         = Column(Integer, primary_key=True, index=True)
+    phone      = Column(String, nullable=False, unique=True)
+    last_body  = Column(Text)                          # last SMS text or "📞 Missed call"
+    source     = Column(String, default="sms")         # sms | call
+    count      = Column(Integer, default=1)            # total interactions
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TimeClock(Base):
     __tablename__ = "timeclocks"
     id = Column(Integer, primary_key=True, index=True)

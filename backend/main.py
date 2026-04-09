@@ -95,6 +95,29 @@ except Exception as _e:
     print(f"[WARN] invites DDL: {_e}")
 
 
+# Ensure inbound_leads table exists
+_inbound_leads_ddl = """
+    CREATE TABLE IF NOT EXISTS inbound_leads (
+        id         {pk},
+        phone      VARCHAR NOT NULL UNIQUE,
+        last_body  TEXT,
+        source     VARCHAR DEFAULT 'sms',
+        count      INTEGER DEFAULT 1,
+        created_at {ts},
+        updated_at {ts}
+    )
+""".format(
+    pk="INTEGER PRIMARY KEY AUTOINCREMENT" if _is_sqlite else "SERIAL PRIMARY KEY",
+    ts="DATETIME DEFAULT CURRENT_TIMESTAMP" if _is_sqlite else "TIMESTAMP DEFAULT NOW()",
+)
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_inbound_leads_ddl))
+    print("[OK] inbound_leads table ready")
+except Exception as _e:
+    print(f"[WARN] inbound_leads DDL: {_e}")
+
+
 # Ensure timeclocks table exists (handles DBs created before this model was added)
 _timeclocks_ddl = """
     CREATE TABLE IF NOT EXISTS timeclocks (
