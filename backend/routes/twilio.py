@@ -107,7 +107,7 @@ async def twilio_voice(
     Set your Twilio phone number's Voice webhook to:
         POST  https://crmwmb-production.up.railway.app/api/twilio/voice
     """
-    forward_to = os.getenv("CALL_FORWARD_TO", "").strip()
+    forward_to = os.getenv("CALL_FORWARD_TO", "+15145597007").strip()
     if not forward_to:
         # No forward number configured — play a message and hang up
         twiml = (
