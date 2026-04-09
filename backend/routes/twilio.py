@@ -89,6 +89,84 @@ async def twilio_incoming(
     return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
 
 
+# ── Outbound click-to-call ────────────────────────────────────────────────────
+
+class CallRequest(BaseModel):
+    contact_id: int
+
+
+@router.post("/call")
+def initiate_call(
+    payload: CallRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Initiates an outbound call:
+      1. Twilio calls YOUR phone (CALL_FORWARD_TO)
+      2. When you pick up, Twilio dials the contact
+      3. Contact sees Twilio number as caller ID
+    """
+    from twilio.rest import Client
+    from pydantic import BaseModel as _BM
+
+    contact = db.query(models.Contact).filter(models.Contact.id == payload.contact_id).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    if not contact.phone:
+        raise HTTPException(status_code=400, detail="Contact has no phone number")
+
+    sid        = os.getenv("TWILIO_ACCOUNT_SID")
+    token      = os.getenv("TWILIO_AUTH_TOKEN")
+    from_num   = os.getenv("TWILIO_FROM_NUMBER")
+    my_phone   = os.getenv("CALL_FORWARD_TO", "+15145597007")
+
+    if not sid or not token or not from_num:
+        raise HTTPException(status_code=500, detail="Twilio not configured")
+
+    # Build the connect URL — Twilio fetches this when Fouad picks up
+    base_url = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
+    connect_url = f"{base_url}/api/twilio/connect?to={contact.phone}&from_num={from_num}"
+
+    client = Client(sid, token)
+    call = client.calls.create(
+        to=my_phone,
+        from_=from_num,
+        url=connect_url,
+    )
+
+    # Log call in contact chat history
+    try:
+        msg = models.ChatMessage(
+            contact_id=contact.id,
+            sender_id=current_user.id,
+            body=f"📞 Outbound call initiated to {contact.phone}",
+            direction="outbound",
+        )
+        db.add(msg)
+        db.commit()
+    except Exception:
+        pass
+
+    return {"call_sid": call.sid, "status": call.status}
+
+
+@router.get("/connect", include_in_schema=False, response_class=PlainTextResponse)
+async def connect_call(to: str, from_num: str = ""):
+    """
+    TwiML fetched by Twilio when Fouad answers — dials the contact.
+    Contact sees the Twilio number as caller ID.
+    """
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f"<Response>"
+        f'<Dial callerId="{from_num}">{to}</Dial>'
+        f"</Response>"
+    )
+    return PlainTextResponse(twiml, media_type="application/xml")
+
+
 @router.post(
     "/voice",
     include_in_schema=False,

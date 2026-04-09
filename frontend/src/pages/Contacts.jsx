@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
 import { useAuth } from '../App.jsx'
-import { Plus, Search, Pencil, Trash2, Phone, Download, Upload, MessageSquare, MapPin, Wrench, DollarSign, ShieldCheck, RotateCcw, X } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Phone, Download, Upload, MessageSquare, MapPin, Wrench, DollarSign, ShieldCheck, RotateCcw, X, PhoneCall, Loader2 } from 'lucide-react'
 
 const STATUS_COLORS = {
   lead: 'bg-blue-900/40 text-blue-400',
@@ -55,6 +55,7 @@ export default function Contacts() {
   const [smsContact, setSmsContact] = useState(null)
   const [smsMessage, setSmsMessage] = useState('')
   const [smsSending, setSmsSending] = useState(false)
+  const [callingId, setCallingId] = useState(null)
   const fileRef = useRef(null)
 
   const load = useCallback(() => {
@@ -152,6 +153,17 @@ export default function Contacts() {
     } finally {
       setImporting(false)
       e.target.value = ''
+    }
+  }
+
+  async function callContact(id) {
+    setCallingId(id)
+    try {
+      await api.post('/twilio/call', { contact_id: id })
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Call failed')
+    } finally {
+      setTimeout(() => setCallingId(null), 3000)
     }
   }
 
@@ -332,6 +344,7 @@ export default function Contacts() {
             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_COLORS[c.status] || 'bg-slate-700 text-slate-400'}`}>{c.status}</span>
               <div className="flex items-center gap-1">
+                {c.phone && <button onClick={() => callContact(c.id)} className="p-1 text-slate-500 hover:text-indigo-400 rounded-md">{callingId === c.id ? <Loader2 size={13} className="animate-spin text-indigo-400" /> : <PhoneCall size={13} />}</button>}
                 {c.phone && <button onClick={() => { setSmsContact(c); setSmsMessage('') }} className="p-1 text-slate-500 hover:text-emerald-400 rounded-md"><MessageSquare size={13} /></button>}
                 <button onClick={() => openEdit(c)} className="p-1 text-slate-500 hover:text-slate-200 rounded-md"><Pencil size={13} /></button>
                 <button onClick={() => setDeleteId(c.id)} className="p-1 text-slate-500 hover:text-red-400 rounded-md"><Trash2 size={13} /></button>
@@ -382,6 +395,7 @@ export default function Contacts() {
                 </td>
                 <td className="px-6 py-3.5">
                   <div className="flex items-center gap-1 justify-end">
+                    {c.phone && <button onClick={() => callContact(c.id)} className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-indigo-900/20 rounded-lg">{callingId === c.id ? <Loader2 size={14} className="animate-spin text-indigo-400" /> : <PhoneCall size={14} />}</button>}
                     {c.phone && <button onClick={() => { setSmsContact(c); setSmsMessage('') }} className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-900/20 rounded-lg"><MessageSquare size={14} /></button>}
                     <button onClick={() => openEdit(c)} className="p-1.5 text-slate-500 hover:text-slate-200 hover:bg-slate-700 rounded-lg"><Pencil size={14} /></button>
                     <button onClick={() => setDeleteId(c.id)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
