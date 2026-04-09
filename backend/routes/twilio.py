@@ -3,6 +3,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from database import get_db
 import models
+import os
 
 router = APIRouter(prefix="/api/twilio", tags=["twilio"])
 
@@ -86,3 +87,62 @@ async def twilio_incoming(
 
     # Always return valid TwiML so Twilio doesn't retry
     return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
+
+
+@router.post(
+    "/voice",
+    include_in_schema=False,
+    response_class=PlainTextResponse,
+    summary="Twilio inbound voice call webhook",
+)
+async def twilio_voice(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Forwards inbound calls to CALL_FORWARD_TO env var (your personal number).
+    Announces the caller's name if they're in the CRM.
+    Logs the call as a chat message on the matching contact.
+
+    Set your Twilio phone number's Voice webhook to:
+        POST  https://crmwmb-production.up.railway.app/api/twilio/voice
+    """
+    forward_to = os.getenv("CALL_FORWARD_TO", "").strip()
+    if not forward_to:
+        # No forward number configured — play a message and hang up
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            "<Response><Say>This number is not configured for calls.</Say></Response>"
+        )
+        return PlainTextResponse(twiml, media_type="application/xml")
+
+    form = await request.form()
+    from_number: str = (form.get("From") or "").strip()
+    twilio_number: str = (form.get("To") or "").strip()
+
+    # Try to match caller to a contact
+    contact = match_contact_by_phone(db, from_number) if from_number else None
+
+    # Log the call as an inbound chat message
+    if contact:
+        try:
+            save_inbound_message(db, contact, f"📞 Incoming call from {from_number}")
+        except Exception:
+            pass
+
+    # Build caller announcement
+    if contact:
+        caller_name = f"{contact.first_name} {contact.last_name or ''}".strip()
+        announcement = f"<Say>Call from {caller_name}</Say>"
+    else:
+        announcement = ""
+
+    # Forward the call — callerId shows original caller's number on your phone
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f"<Response>"
+        f"{announcement}"
+        f'<Dial callerId="{from_number or twilio_number}">{forward_to}</Dial>'
+        f"</Response>"
+    )
+    return PlainTextResponse(twiml, media_type="application/xml")
