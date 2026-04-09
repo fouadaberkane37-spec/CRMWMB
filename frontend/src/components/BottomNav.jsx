@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, BookOpen, Search,
   Menu, MapPin, UserCog, LogOut, X, MessageSquare, Globe, CalendarDays,
-  Timer, ClipboardList, TrendingUp,
+  Timer, ClipboardList, TrendingUp, PhoneIncoming,
 } from 'lucide-react'
 
 export default function BottomNav() {
@@ -112,8 +112,9 @@ export default function BottomNav() {
                   { to: '/team-map',   label: 'Team Map',   icon: Globe },
                 ]),
                 ...(canSeeChats ? [{ to: '/chats',     label: 'Chats',      icon: MessageSquare }] : []),
-                ...(isAdmin ? [{ to: '/timesheet', label: 'Timesheet',  icon: ClipboardList }] : []),
-                ...(isAdmin ? [{ to: '/users',     label: 'Users',      icon: UserCog }] : []),
+                ...(isAdmin ? [{ to: '/timesheet',    label: 'Timesheet',    icon: ClipboardList }] : []),
+                ...(isAdmin ? [{ to: '/new-numbers', label: 'New Numbers',  icon: PhoneIncoming }] : []),
+                ...(isAdmin ? [{ to: '/users',       label: 'Users',        icon: UserCog }] : []),
               ].map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}

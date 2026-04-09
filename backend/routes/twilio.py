@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from database import get_db
 import models
 import os
+from auth import get_current_user
+from pydantic import BaseModel as _BaseModel
+from datetime import datetime
 
 router = APIRouter(prefix="/api/twilio", tags=["twilio"])
 
@@ -38,6 +41,23 @@ def match_contact_by_phone(db: Session, from_number: str):
             if c_digits.endswith(f_digits[-9:]) or f_digits.endswith(c_digits[-9:]):
                 return c
     return None
+
+
+def upsert_inbound_lead(db: Session, phone: str, body: str, source: str = "sms"):
+    """Create or update an InboundLead for an unknown caller/texter."""
+    try:
+        lead = db.query(models.InboundLead).filter(models.InboundLead.phone == phone).first()
+        if lead:
+            lead.last_body = body
+            lead.source = source
+            lead.count = (lead.count or 0) + 1
+            lead.updated_at = datetime.utcnow()
+        else:
+            lead = models.InboundLead(phone=phone, last_body=body, source=source)
+            db.add(lead)
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 def save_inbound_message(db: Session, contact: models.Contact, body: str):
@@ -82,8 +102,8 @@ async def twilio_incoming(
         contact = match_contact_by_phone(db, from_number)
         if contact:
             save_inbound_message(db, contact, body)
-        # If no matching contact, we silently discard — unknown senders don't
-        # create phantom records.  Log here if you want visibility.
+        else:
+            upsert_inbound_lead(db, from_number, body, source="sms")
 
     # Always return valid TwiML so Twilio doesn't retry
     return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
@@ -91,8 +111,40 @@ async def twilio_incoming(
 
 # ── Outbound click-to-call ────────────────────────────────────────────────────
 
-class CallRequest(BaseModel):
+class CallRequest(_BaseModel):
     contact_id: int
+
+
+class CallNumberRequest(_BaseModel):
+    phone: str
+
+
+@router.post("/call-number")
+def call_number_direct(
+    payload: CallNumberRequest,
+    request: Request,
+    current_user=Depends(get_current_user),
+):
+    """Call an arbitrary phone number (e.g. an unknown lead) via Twilio."""
+    from twilio.rest import Client
+
+    if not payload.phone:
+        raise HTTPException(status_code=400, detail="Phone number required")
+
+    sid      = os.getenv("TWILIO_ACCOUNT_SID")
+    token    = os.getenv("TWILIO_AUTH_TOKEN")
+    from_num = os.getenv("TWILIO_FROM_NUMBER")
+    my_phone = os.getenv("CALL_FORWARD_TO", "+15145597007")
+
+    if not sid or not token or not from_num:
+        raise HTTPException(status_code=500, detail="Twilio not configured")
+
+    base_url    = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
+    connect_url = f"{base_url}/api/twilio/connect?to={payload.phone}&from_num={from_num}"
+
+    client = Client(sid, token)
+    call   = client.calls.create(to=my_phone, from_=from_num, url=connect_url)
+    return {"call_sid": call.sid, "status": call.status}
 
 
 @router.post("/call")
@@ -152,6 +204,78 @@ def initiate_call(
     return {"call_sid": call.sid, "status": call.status}
 
 
+@router.get("/unknown-leads")
+def list_unknown_leads(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """All inbound contacts not matched to a CRM contact. Admin only."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    leads = db.query(models.InboundLead).order_by(models.InboundLead.updated_at.desc()).all()
+    return [
+        {
+            "id": l.id,
+            "phone": l.phone,
+            "last_body": l.last_body,
+            "source": l.source,
+            "count": l.count,
+            "created_at": l.created_at.isoformat() if l.created_at else None,
+            "updated_at": l.updated_at.isoformat() if l.updated_at else None,
+        }
+        for l in leads
+    ]
+
+
+class ConvertLeadPayload(_BaseModel):
+    first_name: str
+    last_name: str = ""
+
+
+@router.post("/unknown-leads/{lead_id}/convert")
+def convert_lead_to_contact(
+    lead_id: int,
+    payload: ConvertLeadPayload,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Convert an unknown inbound lead into a Contact and remove the lead."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    lead = db.query(models.InboundLead).filter(models.InboundLead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    contact = models.Contact(
+        first_name=payload.first_name,
+        last_name=payload.last_name or None,
+        phone=lead.phone,
+        status="lead",
+        created_by=current_user.id,
+    )
+    db.add(contact)
+    db.flush()
+    db.delete(lead)
+    db.commit()
+    return {"contact_id": contact.id}
+
+
+@router.delete("/unknown-leads/{lead_id}")
+def dismiss_unknown_lead(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Permanently dismiss an unknown lead without converting."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    lead = db.query(models.InboundLead).filter(models.InboundLead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    db.delete(lead)
+    db.commit()
+    return {"message": "Dismissed"}
+
+
 @router.get("/connect", include_in_schema=False, response_class=PlainTextResponse)
 async def connect_call(to: str, from_num: str = ""):
     """
@@ -201,12 +325,14 @@ async def twilio_voice(
     # Try to match caller to a contact
     contact = match_contact_by_phone(db, from_number) if from_number else None
 
-    # Log the call as an inbound chat message
+    # Log the call
     if contact:
         try:
             save_inbound_message(db, contact, f"📞 Incoming call from {from_number}")
         except Exception:
             pass
+    elif from_number:
+        upsert_inbound_lead(db, from_number, "📞 Incoming call", source="call")
 
     # Build caller announcement
     if contact:

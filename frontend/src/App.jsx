@@ -15,6 +15,7 @@ import Calendar from './pages/Calendar.jsx'
 import ClockInOut from './pages/ClockInOut.jsx'
 import Timesheet from './pages/Timesheet.jsx'
 import Analytics from './pages/Analytics.jsx'
+import NewNumbers from './pages/NewNumbers.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -77,6 +78,7 @@ export default function App() {
             <Route path="clock" element={<ClockInOut />} />
             <Route path="timesheet" element={<RequireAdmin><Timesheet /></RequireAdmin>} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="new-numbers" element={<RequireAdmin><NewNumbers /></RequireAdmin>} />
           </Route>
         </Routes>
       </BrowserRouter>

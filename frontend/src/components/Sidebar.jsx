@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, BookOpen,
   UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe, CalendarDays,
-  Timer, ClipboardList, TrendingUp,
+  Timer, ClipboardList, TrendingUp, PhoneIncoming,
 } from 'lucide-react'
 
 const ALL_NAV = [
@@ -18,7 +18,8 @@ const ALL_NAV = [
   { to: '/map',       label: 'My Map',       icon: MapPin,          hideForTech: true },
   { to: '/team-map',  label: 'Team Map',     icon: Globe,           hideForTech: true },
   { to: '/search',    label: 'Search',       icon: Search,          hideForTech: true },
-  { to: '/timesheet', label: 'Timesheet',    icon: ClipboardList,   adminOnly: true },
+  { to: '/timesheet',    label: 'Timesheet',    icon: ClipboardList,  adminOnly: true },
+  { to: '/new-numbers', label: 'New Numbers',  icon: PhoneIncoming,  adminOnly: true },
 ]
 
 export default function Sidebar() {
