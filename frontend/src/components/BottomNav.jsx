@@ -33,7 +33,8 @@ export default function BottomNav() {
     : [
         { to: '/calendar',   label: 'Calendar',  icon: CalendarDays },
         { to: '/booking',    label: 'Booking',   icon: BookOpen },
-        { to: '/map',        label: 'Map',        icon: MapPin },
+        { to: '/map',        label: 'Map',       icon: MapPin },
+        { to: '/contacts',   label: 'Contacts',  icon: Users },
       ]
 
   function handleLogout() {
