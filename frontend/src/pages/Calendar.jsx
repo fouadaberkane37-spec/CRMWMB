@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
          ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut,
-         List, LayoutGrid } from 'lucide-react'
+         List, LayoutGrid, Trash2, Pencil } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -586,6 +586,10 @@ export default function Calendar() {
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, expected_close_date: newIso } : d))
   }
 
+  function deleteDealLocal(dealId) {
+    setDeals(prev => prev.filter(d => d.id !== dealId))
+  }
+
   // Drop a deal onto a new date — keeps original time
   async function dropDeal(dealId, newDateStr) {
     if (!isAdmin) return
@@ -742,6 +746,7 @@ export default function Calendar() {
                           isTech={isTech}
                           onUpdate={updateStatus}
                           onReschedule={rescheduleLocal}
+                          onDelete={deleteDealLocal}
                         />
                       )
                     })}
@@ -819,14 +824,51 @@ export default function Calendar() {
 }
 
 // ── Agenda Card (mobile list item) ─────────────────────────────────────────────
-function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, onReschedule }) {
-  const [techModal, setTechModal]   = useState(false)
-  const [statusOpen, setStatusOpen] = useState(false)
+function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, onReschedule, onDelete }) {
+  const [techModal, setTechModal] = useState(false)
+  const [sheet, setSheet]         = useState(false) // admin action sheet
+
+  // Reschedule state inside the sheet
+  const current = deal.expected_close_date ? parseUTC(deal.expected_close_date) : new Date()
+  const [newDate, setNewDate] = useState(current.toISOString().slice(0, 10))
+  const [newTime, setNewTime] = useState(`${String(current.getHours()).padStart(2,'0')}:${String(current.getMinutes()).padStart(2,'0')}`)
+  const [saving, setSaving]   = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [deleting, setDeleting]     = useState(false)
+
+  async function handleReschedule() {
+    if (!newDate) return
+    setSaving(true)
+    try {
+      const iso = new Date(`${newDate}T${newTime || '09:00'}:00`).toISOString()
+      await api.put(`/deals/${deal.id}`, { ...deal, expected_close_date: iso, contact_id: deal.contact_id })
+      onReschedule(deal.id, iso)
+      setSheet(false)
+    } finally { setSaving(false) }
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await api.delete(`/deals/${deal.id}`)
+      onDelete(deal.id)
+      setSheet(false)
+    } catch { setDeleting(false) }
+  }
+
+  function openSheet() {
+    // Reset reschedule fields to current deal time each time sheet opens
+    const c = deal.expected_close_date ? parseUTC(deal.expected_close_date) : new Date()
+    setNewDate(c.toISOString().slice(0, 10))
+    setNewTime(`${String(c.getHours()).padStart(2,'0')}:${String(c.getMinutes()).padStart(2,'0')}`)
+    setConfirmDel(false)
+    setSheet(true)
+  }
 
   return (
     <>
       <button
-        onClick={() => { if (isTech) setTechModal(true); else if (isAdmin) setStatusOpen(v => !v) }}
+        onClick={() => { if (isTech) setTechModal(true); else if (isAdmin) openSheet() }}
         className={`w-full text-left rounded-2xl px-4 py-3 ${s.color} active:opacity-80 transition-opacity`}
         style={{ minHeight: '60px' }}
         aria-label={`${name} appointment at ${time}`}
@@ -840,6 +882,7 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className={`text-xs font-medium opacity-80 ${s.text}`}>{s.label}</span>
+            {isAdmin && <Pencil size={12} className={`opacity-50 ${s.text}`} />}
             {isTech && <ExternalLink size={14} className={`opacity-60 ${s.text}`} />}
             {!isAdmin && !isTech && <Lock size={12} className={`opacity-40 ${s.text}`} />}
           </div>
@@ -848,9 +891,107 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
           <p className={`text-xs mt-1 opacity-60 truncate ${s.text}`}>{deal.contact.address}</p>
         )}
       </button>
-      {statusOpen && isAdmin && (
-        <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setStatusOpen(false)} />
+
+      {/* Admin action bottom sheet */}
+      {sheet && isAdmin && (
+        <div className="fixed inset-0" style={{ zIndex: 9999 }}>
+          <div className="absolute inset-0 bg-black/70" onClick={() => setSheet(false)} />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl px-4 pt-5 space-y-4"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}
+          >
+            {/* Handle + header */}
+            <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto -mt-1 mb-1" />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-bold text-base truncate">{name}</p>
+                <p className="text-slate-400 text-xs">{time} {deal.value > 0 ? `· $${deal.value.toFixed(0)}` : ''}</p>
+              </div>
+              <button onClick={() => setSheet(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Status section */}
+            <div>
+              <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Status</p>
+              <div className="grid grid-cols-2 gap-2">
+                {JOB_STATUSES.map(st => (
+                  <button
+                    key={st.key}
+                    onClick={() => { onUpdate(deal.id, st.key); setSheet(false) }}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-opacity ${
+                      deal.job_status === st.key
+                        ? `${st.color} ${st.text} ring-2 ring-white/30`
+                        : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${st.dot}`} />
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reschedule section */}
+            <div>
+              <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Reschedule</p>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={newDate}
+                  onChange={e => setNewDate(e.target.value)}
+                  className="flex-1 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  style={{ colorScheme: 'dark' }}
+                />
+                <input
+                  type="time"
+                  value={newTime}
+                  onChange={e => setNewTime(e.target.value)}
+                  className="w-28 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  style={{ colorScheme: 'dark' }}
+                />
+              </div>
+              <button
+                onClick={handleReschedule}
+                disabled={saving || !newDate}
+                className="w-full mt-2 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <CalendarDays size={15} />
+                {saving ? 'Saving…' : 'Save New Time'}
+              </button>
+            </div>
+
+            {/* Delete section */}
+            <div className="border-t border-slate-800 pt-3">
+              {confirmDel ? (
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirmDel(false)} className="flex-1 border border-slate-700 text-slate-400 py-2.5 rounded-xl text-sm">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={15} />
+                    {deleting ? 'Deleting…' : 'Yes, Delete'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDel(true)}
+                  className="w-full flex items-center justify-center gap-2 text-red-400 py-2.5 rounded-xl text-sm font-medium bg-red-500/10"
+                >
+                  <Trash2 size={15} />
+                  Delete Appointment
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
+
       {techModal && (
         <TechJobModal deal={deal} allDeals={allDeals} onClose={() => setTechModal(false)} />
       )}
