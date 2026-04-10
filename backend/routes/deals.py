@@ -88,6 +88,15 @@ def _send_booking_confirmation(db: Session, deal: models.Deal, contact: models.C
     from datetime import timezone
 
     dt = deal.expected_close_date
+    # Convert UTC → local (America/Montreal) so the displayed time matches what was booked
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("America/Montreal")
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.astimezone(tz)
+    except Exception:
+        pass
     try:
         date_str = dt.strftime("%A, %B %-d")
         time_str = dt.strftime("%-I:%M %p")
