@@ -21,6 +21,16 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 
 function fmt(date) { return date.toLocaleDateString('en-CA') }
 
+// API returns naive UTC datetimes (no Z suffix). Without Z, browsers treat the
+// string as local time, showing times 4h ahead. Append Z so it's parsed as UTC.
+function parseUTC(str) {
+  if (!str) return null
+  if (typeof str === 'string' && !str.endsWith('Z') && !/[+-]\d{2}:\d{2}/.test(str)) {
+    return new Date(str + 'Z')
+  }
+  return new Date(str)
+}
+
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
 function getFirstDayOfWeek(year, month) { return new Date(year, month, 1).getDay() }
 
@@ -59,7 +69,7 @@ function StatusMenu({ deal, onUpdate, onClose }) {
 // ── Reschedule popup ───────────────────────────────────────────────────────────
 function ReschedulePopup({ deal, onSave, onClose }) {
   const ref = useRef(null)
-  const current = deal.expected_close_date ? new Date(deal.expected_close_date) : new Date()
+  const current = deal.expected_close_date ? parseUTC(deal.expected_close_date) : new Date()
   const [date, setDate] = useState(current.toISOString().slice(0, 10))
   const [time, setTime] = useState(`${String(current.getHours()).padStart(2,'0')}:${String(current.getMinutes()).padStart(2,'0')}`)
   const [saving, setSaving] = useState(false)
@@ -143,7 +153,7 @@ function TechJobModal({ deal, allDeals, onClose, onClockAction }) {
   const address  = contact.address || ''
   const mapsUrl  = address ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}` : null
 
-  const apptDate = deal.expected_close_date ? new Date(deal.expected_close_date) : null
+  const apptDate = deal.expected_close_date ? parseUTC(deal.expected_close_date) : null
   const apptDateStr = apptDate
     ? apptDate.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
     : '—'
@@ -422,7 +432,7 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
 
   const time = deal.expected_close_date
-    ? new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+    ? parseUTC(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
     : null
 
   const clientName = deal.contact
@@ -582,7 +592,7 @@ export default function Calendar() {
     const deal = deals.find(d => d.id === dealId)
     if (!deal || !newDateStr) return
 
-    const orig = deal.expected_close_date ? new Date(deal.expected_close_date) : new Date()
+    const orig = deal.expected_close_date ? parseUTC(deal.expected_close_date) : new Date()
     const hh   = String(orig.getHours()).padStart(2, '0')
     const mm   = String(orig.getMinutes()).padStart(2, '0')
     const newIso = new Date(`${newDateStr}T${hh}:${mm}:00`).toISOString()
@@ -612,13 +622,13 @@ export default function Calendar() {
 
   const dealsByDate = {}
   deals.forEach(d => {
-    const key = fmt(new Date(d.expected_close_date))
+    const key = fmt(parseUTC(d.expected_close_date))
     if (!dealsByDate[key]) dealsByDate[key] = []
     dealsByDate[key].push(d)
   })
 
   const monthDeals = deals.filter(d => {
-    const dt = new Date(d.expected_close_date)
+    const dt = parseUTC(d.expected_close_date)
     return dt.getFullYear() === year && dt.getMonth() === month
   })
 
@@ -628,12 +638,12 @@ export default function Calendar() {
   const monthRevenue  = monthDeals.filter(d => d.job_status === 'done').reduce((s, d) => s + (d.value || 0), 0)
   const monthPipeline = monthDeals.reduce((s, d) => s + (d.value || 0), 0)
   const todayStr   = fmt(today)
-  const allDeals   = [...deals].sort((a,b) => new Date(a.expected_close_date) - new Date(b.expected_close_date))
+  const allDeals   = [...deals].sort((a,b) => parseUTC(a.expected_close_date) - parseUTC(b.expected_close_date))
 
   // Agenda: group month deals by date, sorted
   const agendaDays = Object.entries(
     monthDeals.reduce((acc, d) => {
-      const key = fmt(new Date(d.expected_close_date))
+      const key = fmt(parseUTC(d.expected_close_date))
       if (!acc[key]) acc[key] = []
       acc[key].push(d)
       return acc
@@ -719,7 +729,7 @@ export default function Calendar() {
                       const name = deal.contact
                         ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim()
                         : deal.title
-                      const time = new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+                      const time = parseUTC(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
                       return (
                         <AgendaCard
                           key={deal.id}
