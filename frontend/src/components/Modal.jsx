@@ -12,11 +12,19 @@ export default function Modal({ title, onClose, children, size = 'md' }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{
+        zIndex: 9999,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        // Push modal up so it's not hidden behind the bottom nav
+        paddingBottom: 'calc(env(safe-area-inset-bottom) + 72px)',
+      }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className={`bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl w-full ${widths[size]} max-h-[90vh] flex flex-col`}>
+      <div
+        className={`bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl w-full ${widths[size]} flex flex-col`}
+        style={{ maxHeight: 'calc(100vh - env(safe-area-inset-bottom) - 96px)' }}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50">
           <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
           <button
