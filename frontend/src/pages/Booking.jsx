@@ -107,7 +107,7 @@ export default function Booking() {
 
       // 2. Build appointment datetime ISO string
       const timeStr = form.time || '08:00'
-      const apptIso = new Date(`${form.date}T${timeStr}:00`).toISOString()
+      const apptIso = `${form.date}T${timeStr}:00`
 
       // 3. Create deal linked to that contact
       const serviceLabel = form.services.length > 0

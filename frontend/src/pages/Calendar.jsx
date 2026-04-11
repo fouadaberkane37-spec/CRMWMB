@@ -21,16 +21,6 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 
 function fmt(date) { return date.toLocaleDateString('en-CA') }
 
-// API returns naive UTC datetimes (no Z suffix). Without Z, browsers treat the
-// string as local time, showing times 4h ahead. Append Z so it's parsed as UTC.
-function parseUTC(str) {
-  if (!str) return null
-  if (typeof str === 'string' && !str.endsWith('Z') && !/[+-]\d{2}:\d{2}/.test(str)) {
-    return new Date(str + 'Z')
-  }
-  return new Date(str)
-}
-
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
 function getFirstDayOfWeek(year, month) { return new Date(year, month, 1).getDay() }
 
@@ -69,9 +59,8 @@ function StatusMenu({ deal, onUpdate, onClose }) {
 // ── Reschedule popup ───────────────────────────────────────────────────────────
 function ReschedulePopup({ deal, onSave, onClose }) {
   const ref = useRef(null)
-  const current = deal.expected_close_date ? parseUTC(deal.expected_close_date) : new Date()
-  const [date, setDate] = useState(current.toISOString().slice(0, 10))
-  const [time, setTime] = useState(`${String(current.getHours()).padStart(2,'0')}:${String(current.getMinutes()).padStart(2,'0')}`)
+  const [date, setDate] = useState((deal.expected_close_date || '').slice(0, 10))
+  const [time, setTime] = useState((deal.expected_close_date || '').slice(11, 16) || '09:00')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -84,7 +73,7 @@ function ReschedulePopup({ deal, onSave, onClose }) {
     if (!date) return
     setSaving(true)
     try {
-      const iso = new Date(`${date}T${time || '09:00'}:00`).toISOString()
+      const iso = `${date}T${time || '09:00'}:00`
       await api.put(`/deals/${deal.id}`, { ...deal, expected_close_date: iso, contact_id: deal.contact_id })
       onSave(deal.id, iso)
       onClose()
@@ -153,7 +142,7 @@ function TechJobModal({ deal, allDeals, onClose, onClockAction }) {
   const address  = contact.address || ''
   const mapsUrl  = address ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}` : null
 
-  const apptDate = deal.expected_close_date ? parseUTC(deal.expected_close_date) : null
+  const apptDate = deal.expected_close_date ? new Date(deal.expected_close_date) : null
   const apptDateStr = apptDate
     ? apptDate.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
     : '—'
@@ -432,7 +421,7 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
 
   const time = deal.expected_close_date
-    ? parseUTC(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+    ? new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
     : null
 
   const clientName = deal.contact
@@ -596,10 +585,8 @@ export default function Calendar() {
     const deal = deals.find(d => d.id === dealId)
     if (!deal || !newDateStr) return
 
-    const orig = deal.expected_close_date ? parseUTC(deal.expected_close_date) : new Date()
-    const hh   = String(orig.getHours()).padStart(2, '0')
-    const mm   = String(orig.getMinutes()).padStart(2, '0')
-    const newIso = new Date(`${newDateStr}T${hh}:${mm}:00`).toISOString()
+    const origTime = (deal.expected_close_date || '').slice(11, 16) || '09:00'
+    const newIso   = `${newDateStr}T${origTime}:00`
 
     // Optimistic update
     rescheduleLocal(dealId, newIso)
@@ -626,13 +613,13 @@ export default function Calendar() {
 
   const dealsByDate = {}
   deals.forEach(d => {
-    const key = fmt(parseUTC(d.expected_close_date))
+    const key = fmt(new Date(d.expected_close_date))
     if (!dealsByDate[key]) dealsByDate[key] = []
     dealsByDate[key].push(d)
   })
 
   const monthDeals = deals.filter(d => {
-    const dt = parseUTC(d.expected_close_date)
+    const dt = new Date(d.expected_close_date)
     return dt.getFullYear() === year && dt.getMonth() === month
   })
 
@@ -642,12 +629,12 @@ export default function Calendar() {
   const monthRevenue  = monthDeals.filter(d => d.job_status === 'done').reduce((s, d) => s + (d.value || 0), 0)
   const monthPipeline = monthDeals.reduce((s, d) => s + (d.value || 0), 0)
   const todayStr   = fmt(today)
-  const allDeals   = [...deals].sort((a,b) => parseUTC(a.expected_close_date) - parseUTC(b.expected_close_date))
+  const allDeals   = [...deals].sort((a,b) => new Date(a.expected_close_date) - new Date(b.expected_close_date))
 
   // Agenda: group month deals by date, sorted
   const agendaDays = Object.entries(
     monthDeals.reduce((acc, d) => {
-      const key = fmt(parseUTC(d.expected_close_date))
+      const key = fmt(new Date(d.expected_close_date))
       if (!acc[key]) acc[key] = []
       acc[key].push(d)
       return acc
@@ -733,7 +720,7 @@ export default function Calendar() {
                       const name = deal.contact
                         ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim()
                         : deal.title
-                      const time = parseUTC(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+                      const time = new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
                       return (
                         <AgendaCard
                           key={deal.id}
@@ -829,9 +816,8 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
   const [sheet, setSheet]         = useState(false) // admin action sheet
 
   // Reschedule state inside the sheet
-  const current = deal.expected_close_date ? parseUTC(deal.expected_close_date) : new Date()
-  const [newDate, setNewDate] = useState(current.toISOString().slice(0, 10))
-  const [newTime, setNewTime] = useState(`${String(current.getHours()).padStart(2,'0')}:${String(current.getMinutes()).padStart(2,'0')}`)
+  const [newDate, setNewDate] = useState((deal.expected_close_date || '').slice(0, 10))
+  const [newTime, setNewTime] = useState((deal.expected_close_date || '').slice(11, 16) || '09:00')
   const [saving, setSaving]   = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
   const [deleting, setDeleting]     = useState(false)
@@ -840,7 +826,7 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
     if (!newDate) return
     setSaving(true)
     try {
-      const iso = new Date(`${newDate}T${newTime || '09:00'}:00`).toISOString()
+      const iso = `${newDate}T${newTime || '09:00'}:00`
       await api.put(`/deals/${deal.id}`, { ...deal, expected_close_date: iso, contact_id: deal.contact_id })
       onReschedule(deal.id, iso)
       setSheet(false)
@@ -858,9 +844,8 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
 
   function openSheet() {
     // Reset reschedule fields to current deal time each time sheet opens
-    const c = deal.expected_close_date ? parseUTC(deal.expected_close_date) : new Date()
-    setNewDate(c.toISOString().slice(0, 10))
-    setNewTime(`${String(c.getHours()).padStart(2,'0')}:${String(c.getMinutes()).padStart(2,'0')}`)
+    setNewDate((deal.expected_close_date || '').slice(0, 10))
+    setNewTime((deal.expected_close_date || '').slice(11, 16) || '09:00')
     setConfirmDel(false)
     setSheet(true)
   }
