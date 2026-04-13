@@ -12,7 +12,8 @@ class Token(BaseModel):
 # ── User ──────────────────────────────────────────────────────────────────────
 class UserBase(BaseModel):
     username: str
-    email: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
     full_name: Optional[str] = None
     role: str = "user"
 
@@ -228,13 +229,16 @@ class ChatConversation(BaseModel):
 
 # ── Invite ────────────────────────────────────────────────────────────────────
 class InviteCreate(BaseModel):
-    email: str
+    phone: str
+    full_name: str
     role: str = "user"
 
 
 class InviteOut(BaseModel):
     id: int
-    email: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    full_name: Optional[str] = None
     role: str
     created_at: datetime
     expires_at: datetime
@@ -252,7 +256,8 @@ class InviteAccept(BaseModel):
 
 
 class InviteCheck(BaseModel):
-    email: str
+    phone: Optional[str] = None
+    full_name: Optional[str] = None
     role: str
     valid: bool
 

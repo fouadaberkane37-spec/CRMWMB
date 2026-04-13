@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
-import { Plus, Pencil, Trash2, ShieldCheck, User, Mail, Copy, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, ShieldCheck, User, Phone, Copy, Check } from 'lucide-react'
 import { useAuth } from '../App.jsx'
 
 const EMPTY = { username: '', email: '', full_name: '', role: 'user', password: '' }
-const INVITE_EMPTY = { email: '', role: 'user' }
+const INVITE_EMPTY = { phone: '', full_name: '', role: 'user' }
 
 export default function Users() {
   const { user: me } = useAuth()
@@ -91,7 +91,7 @@ export default function Users() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={openInvite} className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
-            <Mail size={16} /> Invite
+            <Phone size={16} /> Invite
           </button>
           <button onClick={openCreate} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
             <Plus size={16} /> Add User
@@ -221,7 +221,7 @@ export default function Users() {
       )}
 
       {inviteModal && (
-        <Modal title="Invite by Email" onClose={() => setInviteModal(false)}>
+        <Modal title="Invite by Phone" onClose={() => setInviteModal(false)}>
           <div className="space-y-4">
             {inviteError && (
               <div className="bg-red-900/30 text-red-400 text-sm px-4 py-3 rounded-lg border border-red-800/50">{inviteError}</div>
@@ -230,13 +230,24 @@ export default function Users() {
             {!inviteResult ? (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Email address</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Full Name</label>
                   <input
-                    type="email"
-                    value={inviteForm.email}
-                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                    type="text"
+                    value={inviteForm.full_name}
+                    onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })}
                     className="input"
-                    placeholder="colleague@example.com"
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={inviteForm.phone}
+                    onChange={(e) => setInviteForm({ ...inviteForm, phone: e.target.value })}
+                    className="input"
+                    placeholder="+1 (555) 000-0000"
                     required
                   />
                 </div>
@@ -249,23 +260,23 @@ export default function Users() {
                   </select>
                 </div>
                 <p className="text-slate-500 text-xs">
-                  An invite link will be generated. If you have SMTP configured, it will also be emailed automatically.
+                  An invite link will be generated and sent via SMS automatically if Twilio is configured.
                 </p>
                 <div className="flex gap-3 pt-2">
                   <button onClick={() => setInviteModal(false)} className="flex-1 border border-slate-600 text-slate-300 py-2.5 rounded-lg text-sm hover:bg-slate-800">Cancel</button>
-                  <button onClick={sendInvite} disabled={inviteSaving || !inviteForm.email} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
-                    {inviteSaving ? 'Generating…' : 'Generate Invite Link'}
+                  <button onClick={sendInvite} disabled={inviteSaving || !inviteForm.phone || !inviteForm.full_name} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
+                    {inviteSaving ? 'Sending…' : 'Send Invite'}
                   </button>
                 </div>
               </>
             ) : (
               <>
                 <div className="bg-emerald-900/30 border border-emerald-700/40 rounded-lg px-4 py-3">
-                  <p className="text-emerald-400 text-sm font-medium">Invite link created!</p>
-                  <p className="text-slate-400 text-xs mt-0.5">Share this link with {inviteResult.email}. It expires in 48 hours.</p>
+                  <p className="text-emerald-400 text-sm font-medium">Invite sent to {inviteResult.full_name}!</p>
+                  <p className="text-slate-400 text-xs mt-0.5">SMS sent to {inviteResult.phone}. Link expires in 48 hours.</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Invite link</label>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Invite link (copy to share manually)</label>
                   <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2.5 border border-slate-700">
                     <span className="flex-1 text-slate-300 text-xs font-mono break-all">
                       {inviteResult.invite_url?.startsWith('http')

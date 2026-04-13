@@ -17,7 +17,11 @@ export default function AcceptInvite() {
 
   useEffect(() => {
     api.get(`/invites/check/${token}`)
-      .then((r) => setInvite(r.data))
+      .then((r) => {
+        setInvite(r.data)
+        // Pre-fill full_name from invite
+        if (r.data?.full_name) setForm(f => ({ ...f, full_name: r.data.full_name }))
+      })
       .catch((err) => {
         setApiError(err.message || 'Could not reach the server')
         setInvite({ valid: false })
@@ -109,7 +113,8 @@ export default function AcceptInvite() {
           </div>
           <h1 className="text-2xl font-bold text-white">Create your account</h1>
           <p className="text-slate-400 text-sm mt-1">
-            Invited as <span className="text-slate-200 font-medium">{invite.email}</span>
+            {invite.full_name && <span className="text-slate-200 font-medium">{invite.full_name}</span>}
+            {invite.phone && <span className="text-slate-500"> · {invite.phone}</span>}
             {' '}· <span className="capitalize">{invite.role}</span>
           </p>
         </div>

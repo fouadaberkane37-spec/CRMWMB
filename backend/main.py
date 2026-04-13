@@ -191,6 +191,31 @@ except Exception as _e:
     print(f"[WARN] timeclocks DDL: {_e}")
 
 
+# Add phone-invite columns to invites table and phone to users table
+_invite_migrations = [
+    ("phone",     "ALTER TABLE invites ADD COLUMN{if_not_exists} phone VARCHAR"),
+    ("full_name", "ALTER TABLE invites ADD COLUMN{if_not_exists} full_name VARCHAR"),
+]
+for _col, _stmt in _invite_migrations:
+    _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(_sql))
+    except Exception:
+        pass  # already exists
+
+_user_migrations = [
+    ("phone", "ALTER TABLE users ADD COLUMN{if_not_exists} phone VARCHAR"),
+]
+for _col, _stmt in _user_migrations:
+    _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(_sql))
+    except Exception:
+        pass  # already exists
+
+
 # Add new contact columns (address, services, price) for existing production DBs
 _deal_migrations = [
     ("job_status", "ALTER TABLE deals ADD COLUMN{if_not_exists} job_status VARCHAR DEFAULT 'todo'"),

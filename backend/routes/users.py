@@ -25,11 +25,11 @@ def list_users(db: Session = Depends(get_db), _=Depends(require_admin)):
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), _=Depends(require_admin)):
     if db.query(models.User).filter(models.User.username == user.username).first():
         raise HTTPException(status_code=400, detail="Username already exists")
-    if db.query(models.User).filter(models.User.email == user.email).first():
+    if user.email and db.query(models.User).filter(models.User.email == user.email).first():
         raise HTTPException(status_code=400, detail="Email already exists")
     db_user = models.User(
         username=user.username,
-        email=user.email,
+        email=user.email or None,
         full_name=user.full_name,
         role=user.role,
         hashed_password=get_password_hash(user.password),

@@ -1,8 +1,6 @@
 import secrets
-import smtplib
 import os
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import re
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,84 +17,63 @@ router = APIRouter(prefix="/api/invites", tags=["invites"])
 INVITE_EXPIRY_HOURS = 48
 
 
-def _send_invite_email(to_email: str, invite_url: str, inviter_name: str):
-    """Send invite email via SMTP. Silently skips if SMTP not configured."""
-    host = os.getenv("SMTP_HOST")
-    if not host:
-        return  # SMTP not configured — admin copies the link manually
-
-    port = int(os.getenv("SMTP_PORT", "587"))
-    user = os.getenv("SMTP_USER", "")
-    password = os.getenv("SMTP_PASS", "")
-    from_addr = os.getenv("SMTP_FROM", user)
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"You've been invited to join the CRM"
-    msg["From"] = from_addr
-    msg["To"] = to_email
-
-    text = (
-        f"Hi,\n\n"
-        f"{inviter_name} has invited you to join the CRM platform.\n\n"
-        f"Click the link below to create your account (valid for {INVITE_EXPIRY_HOURS} hours):\n"
-        f"{invite_url}\n\n"
-        f"If you didn't expect this email, you can ignore it."
-    )
-    html = f"""
-    <html><body style="font-family:sans-serif;color:#1e293b;max-width:480px;margin:auto;padding:32px">
-      <h2 style="color:#6366f1">You've been invited!</h2>
-      <p><strong>{inviter_name}</strong> has invited you to join the CRM platform.</p>
-      <a href="{invite_url}" style="display:inline-block;margin:20px 0;padding:14px 28px;background:#6366f1;color:white;text-decoration:none;border-radius:10px;font-weight:bold">
-        Accept Invitation
-      </a>
-      <p style="color:#94a3b8;font-size:12px">This link expires in {INVITE_EXPIRY_HOURS} hours.<br>
-      If you didn't expect this, ignore this email.</p>
-    </body></html>
-    """
-
-    msg.attach(MIMEText(text, "plain"))
-    msg.attach(MIMEText(html, "html"))
+def _send_invite_sms(to_phone: str, invite_url: str, inviter_name: str, full_name: str):
+    """Send invite via Twilio SMS. Silently skips if Twilio not configured."""
+    sid       = os.getenv("TWILIO_ACCOUNT_SID")
+    token     = os.getenv("TWILIO_AUTH_TOKEN")
+    from_num  = os.getenv("TWILIO_FROM_NUMBER")
+    if not (sid and token and from_num):
+        return  # Twilio not configured — admin copies the link manually
 
     try:
-        with smtplib.SMTP(host, port, timeout=10) as smtp:
-            smtp.ehlo()
-            if port != 25:
-                smtp.starttls()
-            if user and password:
-                smtp.login(user, password)
-            smtp.sendmail(from_addr, to_email, msg.as_string())
+        from twilio.rest import Client
+        body = (
+            f"Hi {full_name}! {inviter_name} has invited you to join the CRM.\n"
+            f"Click to create your account (valid 48h):\n{invite_url}"
+        )
+        Client(sid, token).messages.create(body=body, from_=from_num, to=to_phone)
     except Exception:
-        pass  # Don't crash the request if email fails — link is still returned
+        pass  # Don't crash the request if SMS fails — link is still returned
+
+
+def _placeholder_email(phone: str) -> str:
+    """Generate a unique internal email so the DB unique constraint is satisfied."""
+    digits = re.sub(r"\D", "", phone)
+    return f"{digits}@wmb.internal"
 
 
 @router.post("/", response_model=schemas.InviteOut)
 def create_invite(
     data: schemas.InviteCreate,
-    request_base_url: str = "",
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_admin),
 ):
-    """Admin creates an invite link for an email address."""
-    # Check if there's already an active (unused, unexpired) invite for this email
+    """Admin creates a phone-based invite link and sends it via SMS."""
+    # Check for active (unused, unexpired) invite for this phone
     existing = (
         db.query(models.Invite)
         .filter(
-            models.Invite.email == data.email,
+            models.Invite.phone == data.phone,
             models.Invite.used_at.is_(None),
             models.Invite.expires_at > datetime.utcnow(),
         )
         .first()
     )
     if existing:
-        # Re-use existing token
         token = existing.token
         invite = existing
+        # Update full_name/role in case admin changed them
+        invite.full_name = data.full_name
+        invite.role = data.role
+        db.commit()
+        db.refresh(invite)
     else:
         token = secrets.token_urlsafe(32)
         invite = models.Invite(
-            email=data.email,
-            token=token,
+            phone=data.phone,
+            full_name=data.full_name,
             role=data.role,
+            token=token,
             created_by=current_user.id,
             expires_at=datetime.utcnow() + timedelta(hours=INVITE_EXPIRY_HOURS),
         )
@@ -104,17 +81,16 @@ def create_invite(
         db.commit()
         db.refresh(invite)
 
-    # Build the invite URL — uses the Referer/Origin header forwarded via middleware
-    # Falls back to Railway URL env var or relative path
     base = os.getenv("PUBLIC_URL", "").rstrip("/")
     invite_url = f"{base}/invite/{token}" if base else f"/invite/{token}"
 
     inviter_name = current_user.full_name or current_user.username
-    _send_invite_email(data.email, invite_url, inviter_name)
+    _send_invite_sms(data.phone, invite_url, inviter_name, data.full_name)
 
     return schemas.InviteOut(
         id=invite.id,
-        email=invite.email,
+        phone=invite.phone,
+        full_name=invite.full_name,
         role=invite.role,
         created_at=invite.created_at,
         expires_at=invite.expires_at,
@@ -135,6 +111,8 @@ def list_invites(
         result.append(schemas.InviteOut(
             id=inv.id,
             email=inv.email,
+            phone=inv.phone,
+            full_name=inv.full_name,
             role=inv.role,
             created_at=inv.created_at,
             expires_at=inv.expires_at,
@@ -149,8 +127,13 @@ def check_invite(token: str, db: Session = Depends(get_db)):
     """Public — validate an invite token (no auth required)."""
     invite = db.query(models.Invite).filter(models.Invite.token == token).first()
     if not invite or invite.used_at or invite.expires_at < datetime.utcnow():
-        return schemas.InviteCheck(email="", role="user", valid=False)
-    return schemas.InviteCheck(email=invite.email, role=invite.role, valid=True)
+        return schemas.InviteCheck(phone=None, full_name=None, role="user", valid=False)
+    return schemas.InviteCheck(
+        phone=invite.phone,
+        full_name=invite.full_name,
+        role=invite.role,
+        valid=True,
+    )
 
 
 @router.post("/accept/{token}", response_model=schemas.User)
@@ -162,13 +145,17 @@ def accept_invite(token: str, data: schemas.InviteAccept, db: Session = Depends(
 
     if db.query(models.User).filter(models.User.username == data.username).first():
         raise HTTPException(status_code=400, detail="Username already taken")
-    if db.query(models.User).filter(models.User.email == invite.email).first():
-        raise HTTPException(status_code=400, detail="An account with this email already exists")
+
+    # Auto-generate a unique placeholder email so the DB constraint is satisfied
+    placeholder_email = _placeholder_email(invite.phone) if invite.phone else None
+    if placeholder_email and db.query(models.User).filter(models.User.email == placeholder_email).first():
+        placeholder_email = None  # leave email null if duplicate
 
     user = models.User(
         username=data.username,
-        email=invite.email,
-        full_name=data.full_name,
+        email=placeholder_email,
+        phone=invite.phone,
+        full_name=data.full_name or invite.full_name,
         role=invite.role,
         hashed_password=get_password_hash(data.password),
         is_active=True,
