@@ -31,6 +31,7 @@ export default function BottomNav() {
         { to: '/analytics',  label: 'Analytics', icon: TrendingUp },
       ]
     : [
+        { to: '/',           label: 'Dashboard', icon: LayoutDashboard, exact: true },
         { to: '/calendar',   label: 'Calendar',  icon: CalendarDays },
         { to: '/booking',    label: 'Booking',   icon: BookOpen },
         { to: '/map',        label: 'Map',       icon: MapPin },
