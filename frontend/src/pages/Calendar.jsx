@@ -562,7 +562,7 @@ export default function Calendar() {
 
   const load = useCallback(() => {
     api.get('/deals/', { params: { limit: 1000 } })
-      .then(r => setDeals(r.data.filter(d => d.expected_close_date)))
+      .then(r => setDeals(r.data.filter(d => d.expected_close_date && d.job_status !== 'cancelled')))
       .finally(() => setLoading(false))
   }, [])
 
@@ -590,7 +590,12 @@ export default function Calendar() {
   async function updateStatus(dealId, jobStatus) {
     if (!isAdmin) return
     await api.patch(`/deals/${dealId}/job-status`, null, { params: { job_status: jobStatus } })
-    setDeals(prev => prev.map(d => d.id === dealId ? { ...d, job_status: jobStatus } : d))
+    // Remove cancelled jobs from calendar immediately
+    if (jobStatus === 'cancelled') {
+      setDeals(prev => prev.filter(d => d.id !== dealId))
+    } else {
+      setDeals(prev => prev.map(d => d.id === dealId ? { ...d, job_status: jobStatus } : d))
+    }
   }
 
   function rescheduleLocal(dealId, newIso) {
