@@ -11,10 +11,9 @@ const JOB_BADGE = {
   todo:            'bg-indigo-900/40 text-indigo-400',
   payment_pending: 'bg-amber-900/40 text-amber-400',
   done:            'bg-emerald-900/40 text-emerald-400',
-  cancelled:       'bg-slate-800 text-slate-500',
 }
 const JOB_LABEL = {
-  todo: 'To Do', payment_pending: 'Pending', done: 'Done', cancelled: 'Cancelled',
+  todo: 'To Do', payment_pending: 'Pending', done: 'Done',
 }
 
 export default function TeamSales() {
@@ -33,7 +32,7 @@ export default function TeamSales() {
       const userMap = {}
       for (const u of usersRes.data) userMap[u.id] = u
       setUsers(userMap)
-      setDeals(dealsRes.data)
+      setDeals(dealsRes.data.filter(d => d.job_status !== 'cancelled'))
     } catch {}
     finally { setLoading(false) }
   }, [])
@@ -52,10 +51,9 @@ export default function TeamSales() {
     const u      = users[Number(uid)] || {}
     const name   = u.full_name || u.username || `User #${uid}`
     const role   = u.role || 'user'
-    const margin      = role === 'admin' ? 0.80 : 0.35
-    const activeDeals = userDeals.filter(d => d.job_status !== 'cancelled')
-    const gross       = activeDeals.reduce((s, d) => s + (d.value || 0), 0)
-    const profit      = gross * margin
+    const margin = role === 'admin' ? 0.80 : 0.35
+    const gross  = userDeals.reduce((s, d) => s + (d.value || 0), 0)
+    const profit = gross * margin
     return { uid: Number(uid), name, role, margin, deals: userDeals, gross, profit }
   }).sort((a, b) => b.gross - a.gross)
 
@@ -121,7 +119,7 @@ export default function TeamSales() {
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-slate-500 text-xs capitalize">{role}</span>
                       <span className="text-slate-700 text-xs">·</span>
-                      <span className="text-slate-500 text-xs">{userDeals.filter(d => d.job_status !== 'cancelled').length} active</span>
+                      <span className="text-slate-500 text-xs">{userDeals.length} jobs</span>
                       <span className="text-slate-700 text-xs">·</span>
                       <span className="text-slate-500 text-xs">{Math.round(margin * 100)}% margin</span>
                     </div>
