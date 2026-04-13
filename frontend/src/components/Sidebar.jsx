@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, BookOpen,
   UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe, CalendarDays,
-  Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2,
+  Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase,
 } from 'lucide-react'
 
 const ALL_NAV = [
@@ -18,9 +18,11 @@ const ALL_NAV = [
   { to: '/map',       label: 'My Map',       icon: MapPin,          hideForTech: true },
   { to: '/team-map',  label: 'Team Map',     icon: Globe,           hideForTech: true },
   { to: '/search',    label: 'Search',       icon: Search,          hideForTech: true },
-  { to: '/team-sales',  label: 'Team Sales',   icon: BarChart2,      adminOnly: true },
-  { to: '/timesheet',    label: 'Timesheet',    icon: ClipboardList,  adminOnly: true },
-  { to: '/new-numbers', label: 'New Numbers',  icon: PhoneIncoming,  adminOnly: true },
+  { to: '/team-sales',     label: 'Team Sales',    icon: BarChart2,     adminOnly: true },
+  { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase,    adminOnly: true },
+  { to: '/tech-schedule',  label: 'My Schedule',   icon: ClipboardList, techOnly: true },
+  { to: '/timesheet',      label: 'Timesheet',     icon: ClipboardList, adminOnly: true },
+  { to: '/new-numbers',    label: 'New Numbers',   icon: PhoneIncoming, adminOnly: true },
 ]
 
 export default function Sidebar() {
@@ -33,6 +35,7 @@ export default function Sidebar() {
 
   const navItems = ALL_NAV.filter(item => {
     if (item.adminOnly && user?.role !== 'admin') return false
+    if (item.techOnly && user?.role !== 'technician') return false
     if (item.chatsOnly && !canSeeChats) return false
     if (item.hideForTech && user?.role === 'technician') return false
     if (item.hideForSales && (user?.role === 'sales' || user?.role === 'user')) return false

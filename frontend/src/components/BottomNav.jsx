@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, BookOpen, Search,
   Menu, MapPin, UserCog, LogOut, X, MessageSquare, Globe, CalendarDays,
-  Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2,
+  Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase,
 } from 'lucide-react'
 
 export default function BottomNav() {
@@ -20,8 +20,9 @@ export default function BottomNav() {
 
   const primaryNav = isTech
     ? [
-        { to: '/calendar',  label: 'Calendar',    icon: CalendarDays },
-        { to: '/clock',     label: 'Clock In/Out', icon: Timer },
+        { to: '/calendar',      label: 'Calendar',  icon: CalendarDays },
+        { to: '/tech-schedule', label: 'Schedule',  icon: ClipboardList },
+        { to: '/clock',         label: 'Clock',     icon: Timer },
       ]
     : isSales
     ? [
@@ -115,10 +116,11 @@ export default function BottomNav() {
                   { to: '/team-map',   label: 'Team Map',   icon: Globe },
                 ]),
                 ...(canSeeChats ? [{ to: '/chats',     label: 'Chats',      icon: MessageSquare }] : []),
-                ...(isAdmin ? [{ to: '/team-sales',  label: 'Team Sales',   icon: BarChart2 }] : []),
-                ...(isAdmin ? [{ to: '/timesheet',    label: 'Timesheet',    icon: ClipboardList }] : []),
-                ...(isAdmin ? [{ to: '/new-numbers', label: 'New Numbers',  icon: PhoneIncoming }] : []),
-                ...(isAdmin ? [{ to: '/users',       label: 'Users',        icon: UserCog }] : []),
+                ...(isAdmin ? [{ to: '/team-sales',     label: 'Team Sales',    icon: BarChart2 }] : []),
+                ...(isAdmin ? [{ to: '/job-assignment', label: 'Job Assignment', icon: Briefcase }] : []),
+                ...(isAdmin ? [{ to: '/timesheet',      label: 'Timesheet',     icon: ClipboardList }] : []),
+                ...(isAdmin ? [{ to: '/new-numbers',    label: 'New Numbers',   icon: PhoneIncoming }] : []),
+                ...(isAdmin ? [{ to: '/users',          label: 'Users',         icon: UserCog }] : []),
               ].map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}

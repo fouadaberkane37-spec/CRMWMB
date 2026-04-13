@@ -17,6 +17,8 @@ import Timesheet from './pages/Timesheet.jsx'
 import Analytics from './pages/Analytics.jsx'
 import NewNumbers from './pages/NewNumbers.jsx'
 import TeamSales from './pages/TeamSales.jsx'
+import TechSchedule from './pages/TechSchedule.jsx'
+import JobAssignment from './pages/JobAssignment.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -81,6 +83,8 @@ export default function App() {
             <Route path="analytics" element={<Analytics />} />
             <Route path="new-numbers" element={<RequireAdmin><NewNumbers /></RequireAdmin>} />
             <Route path="team-sales" element={<RequireAdmin><TeamSales /></RequireAdmin>} />
+            <Route path="tech-schedule" element={<TechSchedule />} />
+            <Route path="job-assignment" element={<RequireAdmin><JobAssignment /></RequireAdmin>} />
           </Route>
         </Routes>
       </BrowserRouter>

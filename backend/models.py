@@ -152,11 +152,41 @@ class InboundLead(Base):
     __tablename__ = "inbound_leads"
     id         = Column(Integer, primary_key=True, index=True)
     phone      = Column(String, nullable=False, unique=True)
-    last_body  = Column(Text)                          # last SMS text or "📞 Missed call"
-    source     = Column(String, default="sms")         # sms | call
-    count      = Column(Integer, default=1)            # total interactions
+    last_body  = Column(Text)
+    source     = Column(String, default="sms")
+    count      = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TechAvailability(Base):
+    """Technician's declared availability for a given week."""
+    __tablename__ = "tech_availability"
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    week_start = Column(String, nullable=False)   # YYYY-MM-DD — Monday of the week
+    mon        = Column(Boolean, default=False)
+    tue        = Column(Boolean, default=False)
+    wed        = Column(Boolean, default=False)
+    thu        = Column(Boolean, default=False)
+    fri        = Column(Boolean, default=False)
+    sat        = Column(Boolean, default=False)
+    sun        = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class ShiftConfirmation(Base):
+    """A technician explicitly confirms they will be on-site on a specific date."""
+    __tablename__ = "shift_confirmations"
+    id           = Column(Integer, primary_key=True, index=True)
+    user_id      = Column(Integer, ForeignKey("users.id"), nullable=False)
+    shift_date   = Column(String, nullable=False)   # YYYY-MM-DD
+    confirmed_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
 
 
 class TimeClock(Base):

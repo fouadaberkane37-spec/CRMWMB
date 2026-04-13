@@ -8,6 +8,7 @@ import models
 from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search, sms, chats, invites, twilio as twilio_routes
 from routes import timeclock as timeclock_routes
 from routes import analytics as analytics_routes
+from routes import availability as availability_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
@@ -116,6 +117,56 @@ try:
     print("[OK] inbound_leads table ready")
 except Exception as _e:
     print(f"[WARN] inbound_leads DDL: {_e}")
+
+
+# Ensure tech_availability table exists
+_tech_avail_ddl = """
+    CREATE TABLE IF NOT EXISTS tech_availability (
+        id         {pk},
+        user_id    INTEGER NOT NULL REFERENCES users(id),
+        week_start VARCHAR NOT NULL,
+        mon        BOOLEAN DEFAULT FALSE,
+        tue        BOOLEAN DEFAULT FALSE,
+        wed        BOOLEAN DEFAULT FALSE,
+        thu        BOOLEAN DEFAULT FALSE,
+        fri        BOOLEAN DEFAULT FALSE,
+        sat        BOOLEAN DEFAULT FALSE,
+        sun        BOOLEAN DEFAULT FALSE,
+        created_at {ts},
+        updated_at {ts},
+        UNIQUE(user_id, week_start)
+    )
+""".format(
+    pk="INTEGER PRIMARY KEY AUTOINCREMENT" if _is_sqlite else "SERIAL PRIMARY KEY",
+    ts="DATETIME DEFAULT CURRENT_TIMESTAMP" if _is_sqlite else "TIMESTAMP DEFAULT NOW()",
+)
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_tech_avail_ddl))
+    print("[OK] tech_availability table ready")
+except Exception as _e:
+    print(f"[WARN] tech_availability DDL: {_e}")
+
+
+# Ensure shift_confirmations table exists
+_shift_conf_ddl = """
+    CREATE TABLE IF NOT EXISTS shift_confirmations (
+        id           {pk},
+        user_id      INTEGER NOT NULL REFERENCES users(id),
+        shift_date   VARCHAR NOT NULL,
+        confirmed_at {ts},
+        UNIQUE(user_id, shift_date)
+    )
+""".format(
+    pk="INTEGER PRIMARY KEY AUTOINCREMENT" if _is_sqlite else "SERIAL PRIMARY KEY",
+    ts="DATETIME DEFAULT CURRENT_TIMESTAMP" if _is_sqlite else "TIMESTAMP DEFAULT NOW()",
+)
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_shift_conf_ddl))
+    print("[OK] shift_confirmations table ready")
+except Exception as _e:
+    print(f"[WARN] shift_confirmations DDL: {_e}")
 
 
 # Ensure timeclocks table exists (handles DBs created before this model was added)
@@ -502,6 +553,7 @@ app.include_router(invites.router)
 app.include_router(twilio_routes.router)
 app.include_router(timeclock_routes.router)
 app.include_router(analytics_routes.router)
+app.include_router(availability_routes.router)
 
 # --- Serve built React frontend (production) ---
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
