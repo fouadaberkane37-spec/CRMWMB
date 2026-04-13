@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
          ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut,
-         List, LayoutGrid, Trash2, Pencil } from 'lucide-react'
+         List, LayoutGrid, Trash2, Pencil, Loader2 } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -557,6 +557,9 @@ export default function Calendar() {
   const [dragOverDate, setDragOverDate]     = useState(undefined)
   const [viewMode, setViewMode]             = useState('agenda') // 'agenda' | 'grid'
 
+  // Tech clock status map: { dealId: 'in' | 'out' }
+  const [techClockMap, setTechClockMap] = useState({})
+
   const load = useCallback(() => {
     api.get('/deals/', { params: { limit: 1000 } })
       .then(r => setDeals(r.data.filter(d => d.expected_close_date)))
@@ -564,6 +567,25 @@ export default function Calendar() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Load today's clock status for technicians (batch, all deals at once)
+  useEffect(() => {
+    if (!isTech) return
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    api.get('/timeclock/', { params: { date: todayStr } })
+      .then(r => {
+        const map = {}
+        for (const e of r.data) {
+          if (e.deal_id) map[e.deal_id] = e.clock_type // last entry wins (sorted asc)
+        }
+        setTechClockMap(map)
+      })
+      .catch(() => {})
+  }, [isTech])
+
+  function updateTechClock(dealId, clockType) {
+    setTechClockMap(prev => ({ ...prev, [dealId]: clockType }))
+  }
 
   async function updateStatus(dealId, jobStatus) {
     if (!isAdmin) return
@@ -734,6 +756,8 @@ export default function Calendar() {
                           onUpdate={updateStatus}
                           onReschedule={rescheduleLocal}
                           onDelete={deleteDealLocal}
+                          clockedIn={techClockMap[deal.id] === 'in'}
+                          onClockToggle={updateTechClock}
                         />
                       )
                     })}
@@ -811,9 +835,10 @@ export default function Calendar() {
 }
 
 // ── Agenda Card (mobile list item) ─────────────────────────────────────────────
-function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, onReschedule, onDelete }) {
+function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, onReschedule, onDelete, clockedIn, onClockToggle }) {
   const [techModal, setTechModal] = useState(false)
   const [sheet, setSheet]         = useState(false) // admin action sheet
+  const [clocking, setClocking]   = useState(false)
 
   // Reschedule state inside the sheet
   const [newDate, setNewDate] = useState((deal.expected_close_date || '').slice(0, 10))
@@ -843,17 +868,72 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
   }
 
   function openSheet() {
-    // Reset reschedule fields to current deal time each time sheet opens
     setNewDate((deal.expected_close_date || '').slice(0, 10))
     setNewTime((deal.expected_close_date || '').slice(11, 16) || '09:00')
     setConfirmDel(false)
     setSheet(true)
   }
 
+  async function handleClockTap(e) {
+    e.stopPropagation()
+    if (clocking) return
+    setClocking(true)
+    try {
+      const type = clockedIn ? 'out' : 'in'
+      await api.post('/timeclock/', { clock_type: type, deal_id: deal.id })
+      onClockToggle(deal.id, type)
+    } finally { setClocking(false) }
+  }
+
   return (
     <>
+      {/* Tech card: main area opens modal, clock button on the right */}
+      {isTech ? (
+        <div className={`flex rounded-2xl overflow-hidden ${s.color}`} style={{ minHeight: '60px' }}>
+          <button
+            onClick={() => setTechModal(true)}
+            className="flex-1 text-left px-4 py-3 active:opacity-80 transition-opacity"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0 mr-2">
+                <p className={`font-semibold text-sm truncate ${s.text}`}>{name}</p>
+                <p className={`text-xs mt-0.5 opacity-80 ${s.text}`}>
+                  {time} {deal.value > 0 ? `· $${deal.value.toFixed(0)}` : ''}
+                </p>
+              </div>
+              <ExternalLink size={14} className={`opacity-60 flex-shrink-0 ${s.text}`} />
+            </div>
+            {deal.contact?.address && (
+              <p className={`text-xs mt-1 opacity-60 truncate ${s.text}`}>{deal.contact.address}</p>
+            )}
+          </button>
+          {/* Inline clock button */}
+          <button
+            onClick={handleClockTap}
+            disabled={clocking}
+            className={`flex flex-col items-center justify-center px-3 gap-0.5 border-l transition-colors disabled:opacity-50 ${
+              clockedIn
+                ? 'border-amber-500/30 bg-amber-500/20 text-amber-200'
+                : 'border-white/10 bg-white/10 text-white/80'
+            }`}
+            style={{ minWidth: '56px' }}
+            title={clockedIn ? 'Clock Out' : 'Clock In'}
+          >
+            {clocking
+              ? <Loader2 size={16} className="animate-spin" />
+              : clockedIn
+                ? <LogOut size={16} />
+                : <LogIn size={16} />
+            }
+            <span className="text-[9px] font-semibold leading-none mt-0.5">
+              {clockedIn ? 'OUT' : 'IN'}
+            </span>
+          </button>
+        </div>
+      ) : (
+      <>
       <button
-        onClick={() => { if (isTech) setTechModal(true); else if (isAdmin) openSheet() }}
+        onClick={() => { if (isAdmin) openSheet() }}
         className={`w-full text-left rounded-2xl px-4 py-3 ${s.color} active:opacity-80 transition-opacity`}
         style={{ minHeight: '60px' }}
         aria-label={`${name} appointment at ${time}`}
@@ -868,8 +948,7 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className={`text-xs font-medium opacity-80 ${s.text}`}>{s.label}</span>
             {isAdmin && <Pencil size={12} className={`opacity-50 ${s.text}`} />}
-            {isTech && <ExternalLink size={14} className={`opacity-60 ${s.text}`} />}
-            {!isAdmin && !isTech && <Lock size={12} className={`opacity-40 ${s.text}`} />}
+            {!isAdmin && <Lock size={12} className={`opacity-40 ${s.text}`} />}
           </div>
         </div>
         {deal.contact?.address && (
@@ -976,9 +1055,11 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
           </div>
         </div>
       )}
+      </>
+      )}
 
       {techModal && (
-        <TechJobModal deal={deal} allDeals={allDeals} onClose={() => setTechModal(false)} />
+        <TechJobModal deal={deal} allDeals={allDeals} onClose={() => setTechModal(false)} onClockAction={() => {}} />
       )}
     </>
   )
