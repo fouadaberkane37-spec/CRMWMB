@@ -73,8 +73,9 @@ class Deal(Base):
     expected_close_date = Column(DateTime, nullable=True)
     notes = Column(Text)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
-    job_status    = Column(String, default="todo")  # todo | payment_pending | done | cancelled
-    reminder_sent = Column(Boolean, default=False)
+    job_status       = Column(String, default="todo")  # todo | payment_pending | done | cancelled
+    reminder_sent    = Column(Boolean, default=False)   # 24h reminder sent
+    reminder_sent_48h = Column(Boolean, default=False)  # 48h reminder sent
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

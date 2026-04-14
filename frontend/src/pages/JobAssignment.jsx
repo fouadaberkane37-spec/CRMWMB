@@ -248,14 +248,23 @@ export default function JobAssignment() {
     try {
       const res = await api.post(`/reminders/test/${dealId}`)
       const results = res.data.results || []
-      const sent    = results.filter(r => r.status === 'sent').map(r => r.tech)
-      const failed  = results.filter(r => r.status === 'failed').map(r => `${r.tech}: ${r.error}`)
-      const noPhone = results.filter(r => r.status === 'no_phone').map(r => r.tech)
+      if (!results.length) { alert(res.data.message || 'No technicians assigned.'); return }
+      // Group by hours
+      const by48 = results.filter(r => r.hours === 48)
+      const by24 = results.filter(r => r.hours === 24)
+      const fmt = (arr) => {
+        const sent    = arr.filter(r => r.status === 'sent').map(r => r.tech)
+        const failed  = arr.filter(r => r.status === 'failed').map(r => r.tech)
+        const noPhone = arr.filter(r => r.status === 'no_phone').map(r => r.tech)
+        let s = ''
+        if (sent.length)    s += `✅ ${sent.join(', ')}\n`
+        if (noPhone.length) s += `⚠️ No phone: ${noPhone.join(', ')}\n`
+        if (failed.length)  s += `❌ Failed: ${failed.join(', ')}\n`
+        return s
+      }
       let msg = ''
-      if (sent.length)    msg += `✅ SMS sent to: ${sent.join(', ')}\n`
-      if (noPhone.length) msg += `⚠️ No phone: ${noPhone.join(', ')}\n`
-      if (failed.length)  msg += `❌ Failed: ${failed.join(', ')}`
-      if (!results.length) msg = res.data.message || 'No technicians assigned.'
+      if (by48.length) msg += `48h reminder:\n${fmt(by48)}\n`
+      if (by24.length) msg += `24h reminder:\n${fmt(by24)}`
       alert(msg.trim())
     } catch (e) {
       alert('Error: ' + (e.response?.data?.detail || e.message))
@@ -417,16 +426,14 @@ export default function JobAssignment() {
                                 <button
                                   onClick={() => sendReminder(deal.id)}
                                   disabled={sendingReminder === deal.id}
-                                  className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-lg transition-colors ${
-                                    deal.reminder_sent
-                                      ? 'text-emerald-400 bg-emerald-900/20 border border-emerald-700/30'
-                                      : 'text-slate-400 bg-slate-800 border border-slate-700/50 active:bg-slate-700'
-                                  }`}>
+                                  className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-lg transition-colors text-slate-400 bg-slate-800 border border-slate-700/50 active:bg-slate-700">
                                   {sendingReminder === deal.id
                                     ? <Loader2 size={9} className="animate-spin" />
-                                    : deal.reminder_sent ? <Bell size={9} /> : <BellOff size={9} />
+                                    : <Bell size={9} />
                                   }
-                                  {deal.reminder_sent ? 'Rappel ✓' : 'Rappel'}
+                                  <span className={deal.reminder_sent_48h ? 'text-emerald-400' : 'text-slate-500'}>48h</span>
+                                  <span className="text-slate-600">/</span>
+                                  <span className={deal.reminder_sent ? 'text-emerald-400' : 'text-slate-500'}>24h</span>
                                 </button>
                               </div>
                             </div>

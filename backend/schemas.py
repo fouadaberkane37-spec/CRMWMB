@@ -139,6 +139,7 @@ class Deal(DealBase):
     created_at: datetime
     updated_at: datetime
     reminder_sent: bool = False
+    reminder_sent_48h: bool = False
     contact: Optional[Contact] = None
     company: Optional[Company] = None
     assigned_techs: List[TechBasic] = []

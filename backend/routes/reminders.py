@@ -40,17 +40,83 @@ def _send_sms(to: str, body: str) -> tuple[bool, str]:
         return False, str(e)
 
 
-def _build_message(deal: models.Deal) -> str:
+def _build_message(deal: models.Deal, hours: int = 24) -> str:
     time_str = deal.expected_close_date.strftime("%H:%M") if deal.expected_close_date else "?"
     contact  = deal.contact
     name     = f"{contact.first_name} {contact.last_name or ''}".strip() if contact else deal.title
     address  = contact.address if (contact and contact.address) else "adresse inconnue"
     service  = deal.title or "service"
+    when     = "demain" if hours == 24 else "après-demain"
     return (
-        f"Rappel Groupe WMB: Vous avez un rendez-vous demain à {time_str} — "
+        f"Rappel Groupe WMB: Vous avez un rendez-vous {when} à {time_str} — "
         f"{service} chez {name}, {address}. "
         f"Contactez le bureau si besoin."
     )
+
+
+def _send_reminders_for_window(db, window_lo, window_hi, hours: int):
+    """Send reminders for deals whose close date falls in [window_lo, window_hi].
+    hours=24 updates reminder_sent; hours=48 updates reminder_sent_48h."""
+    sent_field = "reminder_sent" if hours == 24 else "reminder_sent_48h"
+    filter_col = models.Deal.reminder_sent if hours == 24 else models.Deal.reminder_sent_48h
+
+    deals = (
+        db.query(models.Deal)
+        .filter(
+            models.Deal.expected_close_date >= window_lo,
+            models.Deal.expected_close_date <= window_hi,
+            filter_col == False,                   # noqa: E712
+            models.Deal.job_status != "cancelled",
+        )
+        .all()
+    )
+
+    if not deals:
+        return 0
+
+    log.info(f"[reminders] {len(deals)} deal(s) in {hours}h window")
+
+    for deal in deals:
+        if deal.contact_id and not deal.contact:
+            deal.contact = db.query(models.Contact).filter(
+                models.Contact.id == deal.contact_id
+            ).first()
+
+        rows  = db.query(models.DealTechnician).filter(models.DealTechnician.deal_id == deal.id).all()
+        techs = [r.user for r in rows if r.user]
+        if deal.assigned_to:
+            legacy = db.query(models.User).filter(models.User.id == deal.assigned_to).first()
+            if legacy and legacy.id not in {t.id for t in techs}:
+                techs.append(legacy)
+
+        any_sent = False
+        for tech in techs:
+            phone = (tech.phone or "").strip()
+            if not phone:
+                db.add(models.ReminderLog(
+                    deal_id=deal.id, user_id=tech.id,
+                    phone_number=None, status="no_phone",
+                ))
+                continue
+
+            msg            = _build_message(deal, hours=hours)
+            success, error = _send_sms(phone, msg)
+            db.add(models.ReminderLog(
+                deal_id=deal.id, user_id=tech.id,
+                phone_number=phone,
+                status="sent" if success else "failed",
+                error=error or None,
+            ))
+            if success:
+                any_sent = True
+                log.info(f"[reminders/{hours}h] Sent to {tech.username} for deal {deal.id}")
+            else:
+                log.warning(f"[reminders/{hours}h] Failed for {tech.username}: {error}")
+
+        if any_sent or not techs:
+            setattr(deal, sent_field, True)
+
+    return len(deals)
 
 
 # ── Core reminder job ─────────────────────────────────────────────────────────
@@ -59,73 +125,13 @@ def run_reminders():
     """Query upcoming deals and fire reminders. Called by scheduler every hour."""
     db = SessionLocal()
     try:
-        now        = datetime.utcnow()
-        window_lo  = now + timedelta(hours=23)
-        window_hi  = now + timedelta(hours=25)
+        now = datetime.utcnow()
 
-        deals = (
-            db.query(models.Deal)
-            .filter(
-                models.Deal.expected_close_date >= window_lo,
-                models.Deal.expected_close_date <= window_hi,
-                models.Deal.reminder_sent == False,          # noqa: E712
-                models.Deal.job_status != "cancelled",
-            )
-            .all()
-        )
+        # 24h window: 23–25h from now
+        _send_reminders_for_window(db, now + timedelta(hours=23), now + timedelta(hours=25), hours=24)
 
-        if not deals:
-            return
-
-        log.info(f"[reminders] {len(deals)} deal(s) in 24h window")
-
-        for deal in deals:
-            # Load contact for message building
-            if deal.contact_id and not deal.contact:
-                deal.contact = db.query(models.Contact).filter(
-                    models.Contact.id == deal.contact_id
-                ).first()
-
-            # Get assigned technicians from deal_technicians table
-            rows = db.query(models.DealTechnician).filter(
-                models.DealTechnician.deal_id == deal.id
-            ).all()
-            techs = [r.user for r in rows if r.user]
-
-            # Also include legacy assigned_to if set and not already in list
-            if deal.assigned_to:
-                legacy = db.query(models.User).filter(
-                    models.User.id == deal.assigned_to
-                ).first()
-                if legacy and legacy.id not in {t.id for t in techs}:
-                    techs.append(legacy)
-
-            any_sent = False
-            for tech in techs:
-                phone = (tech.phone or "").strip()
-                if not phone:
-                    db.add(models.ReminderLog(
-                        deal_id=deal.id, user_id=tech.id,
-                        phone_number=None, status="no_phone",
-                    ))
-                    continue
-
-                msg            = _build_message(deal)
-                success, error = _send_sms(phone, msg)
-                db.add(models.ReminderLog(
-                    deal_id=deal.id, user_id=tech.id,
-                    phone_number=phone,
-                    status="sent" if success else "failed",
-                    error=error or None,
-                ))
-                if success:
-                    any_sent = True
-                    log.info(f"[reminders] Sent to {tech.username} for deal {deal.id}")
-                else:
-                    log.warning(f"[reminders] Failed for {tech.username}: {error}")
-
-            if any_sent or not techs:
-                deal.reminder_sent = True
+        # 48h window: 47–49h from now
+        _send_reminders_for_window(db, now + timedelta(hours=47), now + timedelta(hours=49), hours=48)
 
         db.commit()
         log.info("[reminders] Done")
@@ -186,21 +192,24 @@ def test_reminder(deal_id: int, db: Session = Depends(get_db), _=Depends(require
         return {"ok": False, "message": "No technicians assigned to this deal", "results": []}
 
     results = []
-    for tech in techs:
-        phone = (tech.phone or "").strip()
-        if not phone:
-            results.append({"tech": tech.full_name or tech.username, "phone": None, "status": "no_phone"})
-            continue
-        msg = _build_message(deal)
-        success, error = _send_sms(phone, msg)
-        results.append({
-            "tech":    tech.full_name or tech.username,
-            "phone":   phone,
-            "status":  "sent" if success else "failed",
-            "error":   error or None,
-            "message": msg,
-        })
-        log.info(f"[reminders/test] deal={deal_id} tech={tech.username} -> {'OK' if success else error}")
+    for hours in [48, 24]:
+        for tech in techs:
+            phone = (tech.phone or "").strip()
+            if not phone:
+                if hours == 24:  # log no_phone once
+                    results.append({"hours": hours, "tech": tech.full_name or tech.username, "phone": None, "status": "no_phone"})
+                continue
+            msg = _build_message(deal, hours=hours)
+            success, error = _send_sms(phone, msg)
+            results.append({
+                "hours":   hours,
+                "tech":    tech.full_name or tech.username,
+                "phone":   phone,
+                "status":  "sent" if success else "failed",
+                "error":   error or None,
+                "message": msg,
+            })
+            log.info(f"[reminders/test/{hours}h] deal={deal_id} tech={tech.username} -> {'OK' if success else error}")
 
     db.commit()
     return {"ok": True, "deal_id": deal_id, "results": results}
