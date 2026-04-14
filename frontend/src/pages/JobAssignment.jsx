@@ -177,6 +177,7 @@ export default function JobAssignment() {
   const [assignSheet, setAssignSheet] = useState(null)
   const [statusSheet, setStatusSheet] = useState(null)
   const [techPhones, setTechPhones]   = useState({}) // userId → bool (has phone)
+  const [sendingReminder, setSendingReminder] = useState(null) // dealId being reminded
 
   const weekDates     = DAY_KEYS.map((_, i) => addDays(weekStart, i))
   const weekEnd       = addDays(weekStart, 6)
@@ -240,6 +241,27 @@ export default function JobAssignment() {
     await api.put(`/deals/${dealId}`, { job_status: status })
     if (status === 'cancelled') setDeals(prev => prev.filter(d => d.id !== dealId))
     else setDeals(prev => prev.map(d => d.id === dealId ? { ...d, job_status: status } : d))
+  }
+
+  async function sendReminder(dealId) {
+    setSendingReminder(dealId)
+    try {
+      const res = await api.post(`/reminders/test/${dealId}`)
+      const results = res.data.results || []
+      const sent    = results.filter(r => r.status === 'sent').map(r => r.tech)
+      const failed  = results.filter(r => r.status === 'failed').map(r => `${r.tech}: ${r.error}`)
+      const noPhone = results.filter(r => r.status === 'no_phone').map(r => r.tech)
+      let msg = ''
+      if (sent.length)    msg += `✅ SMS sent to: ${sent.join(', ')}\n`
+      if (noPhone.length) msg += `⚠️ No phone: ${noPhone.join(', ')}\n`
+      if (failed.length)  msg += `❌ Failed: ${failed.join(', ')}`
+      if (!results.length) msg = res.data.message || 'No technicians assigned.'
+      alert(msg.trim())
+    } catch (e) {
+      alert('Error: ' + (e.response?.data?.detail || e.message))
+    } finally {
+      setSendingReminder(null)
+    }
   }
 
   const dealsByDate = {}
@@ -392,10 +414,20 @@ export default function JobAssignment() {
                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${sm.color} text-white`}>
                                   <StatusIcon size={11} />{sm.label}
                                 </button>
-                                {deal.reminder_sent
-                                  ? <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium px-2"><Bell size={9} />Rappel ✓</span>
-                                  : <span className="flex items-center gap-1 text-[10px] text-slate-600 px-2"><BellOff size={9} />En attente</span>
-                                }
+                                <button
+                                  onClick={() => sendReminder(deal.id)}
+                                  disabled={sendingReminder === deal.id}
+                                  className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-lg transition-colors ${
+                                    deal.reminder_sent
+                                      ? 'text-emerald-400 bg-emerald-900/20 border border-emerald-700/30'
+                                      : 'text-slate-400 bg-slate-800 border border-slate-700/50 active:bg-slate-700'
+                                  }`}>
+                                  {sendingReminder === deal.id
+                                    ? <Loader2 size={9} className="animate-spin" />
+                                    : deal.reminder_sent ? <Bell size={9} /> : <BellOff size={9} />
+                                  }
+                                  {deal.reminder_sent ? 'Rappel ✓' : 'Rappel'}
+                                </button>
                               </div>
                             </div>
 

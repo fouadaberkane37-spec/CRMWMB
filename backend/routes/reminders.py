@@ -162,6 +162,50 @@ def trigger_reminders(_=Depends(require_admin)):
     return {"ok": True, "message": "Reminder job completed"}
 
 
+@router.post("/test/{deal_id}")
+def test_reminder(deal_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
+    """Admin: send reminder SMS for a specific deal right now, bypassing the 24h window."""
+    deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
+    if not deal:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    # Load contact
+    if deal.contact_id and not deal.contact:
+        deal.contact = db.query(models.Contact).filter(models.Contact.id == deal.contact_id).first()
+
+    # Collect assigned techs
+    rows = db.query(models.DealTechnician).filter(models.DealTechnician.deal_id == deal.id).all()
+    techs = [r.user for r in rows if r.user]
+    if deal.assigned_to:
+        legacy = db.query(models.User).filter(models.User.id == deal.assigned_to).first()
+        if legacy and legacy.id not in {t.id for t in techs}:
+            techs.append(legacy)
+
+    if not techs:
+        return {"ok": False, "message": "No technicians assigned to this deal", "results": []}
+
+    results = []
+    for tech in techs:
+        phone = (tech.phone or "").strip()
+        if not phone:
+            results.append({"tech": tech.full_name or tech.username, "phone": None, "status": "no_phone"})
+            continue
+        msg = _build_message(deal)
+        success, error = _send_sms(phone, msg)
+        results.append({
+            "tech":    tech.full_name or tech.username,
+            "phone":   phone,
+            "status":  "sent" if success else "failed",
+            "error":   error or None,
+            "message": msg,
+        })
+        log.info(f"[reminders/test] deal={deal_id} tech={tech.username} -> {'OK' if success else error}")
+
+    db.commit()
+    return {"ok": True, "deal_id": deal_id, "results": results}
+
+
 @router.get("/logs")
 def get_reminder_logs(
     deal_id: int = None,
