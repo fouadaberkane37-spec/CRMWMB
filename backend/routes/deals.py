@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
+from sqlalchemy import exists
 from typing import List, Optional
 import os
 from database import get_db
@@ -45,8 +46,20 @@ def list_deals(
         joinedload(models.Deal.contact),
         joinedload(models.Deal.company),
     )
-    # Admin + technician see all deals; sales/user see only their own
-    if current_user.role not in ("admin", "technician"):
+    # Admin sees all. Technician sees only deals they are assigned to.
+    # Sales/user sees only deals they created or are the legacy assignee of.
+    if current_user.role == "technician":
+        assigned_via_table = exists().where(
+            models.DealTechnician.deal_id == models.Deal.id,
+            models.DealTechnician.user_id == current_user.id,
+        )
+        q = q.filter(
+            or_(
+                assigned_via_table,
+                models.Deal.assigned_to == current_user.id,
+            )
+        )
+    elif current_user.role != "admin":
         q = q.filter(
             or_(
                 models.Deal.assigned_to == current_user.id,
