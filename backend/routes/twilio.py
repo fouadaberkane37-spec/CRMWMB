@@ -13,6 +13,22 @@ router = APIRouter(prefix="/api/twilio", tags=["twilio"])
 TWIML_EMPTY = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
 
+def _notify_admin(contact_label: str, message_body: str):
+    """Send a notification SMS to the admin's personal number (CALL_FORWARD_TO)."""
+    notify_to = os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "").strip()
+    sid       = os.getenv("TWILIO_ACCOUNT_SID")
+    token     = os.getenv("TWILIO_AUTH_TOKEN")
+    from_num  = os.getenv("TWILIO_FROM_NUMBER")
+    if not (notify_to and sid and token and from_num):
+        return
+    try:
+        from twilio.rest import Client
+        text = f"💬 {contact_label}: {message_body}"
+        Client(sid, token).messages.create(body=text[:320], from_=from_num, to=notify_to)
+    except Exception:
+        pass
+
+
 def _digits(phone: str) -> str:
     """Strip all non-digit characters from a phone string."""
     return "".join(filter(str.isdigit, phone or ""))
@@ -102,8 +118,11 @@ async def twilio_incoming(
         contact = match_contact_by_phone(db, from_number)
         if contact:
             save_inbound_message(db, contact, body)
+            label = f"{contact.first_name} {contact.last_name or ''}".strip()
         else:
             upsert_inbound_lead(db, from_number, body, source="sms")
+            label = from_number
+        _notify_admin(label, body)
 
     # Always return valid TwiML so Twilio doesn't retry
     return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
