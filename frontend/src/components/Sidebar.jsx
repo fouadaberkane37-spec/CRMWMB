@@ -7,22 +7,38 @@ import {
   Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase,
 } from 'lucide-react'
 
-const ALL_NAV = [
-  { to: '/',          label: 'Dashboard',    icon: LayoutDashboard, exact: true, hideForTech: true },
-  { to: '/contacts',  label: 'Contacts',     icon: Users,           hideForTech: true },
-  { to: '/booking',   label: 'Booking',      icon: BookOpen,        hideForTech: true },
-  { to: '/analytics', label: 'Analytics',    icon: TrendingUp,      hideForTech: true },
-  { to: '/calendar',  label: 'Calendar',     icon: CalendarDays },
-  { to: '/clock',     label: 'Clock In/Out', icon: Timer,           hideForSales: true },
-  { to: '/chats',     label: 'Chats',        icon: MessageSquare,   chatsOnly: true, hideForTech: true },
-  { to: '/map',       label: 'My Map',       icon: MapPin,          hideForTech: true },
-  { to: '/team-map',  label: 'Team Map',     icon: Globe,           hideForTech: true },
-  { to: '/search',    label: 'Search',       icon: Search,          hideForTech: true },
-  { to: '/team-sales',     label: 'Team Sales',    icon: BarChart2,     adminOnly: true },
-  { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase,    adminOnly: true },
-  { to: '/tech-schedule',  label: 'My Schedule',   icon: ClipboardList, techOnly: true },
-  { to: '/timesheet',      label: 'Timesheet',     icon: ClipboardList, adminOnly: true },
-  { to: '/new-numbers',    label: 'New Numbers',   icon: PhoneIncoming, adminOnly: true },
+const NAV_GROUPS = [
+  {
+    label: 'Sales',
+    items: [
+      { to: '/',           label: 'Dashboard',   icon: LayoutDashboard, exact: true, hideForTech: true },
+      { to: '/contacts',   label: 'Contacts',    icon: Users,           hideForTech: true },
+      { to: '/booking',    label: 'Booking',     icon: BookOpen,        hideForTech: true },
+      { to: '/analytics',  label: 'Analytics',   icon: TrendingUp,      hideForTech: true },
+      { to: '/team-sales', label: 'Team Sales',  icon: BarChart2,       adminOnly: true },
+      { to: '/new-numbers',label: 'New Numbers', icon: PhoneIncoming,   adminOnly: true },
+    ],
+  },
+  {
+    label: 'Customer Service',
+    items: [
+      { to: '/chats',    label: 'Chats',    icon: MessageSquare, chatsOnly: true, hideForTech: true },
+      { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+      { to: '/search',   label: 'Search',   icon: Search,        hideForTech: true },
+      { to: '/map',      label: 'My Map',   icon: MapPin,        hideForTech: true },
+      { to: '/team-map', label: 'Team Map', icon: Globe,         hideForTech: true },
+    ],
+  },
+  {
+    label: 'Technician Management',
+    items: [
+      { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase,    adminOnly: true },
+      { to: '/timesheet',      label: 'Timesheet',      icon: ClipboardList, adminOnly: true },
+      { to: '/clock',          label: 'Clock In/Out',   icon: Timer,         hideForSales: true },
+      { to: '/tech-schedule',  label: 'My Schedule',    icon: ClipboardList, techOnly: true },
+      { to: '/users',          label: 'Users',          icon: UserCog,       adminOnly: true },
+    ],
+  },
 ]
 
 export default function Sidebar() {
@@ -33,19 +49,21 @@ export default function Sidebar() {
     user?.username?.toLowerCase().includes('fouad') ||
     user?.full_name?.toLowerCase().includes('fouad')
 
-  const navItems = ALL_NAV.filter(item => {
-    if (item.adminOnly && user?.role !== 'admin') return false
-    if (item.techOnly && user?.role !== 'technician') return false
-    if (item.chatsOnly && !canSeeChats) return false
-    if (item.hideForTech && user?.role === 'technician') return false
+  function isVisible(item) {
+    if (item.adminOnly  && user?.role !== 'admin')       return false
+    if (item.techOnly   && user?.role !== 'technician')  return false
+    if (item.chatsOnly  && !canSeeChats)                 return false
+    if (item.hideForTech  && user?.role === 'technician') return false
     if (item.hideForSales && (user?.role === 'sales' || user?.role === 'user')) return false
     return true
-  })
-
-  function handleLogout() {
-    logout()
-    navigate('/login')
   }
+
+  const linkClass = ({ isActive }) =>
+    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+      isActive
+        ? 'bg-indigo-600 text-white'
+        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+    }`
 
   return (
     <aside className="w-60 flex-shrink-0 bg-slate-900 flex flex-col h-full">
@@ -60,40 +78,26 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ to, label, icon: Icon, exact }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={exact}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`
-            }
-          >
-            <Icon size={18} />
-            {label}
-          </NavLink>
-        ))}
-
-        {user?.role === 'admin' && (
-          <NavLink
-            to="/users"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`
-            }
-          >
-            <UserCog size={18} />
-            Users
-          </NavLink>
-        )}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
+        {NAV_GROUPS.map(group => {
+          const visible = group.items.filter(isVisible)
+          if (!visible.length) return null
+          return (
+            <div key={group.label}>
+              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {visible.map(({ to, label, icon: Icon, exact }) => (
+                  <NavLink key={to} to={to} end={exact} className={linkClass}>
+                    <Icon size={17} />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </nav>
 
       {/* User footer */}
@@ -103,7 +107,7 @@ export default function Sidebar() {
           <p className="text-slate-400 text-xs truncate capitalize">{user?.role}</p>
         </div>
         <button
-          onClick={handleLogout}
+          onClick={() => { logout(); navigate('/login') }}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
         >
           <LogOut size={18} />
