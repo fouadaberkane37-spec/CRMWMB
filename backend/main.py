@@ -209,10 +209,11 @@ except Exception as _e:
     print(f"[WARN] deal_technicians DDL: {_e}")
 
 
-# reminder_sent / reminder_sent_48h columns on deals + reminder_logs table
+# reminder columns on deals + reminder_logs table
 _reminder_migrations = [
-    ("reminder_sent",     "ALTER TABLE deals ADD COLUMN{if_not_exists} reminder_sent BOOLEAN DEFAULT FALSE"),
-    ("reminder_sent_48h", "ALTER TABLE deals ADD COLUMN{if_not_exists} reminder_sent_48h BOOLEAN DEFAULT FALSE"),
+    ("reminder_sent",        "ALTER TABLE deals ADD COLUMN{if_not_exists} reminder_sent BOOLEAN DEFAULT FALSE"),
+    ("reminder_sent_48h",    "ALTER TABLE deals ADD COLUMN{if_not_exists} reminder_sent_48h BOOLEAN DEFAULT FALSE"),
+    ("client_reminder_sent", "ALTER TABLE deals ADD COLUMN{if_not_exists} client_reminder_sent BOOLEAN DEFAULT FALSE"),
 ]
 for _col, _stmt in _reminder_migrations:
     _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")

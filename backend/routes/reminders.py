@@ -119,6 +119,81 @@ def _send_reminders_for_window(db, window_lo, window_hi, hours: int):
     return len(deals)
 
 
+# ── Client reminder ───────────────────────────────────────────────────────────
+
+def _build_client_message(deal: models.Deal) -> str:
+    dt      = deal.expected_close_date
+    contact = deal.contact
+    name    = contact.first_name if contact else "there"
+    try:
+        date_str = dt.strftime("%A, %B %-d")
+        time_str = dt.strftime("%-I:%M %p")
+    except Exception:
+        date_str = str(dt.date())
+        time_str = str(dt.time())[:5]
+
+    lines = [f"Hi {name}! Just a reminder — your appointment is tomorrow 📅"]
+    lines.append(f"🗓 {date_str} at {time_str}")
+    if contact and contact.address:
+        lines.append(f"📍 {contact.address}")
+    if deal.title and " — " in deal.title:
+        lines.append(f"🔧 {deal.title.split(' — ', 1)[1]}")
+    elif deal.title:
+        lines.append(f"🔧 {deal.title}")
+    lines.append("\nSee you soon! Reply if you have any questions.")
+    return "\n".join(lines)
+
+
+def _send_client_reminders(db, window_lo, window_hi):
+    """Send 24h reminder SMS to the client (contact) for each upcoming deal."""
+    deals = (
+        db.query(models.Deal)
+        .filter(
+            models.Deal.expected_close_date >= window_lo,
+            models.Deal.expected_close_date <= window_hi,
+            models.Deal.client_reminder_sent == False,   # noqa: E712
+            models.Deal.job_status != "cancelled",
+        )
+        .all()
+    )
+
+    if not deals:
+        return
+
+    log.info(f"[reminders/client] {len(deals)} deal(s) needing client reminder")
+
+    for deal in deals:
+        if deal.contact_id and not deal.contact:
+            deal.contact = db.query(models.Contact).filter(
+                models.Contact.id == deal.contact_id
+            ).first()
+
+        contact = deal.contact
+        if not contact or not (contact.phone or "").strip():
+            deal.client_reminder_sent = True   # no phone — skip silently
+            log.info(f"[reminders/client] deal={deal.id} skipped — no client phone")
+            continue
+
+        body = _build_client_message(deal)
+        success, error = _send_sms(contact.phone.strip(), body)
+
+        if success:
+            # Save to chat thread so it appears in Chats tab
+            try:
+                db.add(models.ChatMessage(
+                    contact_id=contact.id,
+                    sender_id=None,
+                    body=body,
+                    direction="outbound",
+                ))
+            except Exception:
+                pass
+            deal.client_reminder_sent = True
+            log.info(f"[reminders/client] Sent to {contact.first_name} ({contact.phone}) for deal {deal.id}")
+        else:
+            log.warning(f"[reminders/client] Failed for deal {deal.id}: {error}")
+
+
 # ── Core reminder job ─────────────────────────────────────────────────────────
 
 def run_reminders():
@@ -127,11 +202,14 @@ def run_reminders():
     try:
         now = datetime.utcnow()
 
-        # 24h window: 23–25h from now
+        # Tech 24h window: 23–25h from now
         _send_reminders_for_window(db, now + timedelta(hours=23), now + timedelta(hours=25), hours=24)
 
-        # 48h window: 47–49h from now
+        # Tech 48h window: 47–49h from now
         _send_reminders_for_window(db, now + timedelta(hours=47), now + timedelta(hours=49), hours=48)
+
+        # Client 24h reminder
+        _send_client_reminders(db, now + timedelta(hours=23), now + timedelta(hours=25))
 
         db.commit()
         log.info("[reminders] Done")
