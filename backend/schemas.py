@@ -125,6 +125,13 @@ class DealUpdate(DealBase):
     title: Optional[str] = None
 
 
+class TechBasic(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+    class Config:
+        from_attributes = True
+
 class Deal(DealBase):
     id: int
     created_by: Optional[int]
@@ -132,6 +139,7 @@ class Deal(DealBase):
     updated_at: datetime
     contact: Optional[Contact] = None
     company: Optional[Company] = None
+    assigned_techs: List[TechBasic] = []
 
     class Config:
         from_attributes = True

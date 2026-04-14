@@ -10,6 +10,18 @@ from auth import get_current_user
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
 
+
+def _enrich(deal: models.Deal, db: Session) -> dict:
+    """Return a deal dict with assigned_techs list."""
+    rows = db.query(models.DealTechnician).filter(
+        models.DealTechnician.deal_id == deal.id
+    ).all()
+    techs = [{"id": r.user.id, "username": r.user.username, "full_name": r.user.full_name}
+             for r in rows if r.user]
+    d = schemas.Deal.model_validate(deal).model_dump()
+    d["assigned_techs"] = techs
+    return d
+
 STAGES = ["lead", "qualified", "proposal", "negotiation", "won", "lost"]
 
 
@@ -49,7 +61,8 @@ def list_deals(
         q = q.filter(models.Deal.company_id == company_id)
     if search:
         q = q.filter(models.Deal.title.ilike(f"%{search}%"))
-    return q.order_by(models.Deal.created_at.desc()).offset(skip).limit(limit).all()
+    deals = q.order_by(models.Deal.created_at.desc()).offset(skip).limit(limit).all()
+    return [_enrich(d, db) for d in deals]
 
 
 @router.get("/{deal_id}", response_model=schemas.Deal)
@@ -64,7 +77,7 @@ def get_deal(deal_id: int, db: Session = Depends(get_db), current_user=Depends(g
         raise HTTPException(status_code=404, detail="Deal not found")
     if not _own_deal(deal, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
-    return deal
+    return _enrich(deal, db)
 
 
 @router.post("/", response_model=schemas.Deal)
@@ -146,7 +159,26 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
         setattr(db_deal, k, v)
     db.commit()
     db.refresh(db_deal)
-    return db_deal
+    return _enrich(db_deal, db)
+
+
+@router.post("/{deal_id}/techs/{user_id}")
+def toggle_tech(deal_id: int, user_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Add or remove a technician from a deal (toggle)."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    existing = db.query(models.DealTechnician).filter(
+        models.DealTechnician.deal_id == deal_id,
+        models.DealTechnician.user_id == user_id,
+    ).first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+        return {"assigned": False}
+    else:
+        db.add(models.DealTechnician(deal_id=deal_id, user_id=user_id))
+        db.commit()
+        return {"assigned": True}
 
 
 JOB_STATUSES = ["todo", "payment_pending", "done", "cancelled"]

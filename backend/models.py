@@ -192,6 +192,16 @@ class ShiftConfirmation(Base):
     user = relationship("User", foreign_keys=[user_id])
 
 
+class DealTechnician(Base):
+    """Many-to-many: multiple technicians assigned to a single deal."""
+    __tablename__ = "deal_technicians"
+    id      = Column(Integer, primary_key=True, index=True)
+    deal_id = Column(Integer, ForeignKey("deals.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
 class TimeClock(Base):
     __tablename__ = "timeclocks"
     id = Column(Integer, primary_key=True, index=True)

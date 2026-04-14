@@ -191,6 +191,23 @@ except Exception as _e:
     print(f"[WARN] timeclocks DDL: {_e}")
 
 
+# Ensure deal_technicians table exists
+_deal_techs_ddl = """
+    CREATE TABLE IF NOT EXISTS deal_technicians (
+        id      {pk},
+        deal_id INTEGER NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        UNIQUE(deal_id, user_id)
+    )
+""".format(pk="INTEGER PRIMARY KEY AUTOINCREMENT" if _is_sqlite else "SERIAL PRIMARY KEY")
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_deal_techs_ddl))
+    print("[OK] deal_technicians table ready")
+except Exception as _e:
+    print(f"[WARN] deal_technicians DDL: {_e}")
+
+
 # Add phone-invite columns to invites table and phone to users table
 _invite_migrations = [
     ("phone",     "ALTER TABLE invites ADD COLUMN{if_not_exists} phone VARCHAR"),
