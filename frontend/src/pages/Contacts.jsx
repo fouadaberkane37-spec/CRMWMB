@@ -242,7 +242,7 @@ export default function Contacts() {
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
   return (
-    <div className="px-4 pt-6 pb-4 md:p-8">
+    <div className="px-4 pt-6 pb-4 md:p-8 overflow-x-auto min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -355,8 +355,8 @@ export default function Contacts() {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="hidden md:block bg-slate-900 rounded-xl border border-slate-700/50 overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="bg-slate-800 border-b border-slate-700/50">
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Name</th>
