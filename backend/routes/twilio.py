@@ -223,6 +223,42 @@ def initiate_call(
     return {"call_sid": call.sid, "status": call.status}
 
 
+@router.post("/test-notify")
+def test_notify(
+    current_user=Depends(get_current_user),
+):
+    """Admin: send a test SMS notification to CALL_FORWARD_TO / NOTIFY_PHONE."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    sid       = os.getenv("TWILIO_ACCOUNT_SID")
+    token     = os.getenv("TWILIO_AUTH_TOKEN")
+    from_num  = os.getenv("TWILIO_FROM_NUMBER")
+    notify_to = os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "").strip()
+
+    # Return diagnostic info regardless
+    debug = {
+        "TWILIO_ACCOUNT_SID":  "set" if sid   else "MISSING",
+        "TWILIO_AUTH_TOKEN":   "set" if token  else "MISSING",
+        "TWILIO_FROM_NUMBER":  from_num  or "MISSING",
+        "notify_to":           notify_to or "MISSING",
+    }
+
+    if not (sid and token and from_num and notify_to):
+        return {"sent": False, "debug": debug, "error": "One or more env vars missing"}
+
+    try:
+        from twilio.rest import Client
+        msg = Client(sid, token).messages.create(
+            body="✅ CRM test notification — it's working!",
+            from_=from_num,
+            to=notify_to,
+        )
+        return {"sent": True, "debug": debug, "sid": msg.sid, "status": msg.status}
+    except Exception as e:
+        return {"sent": False, "debug": debug, "error": str(e)}
+
+
 @router.get("/unknown-leads")
 def list_unknown_leads(
     db: Session = Depends(get_db),
