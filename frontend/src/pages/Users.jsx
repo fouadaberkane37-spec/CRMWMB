@@ -102,7 +102,7 @@ export default function Users() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 overflow-x-auto min-w-0">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">Users</h1>
@@ -118,8 +118,8 @@ export default function Users() {
         </div>
       </div>
 
-      <div className="bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="bg-slate-800 border-b border-slate-700/50">
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">User</th>
