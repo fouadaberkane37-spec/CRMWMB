@@ -9,6 +9,7 @@ from routes import auth, users, contacts, companies, deals, activities, dashboar
 from routes import timeclock as timeclock_routes
 from routes import analytics as analytics_routes
 from routes import availability as availability_routes
+from routes import reminders as reminders_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
@@ -206,6 +207,40 @@ try:
     print("[OK] deal_technicians table ready")
 except Exception as _e:
     print(f"[WARN] deal_technicians DDL: {_e}")
+
+
+# reminder_sent column on deals + reminder_logs table
+_reminder_migrations = [
+    ("reminder_sent", "ALTER TABLE deals ADD COLUMN{if_not_exists} reminder_sent BOOLEAN DEFAULT FALSE"),
+]
+for _col, _stmt in _reminder_migrations:
+    _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(_sql))
+    except Exception:
+        pass
+
+_reminder_logs_ddl = """
+    CREATE TABLE IF NOT EXISTS reminder_logs (
+        id           {pk},
+        deal_id      INTEGER NOT NULL REFERENCES deals(id),
+        user_id      INTEGER NOT NULL REFERENCES users(id),
+        phone_number VARCHAR,
+        status       VARCHAR DEFAULT 'sent',
+        error        TEXT,
+        sent_at      {ts}
+    )
+""".format(
+    pk="INTEGER PRIMARY KEY AUTOINCREMENT" if _is_sqlite else "SERIAL PRIMARY KEY",
+    ts="DATETIME DEFAULT CURRENT_TIMESTAMP" if _is_sqlite else "TIMESTAMP DEFAULT NOW()",
+)
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_reminder_logs_ddl))
+    print("[OK] reminder_logs table ready")
+except Exception as _e:
+    print(f"[WARN] reminder_logs DDL: {_e}")
 
 
 # Add phone-invite columns to invites table and phone to users table
@@ -596,6 +631,10 @@ app.include_router(twilio_routes.router)
 app.include_router(timeclock_routes.router)
 app.include_router(analytics_routes.router)
 app.include_router(availability_routes.router)
+app.include_router(reminders_routes.router)
+
+# Start 24h reminder scheduler
+reminders_routes.start_scheduler()
 
 # --- Serve built React frontend (production) ---
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")

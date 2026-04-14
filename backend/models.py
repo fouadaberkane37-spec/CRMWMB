@@ -73,7 +73,8 @@ class Deal(Base):
     expected_close_date = Column(DateTime, nullable=True)
     notes = Column(Text)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
-    job_status = Column(String, default="todo")  # todo | payment_pending | done | cancelled
+    job_status    = Column(String, default="todo")  # todo | payment_pending | done | cancelled
+    reminder_sent = Column(Boolean, default=False)
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -189,6 +190,21 @@ class ShiftConfirmation(Base):
     shift_date   = Column(String, nullable=False)   # YYYY-MM-DD
     confirmed_at = Column(DateTime, default=datetime.utcnow)
 
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class ReminderLog(Base):
+    """Audit log for every reminder SMS attempted."""
+    __tablename__ = "reminder_logs"
+    id             = Column(Integer, primary_key=True, index=True)
+    deal_id        = Column(Integer, ForeignKey("deals.id"), nullable=False)
+    user_id        = Column(Integer, ForeignKey("users.id"), nullable=False)
+    phone_number   = Column(String, nullable=True)
+    status         = Column(String, default="sent")   # sent | failed | no_phone
+    error          = Column(Text, nullable=True)
+    sent_at        = Column(DateTime, default=datetime.utcnow)
+
+    deal = relationship("Deal", foreign_keys=[deal_id])
     user = relationship("User", foreign_keys=[user_id])
 
 

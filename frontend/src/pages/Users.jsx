@@ -1,10 +1,28 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
-import { Plus, Pencil, Trash2, ShieldCheck, User, Phone, Copy, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, ShieldCheck, User, Phone, Copy, Check, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../App.jsx'
 
-const EMPTY = { username: '', email: '', full_name: '', role: 'user', password: '' }
+/** Format a raw phone string as +1XXXXXXXXXX for storage */
+function toE164(raw) {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits[0] === '1') return `+${digits}`
+  return raw
+}
+/** Display stored +1XXXXXXXXXX as (514) 555-1234 */
+function fmtPhone(stored) {
+  if (!stored) return ''
+  const digits = stored.replace(/\D/g, '')
+  if (digits.length === 11 && digits[0] === '1') {
+    const d = digits.slice(1)
+    return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`
+  }
+  return stored
+}
+
+const EMPTY = { username: '', email: '', full_name: '', phone: '', role: 'user', password: '' }
 const INVITE_EMPTY = { phone: '', full_name: '', role: 'user' }
 
 export default function Users() {
@@ -28,14 +46,15 @@ export default function Users() {
   useEffect(() => { load() }, [])
 
   function openCreate() { setForm(EMPTY); setError(''); setModal('create') }
-  function openEdit(u) { setForm({ ...u, password: '' }); setError(''); setModal(u) }
+  function openEdit(u) { setForm({ ...u, phone: u.phone || '', password: '' }); setError(''); setModal(u) }
 
   async function save() {
     setSaving(true)
     setError('')
     try {
-      if (modal === 'create') await api.post('/users/', form)
-      else await api.put(`/users/${modal.id}`, form)
+      const payload = { ...form, phone: form.phone ? toE164(form.phone) : '' }
+      if (modal === 'create') await api.post('/users/', payload)
+      else await api.put(`/users/${modal.id}`, payload)
       setModal(null)
       load()
     } catch (err) {
@@ -106,6 +125,7 @@ export default function Users() {
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">User</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Username</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Role</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Phone</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Status</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wide">Joined</th>
               <th className="px-6 py-3" />
@@ -132,6 +152,14 @@ export default function Users() {
                     : u.role === 'technician'
                       ? <span className="flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-900/40 px-2 py-0.5 rounded-full w-fit"><User size={11} />Technician</span>
                       : <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-900/40 px-2 py-0.5 rounded-full w-fit"><User size={11} />Sales</span>}
+                </td>
+                <td className="px-6 py-3.5">
+                  {u.phone
+                    ? <span className="text-slate-300 text-xs font-mono">{fmtPhone(u.phone)}</span>
+                    : u.role === 'technician'
+                      ? <span className="flex items-center gap-1 text-amber-500 text-xs"><AlertTriangle size={11} />Missing</span>
+                      : <span className="text-slate-600 text-xs">—</span>
+                  }
                 </td>
                 <td className="px-6 py-3.5">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.is_active ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'}`}>
@@ -168,8 +196,23 @@ export default function Users() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Email *</label>
-              <input type="email" value={form.email} onChange={f('email')} className="input" required />
+              <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+              <input type="email" value={form.email} onChange={f('email')} className="input" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Phone Number
+                {(form.role === 'technician' || modal?.role === 'technician') && (
+                  <span className="ml-2 text-xs text-amber-400 font-normal">Required for reminders</span>
+                )}
+              </label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={f('phone')}
+                className="input"
+                placeholder="(514) 555-1234"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

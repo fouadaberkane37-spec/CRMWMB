@@ -47,6 +47,8 @@ def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(ge
         raise HTTPException(status_code=404, detail="User not found")
     if user.email is not None:
         db_user.email = user.email
+    if user.phone is not None:
+        db_user.phone = user.phone or None   # empty string → NULL
     if user.full_name is not None:
         db_user.full_name = user.full_name
     if user.role is not None:

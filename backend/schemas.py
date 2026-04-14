@@ -24,6 +24,7 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     email: Optional[str] = None
+    phone: Optional[str] = None
     full_name: Optional[str] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
@@ -137,6 +138,7 @@ class Deal(DealBase):
     created_by: Optional[int]
     created_at: datetime
     updated_at: datetime
+    reminder_sent: bool = False
     contact: Optional[Contact] = None
     company: Optional[Company] = None
     assigned_techs: List[TechBasic] = []

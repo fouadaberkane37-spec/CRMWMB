@@ -3,7 +3,7 @@ import api from '../api.js'
 import {
   ClipboardList, ChevronLeft, ChevronRight, Loader2,
   Users, CheckCircle2, Circle, AlertCircle, XCircle, RefreshCw,
-  MapPin, DollarSign, Clock,
+  MapPin, DollarSign, Clock, Bell, BellOff, AlertTriangle,
 } from 'lucide-react'
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
@@ -176,6 +176,7 @@ export default function JobAssignment() {
   const [expandedDay, setExpandedDay] = useState(null)
   const [assignSheet, setAssignSheet] = useState(null)
   const [statusSheet, setStatusSheet] = useState(null)
+  const [techPhones, setTechPhones]   = useState({}) // userId → bool (has phone)
 
   const weekDates     = DAY_KEYS.map((_, i) => addDays(weekStart, i))
   const weekEnd       = addDays(weekStart, 6)
@@ -192,6 +193,9 @@ export default function JobAssignment() {
       ])
       const techUsers = usersRes.data.filter(u => u.role === 'technician' && u.is_active)
       setTechs(techUsers)
+      const phones = {}
+      techUsers.forEach(t => { phones[t.id] = !!(t.phone) })
+      setTechPhones(phones)
       setDeals(dealsRes.data.filter(d => d.expected_close_date && d.job_status !== 'cancelled'))
 
       const confSet    = new Set(confRes.data.map(c => `${c.user_id}:${c.shift_date}`))
@@ -383,11 +387,27 @@ export default function JobAssignment() {
                                   {deal.value > 0 && <span className="text-slate-400 text-xs flex items-center gap-0.5"><DollarSign size={9}/>{deal.value.toFixed(0)}</span>}
                                 </div>
                               </div>
-                              <button onClick={() => setStatusSheet(deal)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold flex-shrink-0 ${sm.color} text-white`}>
-                                <StatusIcon size={11} />{sm.label}
-                              </button>
+                              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                <button onClick={() => setStatusSheet(deal)}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${sm.color} text-white`}>
+                                  <StatusIcon size={11} />{sm.label}
+                                </button>
+                                {deal.reminder_sent
+                                  ? <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium px-2"><Bell size={9} />Rappel ✓</span>
+                                  : <span className="flex items-center gap-1 text-[10px] text-slate-600 px-2"><BellOff size={9} />En attente</span>
+                                }
+                              </div>
                             </div>
+
+                            {/* Missing phone warning */}
+                            {assigned.length > 0 && assigned.some(t => !techPhones[t.id]) && (
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 mb-1 bg-amber-900/20 border border-amber-700/30 rounded-xl">
+                                <AlertTriangle size={11} className="text-amber-400 flex-shrink-0" />
+                                <p className="text-amber-400 text-xs">
+                                  {assigned.filter(t => !techPhones[t.id]).map(t => t.full_name?.split(' ')[0] || t.username).join(', ')} — pas de numéro de téléphone
+                                </p>
+                              </div>
+                            )}
 
                             {/* Assigned techs row */}
                             <button onClick={() => setAssignSheet(deal)}
