@@ -15,7 +15,7 @@ TWIML_EMPTY = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
 def _notify_admin(contact_label: str, message_body: str):
     """Send a notification SMS to the admin's personal number (CALL_FORWARD_TO)."""
-    notify_to = os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "").strip()
+    notify_to = os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "+15145597007").strip()
     sid       = os.getenv("TWILIO_ACCOUNT_SID")
     token     = os.getenv("TWILIO_AUTH_TOKEN")
     from_num  = os.getenv("TWILIO_FROM_NUMBER")
@@ -234,7 +234,7 @@ def test_notify(
     sid       = os.getenv("TWILIO_ACCOUNT_SID")
     token     = os.getenv("TWILIO_AUTH_TOKEN")
     from_num  = os.getenv("TWILIO_FROM_NUMBER")
-    notify_to = os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "").strip()
+    notify_to = os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "+15145597007").strip()
 
     # Return diagnostic info regardless
     debug = {
