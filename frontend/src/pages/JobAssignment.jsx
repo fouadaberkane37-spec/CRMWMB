@@ -57,7 +57,7 @@ function AssignSheet({ deal, availTechs, allTechs, onToggle, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)', maxHeight: '82vh', overflowY: 'auto' }}>
@@ -137,7 +137,7 @@ function StatusSheet({ deal, onUpdate, onClose }) {
     finally { setSaving(false) }
   }
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>

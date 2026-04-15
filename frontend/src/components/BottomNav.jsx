@@ -80,7 +80,7 @@ export default function BottomNav() {
 
       {/* More drawer */}
       {showMore && (
-        <div className="fixed inset-0 z-50">
+        <div className="fixed inset-0 z-[200]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowMore(false)} />
           <div
             className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl px-4 pt-5"

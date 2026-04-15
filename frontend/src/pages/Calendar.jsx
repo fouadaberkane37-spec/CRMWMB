@@ -217,7 +217,7 @@ function TechJobModal({ deal, allDeals, onClose, onClockAction }) {
   const totalMins = Math.floor((totalMs % 3600000) / 60000)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div
         className="relative bg-slate-900 border border-slate-700/60 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
         onClick={e => e.stopPropagation()}
