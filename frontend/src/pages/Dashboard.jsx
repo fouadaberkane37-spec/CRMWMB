@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
-import { Users, CheckCircle, DollarSign, CalendarDays, ChevronRight } from 'lucide-react'
+import { Users, CheckCircle, DollarSign, CalendarDays, ChevronRight, UserPlus, Clock } from 'lucide-react'
 
 const STATUS_COLORS = {
   lead:     'bg-blue-900/40 text-blue-400',
@@ -135,8 +135,24 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="divide-y divide-slate-700/30">
-          {recentContacts.length === 0 && (
-            <p className="px-4 py-8 text-center text-slate-500 text-sm">No contacts yet</p>
+          {loading && (
+            <div className="divide-y divide-slate-700/30">
+              {[1,2,3].map(i => (
+                <div key={i} className="px-4 flex items-center gap-3" style={{ minHeight: '52px' }}>
+                  <div className="w-8 h-8 rounded-full bg-slate-800 animate-pulse flex-shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 bg-slate-800 rounded animate-pulse w-32" />
+                    <div className="h-2.5 bg-slate-800 rounded animate-pulse w-20" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!loading && recentContacts.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 gap-2 text-slate-600">
+              <UserPlus size={28} className="opacity-40" />
+              <p className="text-sm">No contacts yet</p>
+            </div>
           )}
           {recentContacts.map(c => (
             <div key={c.id} className="px-4 flex items-center justify-between" style={{ minHeight: '52px' }}>
@@ -161,8 +177,11 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="divide-y divide-slate-700/30">
-          {upcoming.length === 0 && (
-            <p className="px-4 py-8 text-center text-slate-500 text-sm">No upcoming appointments</p>
+          {!loading && upcoming.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 gap-2 text-slate-600">
+              <Clock size={28} className="opacity-40" />
+              <p className="text-sm">No upcoming appointments</p>
+            </div>
           )}
           {upcoming.map(d => (
             <div key={d.id} className="px-4 flex items-center justify-between" style={{ minHeight: '56px' }}>

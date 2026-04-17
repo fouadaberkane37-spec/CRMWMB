@@ -165,8 +165,8 @@ export default function TechSchedule() {
                     }`}
                   >
                     <span>{DAY_LABELS[i]}</span>
-                    <span className={`text-[9px] font-normal ${days[key] ? 'text-indigo-200' : 'text-slate-600'}`}>
-                      {fmtShort(dateStr).split(' ')[1]}
+                    <span className={`text-[9px] font-normal ${days[key] ? 'text-indigo-200' : isPast ? 'text-slate-700' : 'text-slate-600'}`}>
+                      {isPast ? 'Past' : fmtShort(dateStr).split(' ')[1]}
                     </span>
                   </button>
                 )

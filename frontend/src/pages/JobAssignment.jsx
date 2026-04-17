@@ -82,10 +82,16 @@ function AssignSheet({ deal, availTechs, allTechs, onToggle, onClose }) {
           <p className="text-white font-semibold text-base">Assign Technicians</p>
           <button onClick={onClose} className="text-xs text-indigo-400 font-semibold px-3 py-1 bg-indigo-900/30 rounded-xl">Done</button>
         </div>
-        <p className="text-slate-500 text-xs mb-4">
+        <p className="text-slate-500 text-xs mb-3">
           {deal.contact ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim() : deal.title}
           {' · '}{assignedIds.size} assigned
         </p>
+        {/* Legend */}
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <span className="flex items-center gap-1.5 text-xs text-emerald-400"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Shift confirmed</span>
+          <span className="flex items-center gap-1.5 text-xs text-indigo-400"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />Available</span>
+          <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="w-2 h-2 rounded-full bg-slate-600 inline-block" />No availability set</span>
+        </div>
 
         <div className="space-y-2">
           {sorted.map(tech => {
@@ -481,7 +487,7 @@ export default function JobAssignment() {
                               <div className="flex items-center gap-1.5 px-3 py-1.5 mb-1 bg-amber-900/20 border border-amber-700/30 rounded-xl">
                                 <AlertTriangle size={11} className="text-amber-400 flex-shrink-0" />
                                 <p className="text-amber-400 text-xs">
-                                  {assigned.filter(t => !techPhones[t.id]).map(t => t.full_name?.split(' ')[0] || t.username).join(', ')} — pas de numéro de téléphone
+                                  {assigned.filter(t => !techPhones[t.id]).map(t => t.full_name?.split(' ')[0] || t.username).join(', ')} — no phone number on file
                                 </p>
                               </div>
                             )}

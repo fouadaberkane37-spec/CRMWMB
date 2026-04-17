@@ -191,6 +191,7 @@ export default function Timesheet() {
               value={date}
               onChange={e => setDate(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ colorScheme: 'dark' }}
             />
           </div>
         </div>
@@ -198,7 +199,10 @@ export default function Timesheet() {
         {/* Table */}
         <div className="bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden mb-6">
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-500">Loading…</div>
+            <div className="flex items-center justify-center py-16 gap-2 text-slate-500">
+              <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Loading…</span>
+            </div>
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-500">
               <ClipboardList size={32} className="mb-3 opacity-40" />

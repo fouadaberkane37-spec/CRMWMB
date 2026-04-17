@@ -18,10 +18,12 @@ function AddContactModal({ lead, onClose, onConverted }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName]   = useState('')
   const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState('')
 
   async function handleSave() {
     if (!firstName.trim()) return
     setSaving(true)
+    setError('')
     try {
       await api.post(`/twilio/unknown-leads/${lead.id}/convert`, {
         first_name: firstName.trim(),
@@ -29,7 +31,7 @@ function AddContactModal({ lead, onClose, onConverted }) {
       })
       onConverted()
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to convert')
+      setError(err.response?.data?.detail || 'Failed to convert')
     } finally {
       setSaving(false)
     }
@@ -47,6 +49,9 @@ function AddContactModal({ lead, onClose, onConverted }) {
           </button>
         </div>
         <p className="text-slate-400 text-xs mb-4">{lead.phone}</p>
+        {error && (
+          <div className="mb-3 bg-red-900/30 border border-red-800/50 text-red-400 rounded-xl px-3 py-2 text-xs">{error}</div>
+        )}
         <div className="space-y-3">
           <input
             type="text"
@@ -85,8 +90,9 @@ function AddContactModal({ lead, onClose, onConverted }) {
 export default function NewNumbers() {
   const [leads, setLeads]       = useState([])
   const [loading, setLoading]   = useState(true)
-  const [converting, setConverting] = useState(null) // lead to convert
+  const [converting, setConverting] = useState(null)
   const [callingId, setCallingId]   = useState(null)
+  const [callError, setCallError]   = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -108,11 +114,12 @@ export default function NewNumbers() {
 
   async function callLead(phone, id) {
     setCallingId(id)
+    setCallError('')
     try {
-      // Initiate call via Twilio — create a temporary contact-less call
-      const sid   = await api.post('/twilio/call-number', { phone })
+      await api.post('/twilio/call-number', { phone })
     } catch (err) {
-      alert(err.response?.data?.detail || 'Call failed')
+      setCallError(err.response?.data?.detail || 'Call failed')
+      setTimeout(() => setCallError(''), 4000)
     } finally {
       setTimeout(() => setCallingId(null), 3000)
     }
@@ -133,6 +140,12 @@ export default function NewNumbers() {
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
+
+      {callError && (
+        <div className="mx-4 mb-2 bg-red-900/30 border border-red-800/50 text-red-400 rounded-xl px-4 py-2.5 text-sm">
+          {callError}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20">

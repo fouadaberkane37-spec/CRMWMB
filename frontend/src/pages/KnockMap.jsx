@@ -293,43 +293,43 @@ export default function KnockMap() {
             >
               <Popup minWidth={200} className="knock-popup">
                 <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0' }}>
                     {c.first_name} {c.last_name || ''}
                   </div>
                   {c.address && (
-                    <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>{c.address}</div>
+                    <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>{c.address}</div>
                   )}
                   {c.phone && (
-                    <div style={{ color: '#6366f1', fontSize: 11, marginTop: 2 }}>📞 {c.phone}</div>
+                    <div style={{ color: '#818cf8', fontSize: 11, marginTop: 2 }}>📞 {c.phone}</div>
                   )}
                   {c.services && (
-                    <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>🔧 {c.services}</div>
+                    <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>🔧 {c.services}</div>
                   )}
                   {c.price != null && (
-                    <div style={{ color: '#059669', fontSize: 11, marginTop: 2, fontWeight: 600 }}>${c.price.toFixed(2)}</div>
+                    <div style={{ color: '#34d399', fontSize: 11, marginTop: 2, fontWeight: 600 }}>${c.price.toFixed(2)}</div>
                   )}
                   <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     <span style={{
                       display: 'inline-block', padding: '2px 8px', borderRadius: 12,
-                      background: '#eef2ff', color: '#6366f1',
+                      background: 'rgba(99,102,241,0.2)', color: '#a5b4fc',
                       fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                     }}>{c.status}</span>
                     {isDone && (
                       <span style={{
                         display: 'inline-block', padding: '2px 8px', borderRadius: 12,
-                        background: '#d1fae5', color: '#059669',
+                        background: 'rgba(52,211,153,0.15)', color: '#34d399',
                         fontSize: 10, fontWeight: 700,
                       }}>✓ Done</span>
                     )}
                     {isBooked && (
                       <span style={{
                         display: 'inline-block', padding: '2px 8px', borderRadius: 12,
-                        background: '#fef3c7', color: '#d97706',
+                        background: 'rgba(251,191,36,0.15)', color: '#fbbf24',
                         fontSize: 10, fontWeight: 700,
                       }}>📅 Booked</span>
                     )}
                   </div>
-                  <div style={{ color: '#94a3b8', fontSize: 10, marginTop: 6 }}>
+                  <div style={{ color: '#64748b', fontSize: 10, marginTop: 6 }}>
                     ✥ Drag pin to reposition
                   </div>
                 </div>
@@ -346,16 +346,16 @@ export default function KnockMap() {
                 {/* Address + delete */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', lineHeight: 1.3 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0', lineHeight: 1.3 }}>
                       {k.address || `${k.lat.toFixed(4)}, ${k.lng.toFixed(4)}`}
                     </div>
                     {k.contact && (
-                      <div style={{ color: '#6366f1', fontSize: 11, marginTop: 2 }}>
+                      <div style={{ color: '#818cf8', fontSize: 11, marginTop: 2 }}>
                         👤 {k.contact.first_name} {k.contact.last_name}
                       </div>
                     )}
                   </div>
-                  <button onClick={() => deleteKnock(k.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0 0 0 8px', flexShrink: 0, lineHeight: 1 }}>
+                  <button onClick={() => deleteKnock(k.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: '0 0 0 8px', flexShrink: 0, lineHeight: 1 }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="3 6 5 6 21 6"/>
                       <path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -364,22 +364,22 @@ export default function KnockMap() {
                 </div>
 
                 {k.notes && (
-                  <div style={{ color: '#475569', fontSize: 12, marginBottom: 8, padding: '6px 8px', background: '#f8fafc', borderRadius: 6 }}>
+                  <div style={{ color: '#cbd5e1', fontSize: 12, marginBottom: 8, padding: '6px 8px', background: 'rgba(0,0,0,0.25)', borderRadius: 6 }}>
                     {k.notes}
                   </div>
                 )}
 
                 {/* Status update chips */}
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
                   Change status
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {STATUSES.map((s) => (
                     <button key={s.key} onClick={() => updateStatus(k.id, s.key)} style={{
                       padding: '4px 9px', borderRadius: 20,
-                      border: `1.5px solid ${k.status === s.key ? s.color : '#e2e8f0'}`,
-                      background: k.status === s.key ? s.color : '#fff',
-                      color: k.status === s.key ? '#fff' : '#64748b',
+                      border: `1.5px solid ${k.status === s.key ? s.color : 'rgba(100,116,139,0.4)'}`,
+                      background: k.status === s.key ? s.color : 'rgba(255,255,255,0.06)',
+                      color: k.status === s.key ? '#fff' : '#94a3b8',
                       fontSize: 11, cursor: 'pointer', fontWeight: 600,
                       transition: 'all 0.15s',
                     }}>

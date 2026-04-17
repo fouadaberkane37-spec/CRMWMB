@@ -148,17 +148,17 @@ export default function TeamMap() {
               zIndexOffset={isDone ? 600 : isBooked ? 500 : 0}>
               <Popup minWidth={200}>
                 <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0' }}>
                     {c.first_name} {c.last_name || ''}
                   </div>
-                  {c.address  && <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>{c.address}</div>}
-                  {c.phone    && <div style={{ color: '#6366f1', fontSize: 11, marginTop: 2 }}>📞 {c.phone}</div>}
-                  {c.services && <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>🔧 {c.services}</div>}
-                  {c.price != null && <div style={{ color: '#059669', fontSize: 11, marginTop: 2, fontWeight: 600 }}>${c.price.toFixed(2)}</div>}
+                  {c.address  && <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>{c.address}</div>}
+                  {c.phone    && <div style={{ color: '#818cf8', fontSize: 11, marginTop: 2 }}>📞 {c.phone}</div>}
+                  {c.services && <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>🔧 {c.services}</div>}
+                  {c.price != null && <div style={{ color: '#34d399', fontSize: 11, marginTop: 2, fontWeight: 600 }}>${c.price.toFixed(2)}</div>}
                   <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    <span style={{ padding: '2px 8px', borderRadius: 12, background: '#eef2ff', color: '#6366f1', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{c.status}</span>
-                    {isDone   && <span style={{ padding: '2px 8px', borderRadius: 12, background: '#d1fae5', color: '#059669', fontSize: 10, fontWeight: 700 }}>✓ Done</span>}
-                    {isBooked && <span style={{ padding: '2px 8px', borderRadius: 12, background: '#fef3c7', color: '#d97706', fontSize: 10, fontWeight: 700 }}>📅 Booked</span>}
+                    <span style={{ padding: '2px 8px', borderRadius: 12, background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{c.status}</span>
+                    {isDone   && <span style={{ padding: '2px 8px', borderRadius: 12, background: 'rgba(52,211,153,0.15)', color: '#34d399', fontSize: 10, fontWeight: 700 }}>✓ Done</span>}
+                    {isBooked && <span style={{ padding: '2px 8px', borderRadius: 12, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', fontSize: 10, fontWeight: 700 }}>📅 Booked</span>}
                   </div>
                 </div>
               </Popup>
@@ -171,20 +171,20 @@ export default function TeamMap() {
           <Marker key={k.id} position={[k.lat, k.lng]} icon={getPinIcon(k.created_by)}>
             <Popup minWidth={200}>
               <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 4 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0', marginBottom: 4 }}>
                   {k.address || `${k.lat.toFixed(4)}, ${k.lng.toFixed(4)}`}
                 </div>
-                {k.contact && <div style={{ color: '#6366f1', fontSize: 11, marginBottom: 4 }}>👤 {k.contact.first_name} {k.contact.last_name}</div>}
+                {k.contact && <div style={{ color: '#818cf8', fontSize: 11, marginBottom: 4 }}>👤 {k.contact.first_name} {k.contact.last_name}</div>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: getUserColor(k.created_by, userOrder), display: 'inline-block' }} />
-                  <span style={{ fontSize: 11, color: '#475569' }}>
+                  <span style={{ fontSize: 11, color: '#94a3b8' }}>
                     {teamUsers.find((u) => u.id === k.created_by)
                       ? userName(teamUsers.find((u) => u.id === k.created_by))
                       : `User #${k.created_by}`}
                   </span>
                 </div>
                 <div style={{ fontSize: 11, color: '#64748b' }}>{STATUS_LABELS[k.status] || k.status}</div>
-                {k.notes && <div style={{ marginTop: 6, padding: '5px 8px', background: '#f8fafc', borderRadius: 6, fontSize: 11, color: '#475569' }}>{k.notes}</div>}
+                {k.notes && <div style={{ marginTop: 6, padding: '5px 8px', background: 'rgba(0,0,0,0.25)', borderRadius: 6, fontSize: 11, color: '#cbd5e1' }}>{k.notes}</div>}
               </div>
             </Popup>
           </Marker>

@@ -308,8 +308,16 @@ export default function Contacts() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, address, phone, services…"
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-9 pr-8 py-2 text-sm border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
         <select
           value={filterStatus}
@@ -324,7 +332,10 @@ export default function Contacts() {
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
         {contacts.length === 0 && (
-          <div className="bg-slate-900 rounded-xl border border-slate-700/50 px-4 py-10 text-center text-slate-500 text-sm">No contacts found</div>
+          <div className="bg-slate-900 rounded-xl border border-slate-700/50 px-4 py-12 flex flex-col items-center gap-2 text-slate-600">
+            <Users size={32} className="opacity-30" />
+            <p className="text-sm">{search || filterStatus ? 'No contacts match your search' : 'No contacts yet'}</p>
+          </div>
         )}
         {contacts.map((c) => (
           <div key={c.id} className="bg-slate-900 rounded-xl border border-slate-700/50 px-4 py-3 flex items-center gap-3">

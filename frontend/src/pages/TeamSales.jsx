@@ -97,6 +97,14 @@ export default function TeamSales() {
             </div>
           </div>
 
+          {/* Empty state */}
+          {groups.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-600">
+              <Users size={40} className="opacity-30" />
+              <p className="text-sm">No sales data yet</p>
+            </div>
+          )}
+
           {/* Per-person cards */}
           {groups.map(({ uid, name, role, margin, deals: userDeals, gross, profit }) => {
             const isOpen   = !!expanded[uid]
