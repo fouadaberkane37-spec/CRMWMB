@@ -1,9 +1,11 @@
 import secrets
 import os
 import re
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -13,6 +15,19 @@ import schemas
 from auth import get_current_user, require_admin, get_password_hash
 
 router = APIRouter(prefix="/api/invites", tags=["invites"])
+
+_invite_check_hits: dict[str, list] = defaultdict(list)
+
+
+def _invite_rate_check(request: Request):
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host or "unknown")
+    now = time.time()
+    hits = [t for t in _invite_check_hits[ip] if now - t < 60]
+    if len(hits) >= 30:
+        raise HTTPException(status_code=429, detail="Too many requests")
+    hits.append(now)
+    _invite_check_hits[ip] = hits
 
 INVITE_EXPIRY_HOURS = 48
 
@@ -126,7 +141,8 @@ def list_invites(
 
 
 @router.get("/check/{token}", response_model=schemas.InviteCheck)
-def check_invite(token: str, db: Session = Depends(get_db)):
+def check_invite(request: Request, token: str, db: Session = Depends(get_db)):
+    _invite_rate_check(request)
     """Public — validate an invite token (no auth required)."""
     invite = db.query(models.Invite).filter(models.Invite.token == token).first()
     if not invite or invite.used_at or invite.expires_at < datetime.utcnow():

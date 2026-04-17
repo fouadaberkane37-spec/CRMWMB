@@ -175,7 +175,10 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
         raise HTTPException(status_code=404, detail="Deal not found")
     if not _own_deal(db_deal, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
-    for k, v in deal.model_dump(exclude_unset=True).items():
+    updates = deal.model_dump(exclude_unset=True)
+    if "assigned_to" in updates and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can reassign deals")
+    for k, v in updates.items():
         setattr(db_deal, k, v)
     db.commit()
     db.refresh(db_deal)

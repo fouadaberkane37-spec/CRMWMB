@@ -109,7 +109,7 @@ class Contact(ContactBase):
 class DealBase(BaseModel):
     title: str = Field(..., max_length=256)
     value: float = Field(default=0, ge=0)
-    stage: str = "lead"
+    stage: Literal["lead","qualified","proposal","negotiation","won","lost"] = "lead"
     contact_id: Optional[int] = None
     company_id: Optional[int] = None
     expected_close_date: Optional[datetime] = None
