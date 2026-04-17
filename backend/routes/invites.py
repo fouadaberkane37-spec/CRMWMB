@@ -49,6 +49,9 @@ def create_invite(
     current_user: models.User = Depends(require_admin),
 ):
     """Admin creates a phone-based invite link and sends it via SMS."""
+    allowed_roles = {"admin", "user", "technician", "sales"}
+    if data.role not in allowed_roles:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(sorted(allowed_roles))}")
     # Check for active (unused, unexpired) invite for this phone
     existing = (
         db.query(models.Invite)

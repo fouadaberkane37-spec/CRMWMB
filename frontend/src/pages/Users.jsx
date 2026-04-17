@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
-import { Plus, Pencil, Trash2, ShieldCheck, User, Phone, Copy, Check, AlertTriangle } from 'lucide-react'
+import { Plus, Pencil, Trash2, ShieldCheck, User, Phone, Copy, Check, AlertTriangle, RefreshCw } from 'lucide-react'
 import { useAuth } from '../App.jsx'
 
 /** Format a raw phone string as +1XXXXXXXXXX for storage */
@@ -33,6 +33,8 @@ export default function Users() {
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [error, setError] = useState('')
+  const [resetting, setResetting] = useState(false)
+  const [resetResult, setResetResult] = useState(null)
 
   // Invite state
   const [inviteModal, setInviteModal] = useState(false)
@@ -75,6 +77,19 @@ export default function Users() {
 
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
+  async function resetAllPasswords() {
+    if (!window.confirm('Generate new passwords for all non-admin users and send via SMS?')) return
+    setResetting(true)
+    try {
+      const { data } = await api.post('/users/reset-all-passwords')
+      setResetResult(data)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Reset failed')
+    } finally {
+      setResetting(false)
+    }
+  }
+
   function openInvite() {
     setInviteForm(INVITE_EMPTY)
     setInviteResult(null)
@@ -114,6 +129,14 @@ export default function Users() {
           <p className="text-slate-500 text-sm mt-0.5">{users.length} accounts · unlimited</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={resetAllPasswords}
+            disabled={resetting}
+            className="flex items-center gap-2 bg-amber-700 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors disabled:opacity-60"
+          >
+            <RefreshCw size={16} className={resetting ? 'animate-spin' : ''} />
+            Reset Passwords
+          </button>
           <button onClick={openInvite} className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
             <Phone size={16} /> Invite
           </button>
@@ -265,6 +288,27 @@ export default function Users() {
             <button onClick={() => setDeleteId(null)} className="flex-1 border border-slate-600 text-slate-300 py-2.5 rounded-lg text-sm">Cancel</button>
             <button onClick={del} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-sm font-medium">Delete</button>
           </div>
+        </Modal>
+      )}
+
+      {resetResult && (
+        <Modal title="Passwords Reset" onClose={() => setResetResult(null)} size="sm">
+          <p className="text-slate-400 text-sm mb-4">
+            Reset <span className="text-white font-semibold">{resetResult.reset}</span> accounts.
+          </p>
+          <div className="space-y-1 max-h-60 overflow-y-auto mb-4">
+            {resetResult.details.map(u => (
+              <div key={u.id} className="flex items-center justify-between text-sm px-3 py-2 bg-slate-800 rounded-lg">
+                <span className="text-slate-300">{u.full_name || u.username}</span>
+                {u.sms_sent
+                  ? <span className="text-emerald-400 text-xs">SMS sent</span>
+                  : <span className="text-amber-400 text-xs">{u.phone ? 'SMS failed' : 'No phone'}</span>}
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setResetResult(null)} className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 py-2.5 rounded-lg text-sm">
+            Close
+          </button>
         </Modal>
       )}
 

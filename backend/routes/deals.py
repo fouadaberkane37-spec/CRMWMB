@@ -67,6 +67,8 @@ def list_deals(
             )
         )
     if stage:
+        if stage not in STAGES:
+            raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {', '.join(STAGES)}")
         q = q.filter(models.Deal.stage == stage)
     if contact_id:
         q = q.filter(models.Deal.contact_id == contact_id)

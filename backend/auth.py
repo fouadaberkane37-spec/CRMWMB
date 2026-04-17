@@ -9,9 +9,18 @@ from database import get_db
 import models
 import os
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-this-in-production-use-a-long-random-string")
+_SECRET_KEY_DEFAULT = "dev-only-insecure-key-change-in-production"
+SECRET_KEY = os.getenv("SECRET_KEY", _SECRET_KEY_DEFAULT)
+if SECRET_KEY == _SECRET_KEY_DEFAULT:
+    import sys
+    if os.getenv("ENV", "").lower() == "production":
+        print("FATAL: SECRET_KEY env var is required in production", file=sys.stderr)
+        sys.exit(1)
+    else:
+        print("WARNING: Using insecure default SECRET_KEY. Set SECRET_KEY env var for production.", file=sys.stderr)
+
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 hours
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")

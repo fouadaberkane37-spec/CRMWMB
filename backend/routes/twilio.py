@@ -14,8 +14,8 @@ TWIML_EMPTY = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
 
 def _notify_admin(contact_label: str, message_body: str):
-    """Send a notification SMS to the admin's personal number (CALL_FORWARD_TO)."""
-    notify_to = os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "+15145597007").strip()
+    """Send a notification SMS to the admin's personal number."""
+    notify_to = (os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "")).strip()
     sid       = os.getenv("TWILIO_ACCOUNT_SID")
     token     = os.getenv("TWILIO_AUTH_TOKEN")
     from_num  = os.getenv("TWILIO_FROM_NUMBER")
@@ -111,6 +111,21 @@ async def twilio_incoming(
         Body  — SMS text content
     """
     form = await request.form()
+
+    # Validate Twilio request signature to reject forged webhook calls
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    if auth_token:
+        try:
+            from twilio.request_validator import RequestValidator
+            validator = RequestValidator(auth_token)
+            url = str(request.url)
+            signature = request.headers.get("X-Twilio-Signature", "")
+            form_dict = {k: v for k, v in form.items()}
+            if not validator.validate(url, form_dict, signature):
+                return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
+        except Exception:
+            pass  # If validation library fails, continue processing
+
     from_number: str = (form.get("From") or "").strip()
     body: str = (form.get("Body") or "").strip()
 

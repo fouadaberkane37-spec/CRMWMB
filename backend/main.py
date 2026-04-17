@@ -14,18 +14,21 @@ from auth import get_password_hash
 from datetime import datetime
 import os
 
-app = FastAPI(title="Self-Hosted CRM", version="1.0.0", docs_url="/api/docs", redirect_slashes=False)
+_is_prod = os.getenv("ENV", "").lower() == "production"
+_docs_url = None if _is_prod else "/api/docs"
+app = FastAPI(title="Self-Hosted CRM", version="1.0.0", docs_url=_docs_url, redoc_url=None, redirect_slashes=False)
 
-# Allow all origins in production (Railway sets PORT; frontend is served by same procehss)
-# Override with ALLOWED_ORIGINS env var if you want to restrict
-allowed_origins = os.getenv(
-    "ALLOWED_ORIGINS", "*"
-).split(",")
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+if _raw_origins and _raw_origins.strip() != "*":
+    allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+else:
+    # Same-origin serve: allow Railway domain + localhost for dev
+    allowed_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_credentials=allowed_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -432,22 +435,24 @@ def seed_calendar_data():
 
 
 def seed_admin():
-    """Create default admin on first run."""
+    """Create default admin on first run with a random password."""
+    import secrets as _sec
     db = SessionLocal()
     try:
         if not db.query(models.User).first():
+            pwd = _sec.token_urlsafe(16)
             admin = models.User(
                 username="admin",
                 email="admin@crm.local",
                 full_name="Admin",
-                hashed_password=get_password_hash("admin123"),
+                hashed_password=get_password_hash(pwd),
                 role="admin",
                 is_active=True,
             )
             db.add(admin)
             db.commit()
-            print("[OK] Default admin created -> username: admin | password: admin123")
-            print("  Change the password after first login!")
+            print(f"[OK] Default admin created -> username: admin | password: {pwd}")
+            print("  SAVE THIS PASSWORD — it will not be shown again!")
     finally:
         db.close()
 

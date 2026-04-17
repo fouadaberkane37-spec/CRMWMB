@@ -48,8 +48,8 @@ def send_sms(
             from_=from_number,
             to=contact.phone,
         )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="SMS delivery failed. Please try again.")
 
     # Save to chat log so the conversation thread stays in sync
     db.add(models.ChatMessage(

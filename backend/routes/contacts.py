@@ -126,6 +126,8 @@ def list_contacts(
     if current_user.role != "admin":
         q = q.filter(models.Contact.created_by == current_user.id)
     if search:
+        if len(search) > 100:
+            raise HTTPException(status_code=400, detail="Search query too long (max 100 characters)")
         q = q.filter(
             models.Contact.first_name.ilike(f"%{search}%")
             | models.Contact.last_name.ilike(f"%{search}%")
@@ -195,12 +197,12 @@ def update_contact_location(
     db_contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
     if not db_contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+    if not _own_contact(db_contact, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
     db_contact.lat = body.get("lat")
     db_contact.lng = body.get("lng")
     db.commit()
     return {"lat": db_contact.lat, "lng": db_contact.lng}
-    db.refresh(db_contact)
-    return db_contact
 
 
 @router.delete("/{contact_id}")
