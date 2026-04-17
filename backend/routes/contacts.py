@@ -431,3 +431,124 @@ def geocode_all_contacts(
         return {"status": "nothing_to_geocode", "total": 0}
     background_tasks.add_task(_run_geocode_all, contact_ids)
     return {"status": "started", "total": len(contact_ids)}
+
+
+# ── Bulk service update from external list ────────────────────────────────────
+
+_SERVICE_MAP = {
+    "window - ext":       "window-ext",
+    "window - int":       "window-int",
+    "window-ext":         "window-ext",
+    "window-int":         "window-int",
+    "gutters":            "gutters",
+    "pressure washing":   "pressure-washing",
+    "pressure-washing":   "pressure-washing",
+}
+
+def _digits(phone: str) -> str:
+    """Strip everything except digits."""
+    return "".join(c for c in (phone or "") if c.isdigit())
+
+def _norm_services(raw: str) -> str:
+    """'window - ext, gutters' → 'window-ext,gutters'"""
+    parts = [p.strip().lower() for p in raw.split(",")]
+    mapped = [_SERVICE_MAP.get(p, p) for p in parts if p]
+    return ",".join(dict.fromkeys(mapped))  # deduplicate, preserve order
+
+def _find_contact(db: Session, phone: str, name: str, address: str):
+    """Try phone first, then name+address fuzzy match."""
+    digits = _digits(phone)
+    if digits:
+        all_c = db.query(models.Contact).filter(models.Contact.deleted_at == None).all()
+        for c in all_c:
+            if _digits(c.phone) == digits:
+                return c
+        # Try last 10 digits (strip country code)
+        short = digits[-10:]
+        for c in all_c:
+            if _digits(c.phone or "")[-10:] == short:
+                return c
+
+    # Fallback: name match
+    parts = name.lower().split()
+    all_c = db.query(models.Contact).filter(models.Contact.deleted_at == None).all()
+    for c in all_c:
+        full = f"{c.first_name or ''} {c.last_name or ''}".lower()
+        if all(p in full for p in parts):
+            return c
+
+    return None
+
+
+@router.post("/bulk-update-services")
+def bulk_update_services(
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """One-time: match and update services + price for the 26 booked clients."""
+    CLIENTS = [
+        {"name": "Jonathan Pinel",       "phone": "14383567334",  "address": "1184 Rue des Îles, St-Jérôme",      "services": "window - ext",                    "price": 350.00,  "notes": ""},
+        {"name": "Marie-Claude Lemonde", "phone": "15149450536",  "address": "2400 du Passerin",                  "services": "window - ext",                    "price": 300.00,  "notes": ""},
+        {"name": "Jean Lortie",          "phone": "15142321088",  "address": "2311 rue de Prague",                "services": "window - ext",                    "price": 315.00,  "notes": "lortiejj@gmail.com"},
+        {"name": "Arman Puzantyan",      "phone": "15142368223",  "address": "5850 Boul des rossignoles",         "services": "window - ext",                    "price": 375.00,  "notes": ""},
+        {"name": "David",                "phone": "18198205096",  "address": "8180 Rue des Bungalows, Laval",     "services": "window - ext",                    "price": 350.00,  "notes": ""},
+        {"name": "Jean",                 "phone": "15149289227",  "address": "705 Rue la Bruyère, Laval",         "services": "window - ext",                    "price": 350.00,  "notes": ""},
+        {"name": "Francois Giroux",      "phone": "15149104322",  "address": "590 rue bayard",                    "services": "window - ext",                    "price": 400.01,  "notes": ""},
+        {"name": "Chrystian",            "phone": "15147545542",  "address": "525 rue bayard",                    "services": "window - ext, window - int",      "price": 350.00,  "notes": "installation de terrasse avec vitre — faire soumission"},
+        {"name": "Sébastien Isabelle",   "phone": "14505126439",  "address": "479 rue des villa",                 "services": "window - ext, gutters",           "price": 500.00,  "notes": ""},
+        {"name": "Bernard Chiasson",     "phone": "15147554876",  "address": "682 chenonsson",                    "services": "window - ext",                    "price": 299.00,  "notes": ""},
+        {"name": "Marie-claude",         "phone": "15145317460",  "address": "10207 Fabre",                       "services": "window - ext, window - int",      "price": 350.00,  "notes": ""},
+        {"name": "Dominic David",        "phone": "15142200127",  "address": "120 place Gravie",                  "services": "window - ext, window - int",      "price": 500.00,  "notes": ""},
+        {"name": "Frederic Bergeron",    "phone": "15142675488",  "address": "100 rue saint-Pierre est, Saint-Sauveur", "services": "window - ext, window - int", "price": 350.00, "notes": ""},
+        {"name": "Genevieve",            "phone": "15147955593",  "address": "378 chemin de l'heritage",          "services": "window - ext",                    "price": 350.00,  "notes": ""},
+        {"name": "Vincent Bernier",      "phone": "14189978725",  "address": "17190 rue des orquide",             "services": "window - ext",                    "price": 340.00,  "notes": ""},
+        {"name": "Louis Philipe Giguere","phone": "15149281455",  "address": "11630 rue du platine",              "services": "window - ext, gutters",           "price": 300.00,  "notes": ""},
+        {"name": "Tammy Zacard",         "phone": "15149266953",  "address": "16805 rue des saphires",            "services": "window - ext",                    "price": 311.00,  "notes": ""},
+        {"name": "Jimmy Argyriou",       "phone": "15148933929",  "address": "91 chem de la galène bleue",        "services": "window - ext, window - int",      "price": 300.00,  "notes": ""},
+        {"name": "Diane Roy",            "phone": "15149421157",  "address": "1296 garden",                       "services": "window - ext, window - int",      "price": 450.00,  "notes": ""},
+        {"name": "Magalie",              "phone": "14388718857",  "address": "45 terrasses d'auteuil",            "services": "window - ext",                    "price": 350.00,  "notes": ""},
+        {"name": "Alain Poirier",        "phone": "15149680123",  "address": "11940 rue rubis",                   "services": "window - ext",                    "price": 350.00,  "notes": ""},
+        {"name": "Marc Grégoire",        "phone": "5149092139",   "address": "380 place charmante",               "services": "window - ext, pressure washing",  "price": 510.00,  "notes": "réévaluation des travaux"},
+        {"name": "José Drapeau",         "phone": "5142462401",   "address": "684 cornouille",                    "services": "window - ext",                    "price": 300.00,  "notes": ""},
+        {"name": "Perry Kioussis",       "phone": "15148231191",  "address": "265 Montreuil",                     "services": "window - ext",                    "price": 300.00,  "notes": ""},
+        {"name": "Vicky",                "phone": "15142394752",  "address": "7 Premier Avenue, Laval",           "services": "window - ext",                    "price": 250.00,  "notes": ""},
+        {"name": "Raynald Langlois",     "phone": "15793683607",  "address": "16230 rue de l'esplanade",         "services": "window - ext, gutters",           "price": 500.00,  "notes": ""},
+    ]
+
+    updated, created, skipped = [], [], []
+
+    for row in CLIENTS:
+        services_str = _norm_services(row["services"])
+        contact = _find_contact(db, row["phone"], row["name"], row["address"])
+
+        if contact:
+            contact.services = services_str
+            if row["price"]:
+                contact.price = row["price"]
+            if row["notes"] and row["notes"] not in ("-", "—", ""):
+                contact.notes = row["notes"]
+            updated.append({"name": row["name"], "id": contact.id, "matched_by": "phone/name"})
+        else:
+            # Create as new contact
+            name_parts = row["name"].split(" ", 1)
+            c = models.Contact(
+                first_name=name_parts[0],
+                last_name=name_parts[1] if len(name_parts) > 1 else None,
+                phone=row["phone"],
+                address=row["address"],
+                services=services_str,
+                price=row["price"],
+                notes=row["notes"] if row["notes"] not in ("-", "—", "") else None,
+                status="customer",
+            )
+            db.add(c)
+            created.append({"name": row["name"]})
+
+    db.commit()
+    return {
+        "ok": True,
+        "updated": len(updated),
+        "created": len(created),
+        "details_updated": updated,
+        "details_created": created,
+    }
