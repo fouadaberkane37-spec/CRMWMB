@@ -421,6 +421,9 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
   const [reschedule, setReschedule] = useState(false)
   const [techModal, setTechModal] = useState(false)
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
+  const unassigned = isAdmin && !(deal.assigned_techs?.length)
+  const chipBg   = unassigned ? 'bg-amber-400'  : s.color
+  const chipText = unassigned ? 'text-amber-900' : s.text
 
   const time = deal.expected_close_date
     ? new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -456,11 +459,12 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
             setReschedule(false)
             setOpen(v => !v)
           }}
-          className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight ${s.color} ${s.text} ${!isAdmin && !isTech ? 'cursor-default' : ''}`}
-          title={isAdmin ? `${clientName} — $${deal.value} · Click to change status` : clientName}
+          className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight ${chipBg} ${chipText} ${!isAdmin && !isTech ? 'cursor-default' : ''}`}
+          title={isAdmin ? `${clientName}${unassigned ? ' — ⚠ No tech assigned' : ''}` : clientName}
         >
           {time && <span className="opacity-75 mr-1">{time}</span>}
           <span className="truncate">{clientName}</span>
+          {unassigned && <span className="ml-1 opacity-80">⚠</span>}
           {isTech && <ExternalLink size={8} className="inline ml-1 opacity-60" />}
           {!isAdmin && !isTech && <Lock size={8} className="inline ml-1 opacity-40" />}
         </button>
@@ -847,6 +851,10 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
   const [sheet, setSheet]         = useState(false) // admin action sheet
   const [clocking, setClocking]   = useState(false)
 
+  const unassigned = isAdmin && !(deal.assigned_techs?.length)
+  const cardBg   = unassigned ? 'bg-amber-400'       : s.color
+  const cardText = unassigned ? 'text-amber-900'      : s.text
+
   // Reschedule state inside the sheet
   const [newDate, setNewDate] = useState((deal.expected_close_date || '').slice(0, 10))
   const [newTime, setNewTime] = useState((deal.expected_close_date || '').slice(11, 16) || '09:00')
@@ -941,25 +949,28 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
       <>
       <button
         onClick={() => { if (isAdmin) openSheet() }}
-        className={`w-full text-left rounded-2xl px-4 py-3 ${s.color} active:opacity-80 transition-opacity`}
+        className={`w-full text-left rounded-2xl px-4 py-3 ${cardBg} active:opacity-80 transition-opacity`}
         style={{ minHeight: '60px' }}
         aria-label={`${name} appointment at ${time}`}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0 mr-2">
-            <p className={`font-semibold text-sm truncate ${s.text}`}>{name}</p>
-            <p className={`text-xs mt-0.5 opacity-80 ${s.text}`}>
-              {time} {deal.value > 0 ? `· $${deal.value.toFixed(0)}` : ''}
+            <p className={`font-semibold text-sm truncate ${cardText}`}>{name}</p>
+            <p className={`text-xs mt-0.5 opacity-80 ${cardText}`}>
+              {time}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={`text-xs font-medium opacity-80 ${s.text}`}>{s.label}</span>
-            {isAdmin && <Pencil size={12} className={`opacity-50 ${s.text}`} />}
-            {!isAdmin && <Lock size={12} className={`opacity-40 ${s.text}`} />}
+            {unassigned
+              ? <span className={`text-xs font-bold ${cardText}`}>⚠ No tech</span>
+              : <span className={`text-xs font-medium opacity-80 ${cardText}`}>{s.label}</span>
+            }
+            {isAdmin && <Pencil size={12} className={`opacity-50 ${cardText}`} />}
+            {!isAdmin && <Lock size={12} className={`opacity-40 ${cardText}`} />}
           </div>
         </div>
         {deal.contact?.address && (
-          <p className={`text-xs mt-1 opacity-60 truncate ${s.text}`}>{deal.contact.address}</p>
+          <p className={`text-xs mt-1 opacity-60 truncate ${cardText}`}>{deal.contact.address}</p>
         )}
       </button>
 
