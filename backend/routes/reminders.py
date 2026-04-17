@@ -223,12 +223,33 @@ def run_reminders():
 
 # ── Scheduler startup ─────────────────────────────────────────────────────────
 
+def _cleanup_otp_sessions():
+    """Purge expired OTPSession rows to keep the table small."""
+    try:
+        from database import SessionLocal as _SL
+        import models as _m
+        db = _SL()
+        deleted = db.query(_m.OTPSession).filter(_m.OTPSession.expires_at < datetime.utcnow()).delete()
+        db.commit()
+        if deleted:
+            log.info(f"[otp-cleanup] Removed {deleted} expired OTP sessions")
+    except Exception as e:
+        log.warning(f"[otp-cleanup] Failed: {e}")
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
+
 def start_scheduler():
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
         scheduler = BackgroundScheduler(timezone="UTC")
         scheduler.add_job(run_reminders, "interval", hours=1, id="job_reminders",
                           next_run_time=datetime.utcnow() + timedelta(minutes=2))
+        scheduler.add_job(_cleanup_otp_sessions, "interval", hours=6, id="job_otp_cleanup",
+                          next_run_time=datetime.utcnow() + timedelta(minutes=5))
         scheduler.start()
         log.info("[reminders] Scheduler started — runs every hour")
         return scheduler
@@ -279,10 +300,11 @@ def test_reminder(deal_id: int, db: Session = Depends(get_db), _=Depends(require
                 continue
             msg = _build_message(deal, hours=hours)
             success, error = _send_sms(phone, msg)
+            masked_phone = ("***" + phone[-4:]) if len(phone) >= 4 else "***"
             results.append({
                 "hours":   hours,
                 "tech":    tech.full_name or tech.username,
-                "phone":   phone,
+                "phone":   masked_phone,
                 "status":  "sent" if success else "failed",
                 "error":   error or None,
                 "message": msg,

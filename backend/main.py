@@ -50,9 +50,11 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Create all tables
 Base.metadata.create_all(bind=engine)
 
-# Explicitly ensure chat_messages exists (handles existing production DBs
-# where create_all may have run before this table was added)
+# Warn loudly if running SQLite in production
 _is_sqlite = DATABASE_URL.startswith("sqlite")
+if _is_sqlite and os.getenv("ENV", "").lower() == "production":
+    import sys
+    print("WARNING: Running SQLite in production. Set DATABASE_URL to a PostgreSQL connection string.", file=sys.stderr)
 
 # Ensure chat_messages table exists (handles DBs created before this model was added)
 _chat_ddl = """

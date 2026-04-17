@@ -14,7 +14,14 @@ DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 def _week_monday(date_str: str) -> str:
     """Return the Monday of the week containing date_str (YYYY-MM-DD)."""
-    d = datetime.strptime(date_str, "%Y-%m-%d").date()
+    from fastapi import HTTPException
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format; use YYYY-MM-DD")
+    today = datetime.utcnow().date()
+    if not (today.replace(year=today.year - 1) <= d <= today.replace(year=today.year + 2)):
+        raise HTTPException(status_code=400, detail="Date must be within 1 year past or 2 years future")
     return (d - timedelta(days=d.weekday())).strftime("%Y-%m-%d")
 
 

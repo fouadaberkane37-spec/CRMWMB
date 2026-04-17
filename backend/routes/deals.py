@@ -102,7 +102,18 @@ def get_deal(deal_id: int, db: Session = Depends(get_db), current_user=Depends(g
 
 @router.post("/", response_model=schemas.Deal)
 def create_deal(deal: schemas.DealCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    db_deal = models.Deal(**deal.model_dump(), created_by=current_user.id)
+    data = deal.model_dump()
+    # Non-admins cannot pre-assign deals to other users
+    if data.get("assigned_to") and current_user.role != "admin":
+        data["assigned_to"] = None
+    # Validate contact_id is accessible to this user
+    if data.get("contact_id"):
+        contact = db.query(models.Contact).filter(models.Contact.id == data["contact_id"]).first()
+        if not contact:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        if current_user.role != "admin" and contact.created_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Cannot create a deal for a contact you don't own")
+    db_deal = models.Deal(**data, created_by=current_user.id)
     db.add(db_deal)
     db.commit()
     db.refresh(db_deal)

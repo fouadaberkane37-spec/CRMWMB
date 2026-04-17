@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from collections import defaultdict
@@ -186,10 +187,15 @@ def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session 
     db.commit()
 
 
+class _LocationBody(BaseModel):
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+
+
 @router.patch("/{contact_id}/location")
 def update_contact_location(
     contact_id: int,
-    body: dict,
+    body: _LocationBody,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -199,8 +205,8 @@ def update_contact_location(
         raise HTTPException(status_code=404, detail="Contact not found")
     if not _own_contact(db_contact, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
-    db_contact.lat = body.get("lat")
-    db_contact.lng = body.get("lng")
+    db_contact.lat = body.lat
+    db_contact.lng = body.lng
     db.commit()
     return {"lat": db_contact.lat, "lng": db_contact.lng}
 
