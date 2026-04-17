@@ -33,6 +33,12 @@ def list_activities(
             return []
         q = q.filter(models.Activity.contact_id == contact_id)
     if deal_id:
+        if current_user.role != "admin":
+            deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
+            if not deal:
+                raise HTTPException(status_code=404, detail="Deal not found")
+            if deal.created_by != current_user.id and deal.assigned_to != current_user.id:
+                raise HTTPException(status_code=403, detail="Access denied")
         q = q.filter(models.Activity.deal_id == deal_id)
     if completed is not None:
         q = q.filter(models.Activity.completed == completed)

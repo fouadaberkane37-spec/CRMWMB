@@ -402,6 +402,23 @@ async def twilio_voice(
     Set your Twilio phone number's Voice webhook to:
         POST  https://crmwmb-production.up.railway.app/api/twilio/voice
     """
+    form = await request.form()
+
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    if auth_token:
+        try:
+            from twilio.request_validator import RequestValidator
+            validator = RequestValidator(auth_token)
+            url = str(request.url)
+            signature = request.headers.get("X-Twilio-Signature", "")
+            form_dict = {k: v for k, v in form.items()}
+            if not validator.validate(url, form_dict, signature):
+                log.warning("[twilio/voice] Invalid signature from %s", request.client.host if request.client else "unknown")
+                return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
+        except Exception as _e:
+            log.warning("[twilio/voice] Signature validation error: %s", _e)
+            return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
+
     forward_to = os.getenv("CALL_FORWARD_TO", "").strip()
     if not forward_to:
         # No forward number configured — play a message and hang up
@@ -410,8 +427,6 @@ async def twilio_voice(
             "<Response><Say>This number is not configured for calls.</Say></Response>"
         )
         return PlainTextResponse(twiml, media_type="application/xml")
-
-    form = await request.form()
     from_number: str = (form.get("From") or "").strip()
     twilio_number: str = (form.get("To") or "").strip()
 

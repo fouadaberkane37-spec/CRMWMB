@@ -1,12 +1,15 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import get_db
 import models
+import os
 from auth import get_current_user
 from routes.twilio import match_contact_by_phone, save_inbound_message, TWIML_EMPTY
-import os
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sms", tags=["sms"])
 
@@ -74,6 +77,22 @@ async def twilio_webhook_legacy(
     Prefer /api/twilio/incoming for new Twilio webhook configurations.
     """
     form = await request.form()
+
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    if auth_token:
+        try:
+            from twilio.request_validator import RequestValidator
+            validator = RequestValidator(auth_token)
+            url = str(request.url)
+            signature = request.headers.get("X-Twilio-Signature", "")
+            form_dict = {k: v for k, v in form.items()}
+            if not validator.validate(url, form_dict, signature):
+                log.warning("[sms/webhook] Invalid signature from %s", request.client.host if request.client else "unknown")
+                return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
+        except Exception as _e:
+            log.warning("[sms/webhook] Signature validation error: %s", _e)
+            return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
+
     from_number: str = (form.get("From") or "").strip()
     body: str = (form.get("Body") or "").strip()
 

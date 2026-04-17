@@ -251,13 +251,11 @@ def restore_contact(contact_id: int, db: Session = Depends(get_db), current_user
 
 
 @router.delete("/{contact_id}/permanent")
-def permanent_delete(contact_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    """Hard-delete: permanently removes contact and all associated data."""
+def permanent_delete(contact_id: int, db: Session = Depends(get_db), current_user=Depends(require_admin)):
+    """Hard-delete: permanently removes contact and all associated data. Admin-only."""
     db_contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
     if not db_contact:
         raise HTTPException(status_code=404, detail="Contact not found")
-    if not _own_contact(db_contact, current_user):
-        raise HTTPException(status_code=403, detail="Access denied")
     # Cascade delete everything linked to this contact
     # 1. Get deal IDs so we can delete their activities too
     deal_ids = [d.id for d in db.query(models.Deal.id).filter(models.Deal.contact_id == contact_id).all()]
@@ -275,6 +273,7 @@ def permanent_delete(contact_id: int, db: Session = Depends(get_db), current_use
     # 7. Delete contact
     db.delete(db_contact)
     db.commit()
+    log.warning("[AUDIT] Permanent delete contact_id=%s by admin_id=%s", contact_id, current_user.id)
     return {"message": "Permanently deleted"}
 
 

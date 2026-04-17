@@ -18,10 +18,13 @@ def global_search(
     is_admin = current_user.role == "admin"
 
     contacts_q = db.query(models.Contact).filter(
-        models.Contact.first_name.ilike(like)
-        | models.Contact.last_name.ilike(like)
-        | models.Contact.email.ilike(like)
-        | models.Contact.phone.ilike(like)
+        models.Contact.deleted_at.is_(None),
+        (
+            models.Contact.first_name.ilike(like)
+            | models.Contact.last_name.ilike(like)
+            | models.Contact.email.ilike(like)
+            | models.Contact.phone.ilike(like)
+        ),
     )
     if not is_admin:
         contacts_q = contacts_q.filter(models.Contact.created_by == current_user.id)

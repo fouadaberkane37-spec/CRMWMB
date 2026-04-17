@@ -89,6 +89,8 @@ def send_message(
     contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+    if contact.deleted_at is not None:
+        raise HTTPException(status_code=410, detail="Contact has been deleted")
 
     body = payload.body.strip()
     if not body:

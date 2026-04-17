@@ -43,7 +43,7 @@ def list_deals(
     company_id: Optional[int] = None,
     search: Optional[str] = None,
     skip: int = 0,
-    limit: int = Query(default=200, le=500),
+    limit: int = Query(default=200, le=1000),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
