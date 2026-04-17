@@ -8,6 +8,21 @@ import {
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
+// Rule: gutters or window-int (interior) → 2 techs; window-ext only → 1 tech
+function requiredTechs(deal) {
+  const raw = (deal.contact?.services || deal.title || '').toLowerCase()
+  const tags = raw.split(/[,\s—–-]+/).map(s => s.trim()).filter(Boolean)
+  const needs2 = tags.some(t =>
+    t.includes('gutter') || t.includes('int') || t.includes('interior')
+  )
+  // Also need 2 if multiple distinct services are booked
+  const hasExt      = tags.some(t => t.includes('ext') || t.includes('exterior') || t.includes('window'))
+  const hasPressure = tags.some(t => t.includes('pressure') || t.includes('wash'))
+  const multiService = (hasExt ? 1 : 0) + (hasPressure ? 1 : 0) + (needs2 ? 1 : 0) >= 2
+  if (needs2 || multiService) return 2
+  return 1
+}
+
 function weekMonday(date) {
   const d = new Date(date)
   d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1))
@@ -400,9 +415,18 @@ export default function JobAssignment() {
                       const sm        = statusMeta(deal.job_status)
                       const StatusIcon = sm.icon
                       const assigned  = deal.assigned_techs || []
+                      const required  = requiredTechs(deal)
+                      const staffed   = assigned.length >= required
+                      const staffColor = assigned.length === 0
+                        ? 'bg-red-900/30 text-red-400 border-red-700/40'
+                        : staffed
+                          ? 'bg-emerald-900/30 text-emerald-400 border-emerald-700/40'
+                          : 'bg-amber-900/30 text-amber-400 border-amber-700/40'
 
                       return (
-                        <div key={deal.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                        <div key={deal.id} className={`bg-slate-900 border rounded-2xl overflow-hidden ${
+                          staffed ? 'border-slate-800' : 'border-amber-700/30'
+                        }`}>
                           {/* Job info row */}
                           <div className="px-4 pt-3 pb-2">
                             <div className="flex items-start gap-2 mb-2">
@@ -416,6 +440,11 @@ export default function JobAssignment() {
                                 <div className="flex items-center gap-3 mt-1">
                                   {time && <span className="text-slate-400 text-xs flex items-center gap-1"><Clock size={9}/>{time}</span>}
                                   {deal.value > 0 && <span className="text-slate-400 text-xs flex items-center gap-0.5"><DollarSign size={9}/>{deal.value.toFixed(0)}</span>}
+                                  {/* Staffing badge */}
+                                  <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold ${staffColor}`}>
+                                    <Users size={9} />
+                                    {assigned.length}/{required}
+                                  </span>
                                 </div>
                               </div>
                               <div className="flex flex-col items-end gap-1 flex-shrink-0">
