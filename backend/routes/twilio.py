@@ -5,7 +5,7 @@ from database import get_db
 import models
 import os
 from auth import get_current_user
-from pydantic import BaseModel as _BaseModel
+from pydantic import BaseModel as _BaseModel, Field as _Field
 from datetime import datetime
 
 router = APIRouter(prefix="/api/twilio", tags=["twilio"])
@@ -150,7 +150,7 @@ class CallRequest(_BaseModel):
 
 
 class CallNumberRequest(_BaseModel):
-    phone: str
+    phone: str = _Field(..., min_length=7, max_length=20)
 
 
 @router.post("/call-number")
@@ -160,8 +160,13 @@ def call_number_direct(
     current_user=Depends(get_current_user),
 ):
     """Call an arbitrary phone number (e.g. an unknown lead) via Twilio."""
+    import re
     from twilio.rest import Client
 
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if not re.match(r"^\+?[1-9]\d{6,14}$", payload.phone.replace(" ", "").replace("-", "")):
+        raise HTTPException(status_code=400, detail="Invalid phone number format")
     if not payload.phone:
         raise HTTPException(status_code=400, detail="Phone number required")
 

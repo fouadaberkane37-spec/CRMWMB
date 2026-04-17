@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from database import SessionLocal, get_db
@@ -43,9 +43,11 @@ def _send_sms(to: str, body: str) -> tuple[bool, str]:
 def _build_message(deal: models.Deal, hours: int = 24) -> str:
     time_str = deal.expected_close_date.strftime("%H:%M") if deal.expected_close_date else "?"
     contact  = deal.contact
-    name     = f"{contact.first_name} {contact.last_name or ''}".strip() if contact else deal.title
-    address  = contact.address if (contact and contact.address) else "adresse inconnue"
-    service  = deal.title or "service"
+    raw_name = f"{contact.first_name} {contact.last_name or ''}".strip() if contact else (deal.title or "")
+    name     = raw_name[:50].replace("\r", "").replace("\n", " ")
+    raw_addr = contact.address if (contact and contact.address) else "adresse inconnue"
+    address  = raw_addr[:80].replace("\r", "").replace("\n", " ")
+    service  = (deal.title or "service")[:80].replace("\r", "").replace("\n", " ")
     when     = "demain" if hours == 24 else "après-demain"
     return (
         f"Rappel Groupe WMB: Vous avez un rendez-vous {when} à {time_str} — "
@@ -318,6 +320,8 @@ def test_reminder(deal_id: int, db: Session = Depends(get_db), _=Depends(require
 @router.get("/logs")
 def get_reminder_logs(
     deal_id: int = None,
+    limit: int = Query(default=100, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _=Depends(require_admin),
 ):
@@ -325,7 +329,7 @@ def get_reminder_logs(
     q = db.query(models.ReminderLog).order_by(models.ReminderLog.sent_at.desc())
     if deal_id:
         q = q.filter(models.ReminderLog.deal_id == deal_id)
-    rows = q.limit(200).all()
+    rows = q.offset(offset).limit(limit).all()
     return [
         {
             "id":           r.id,

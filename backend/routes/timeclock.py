@@ -106,6 +106,8 @@ def list_entries(
         if from_date:
             try:
                 fd = datetime.strptime(from_date, "%Y-%m-%d")
+                if fd < datetime.utcnow() - timedelta(days=730):
+                    raise HTTPException(status_code=400, detail="from_date too old (max 2 years)")
                 q = q.filter(models.TimeClock.clocked_at >= fd)
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid from_date format; use YYYY-MM-DD")

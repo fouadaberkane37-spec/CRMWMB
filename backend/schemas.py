@@ -15,7 +15,7 @@ class UserBase(BaseModel):
     email: Optional[str] = Field(default=None, max_length=254)
     phone: Optional[str] = Field(default=None, max_length=32)
     full_name: Optional[str] = Field(default=None, max_length=128)
-    role: str = "user"
+    role: Literal["admin", "user", "technician", "sales"] = "user"
 
 
 class UserCreate(UserBase):
@@ -26,7 +26,7 @@ class UserUpdate(BaseModel):
     email: Optional[str] = Field(default=None, max_length=254)
     phone: Optional[str] = Field(default=None, max_length=32)
     full_name: Optional[str] = Field(default=None, max_length=128)
-    role: Optional[str] = None
+    role: Optional[Literal["admin", "user", "technician", "sales"]] = None
     is_active: Optional[bool] = None
     password: Optional[str] = Field(default=None, max_length=128)
 
@@ -80,7 +80,7 @@ class ContactBase(BaseModel):
     price: Optional[float] = Field(default=None, ge=0)
     title: Optional[str] = Field(default=None, max_length=128)
     company_id: Optional[int] = None
-    status: str = "lead"
+    status: Literal["lead", "prospect", "customer", "inactive"] = "lead"
     notes: Optional[str] = Field(default=None, max_length=5000)
 
 
@@ -151,7 +151,7 @@ class Deal(DealBase):
 
 # ── Activity ──────────────────────────────────────────────────────────────────
 class ActivityBase(BaseModel):
-    type: str = "note"
+    type: Literal["call", "email", "meeting", "note", "task"] = "note"
     title: str = Field(..., max_length=256)
     description: Optional[str] = Field(default=None, max_length=5000)
     contact_id: Optional[int] = None
@@ -187,7 +187,7 @@ class KnockBase(BaseModel):
     lat: float
     lng: float
     address: Optional[str] = Field(default=None, max_length=300)
-    status: str = "knocked"
+    status: Literal["knocked", "answered", "not_home", "interested", "not_interested"] = "knocked"
     notes: Optional[str] = Field(default=None, max_length=2000)
     contact_id: Optional[int] = None
 
@@ -198,7 +198,7 @@ class KnockCreate(KnockBase):
 
 class KnockUpdate(BaseModel):
     address: Optional[str] = Field(default=None, max_length=300)
-    status: Optional[str] = None
+    status: Optional[Literal["knocked", "answered", "not_home", "interested", "not_interested"]] = None
     notes: Optional[str] = Field(default=None, max_length=2000)
     contact_id: Optional[int] = None
 

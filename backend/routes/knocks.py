@@ -23,6 +23,12 @@ def list_knocks(db: Session = Depends(get_db), current_user=Depends(get_current_
 
 @router.post("/", response_model=schemas.Knock)
 def create_knock(data: schemas.KnockCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    if data.contact_id and current_user.role != "admin":
+        contact = db.query(models.Contact).filter(models.Contact.id == data.contact_id).first()
+        if not contact:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        if contact.created_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Cannot link knock to a contact you don't own")
     knock = models.Knock(**data.model_dump(), created_by=current_user.id)
     db.add(knock)
     db.commit()

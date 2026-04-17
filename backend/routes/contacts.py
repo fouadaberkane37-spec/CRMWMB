@@ -185,6 +185,8 @@ def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session 
         db_contact.lat = lat
         db_contact.lng = lng
     db.commit()
+    db.refresh(db_contact)
+    return db_contact
 
 
 class _LocationBody(BaseModel):
@@ -499,7 +501,7 @@ def _find_contact(db: Session, phone: str, name: str, address: str):
 @router.post("/bulk-update-services")
 def bulk_update_services(
     db: Session = Depends(get_db),
-    _=Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
     """One-time: match and update services + price for the 26 booked clients."""
     CLIENTS = [
@@ -556,6 +558,7 @@ def bulk_update_services(
                 price=row["price"],
                 notes=row["notes"] if row["notes"] not in ("-", "—", "") else None,
                 status="customer",
+                created_by=current_user.id,
             )
             db.add(c)
             created.append({"name": row["name"]})

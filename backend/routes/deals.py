@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from sqlalchemy import exists
@@ -43,7 +43,7 @@ def list_deals(
     company_id: Optional[int] = None,
     search: Optional[str] = None,
     skip: int = 0,
-    limit: int = 500,
+    limit: int = Query(default=200, le=500),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -139,20 +139,23 @@ def _send_booking_confirmation(db: Session, deal: models.Deal, contact: models.C
         date_str = str(dt.date())
         time_str = str(dt.time())[:5]
 
-    lines = [f"Hi {contact.first_name}! Your appointment is confirmed ✅"]
+    safe_name = (contact.first_name or "")[:30].replace("\r", "").replace("\n", "")
+    lines = [f"Hi {safe_name}! Your appointment is confirmed ✅"]
     lines.append(f"📅 {date_str} at {time_str}")
     if contact.address:
-        lines.append(f"📍 {contact.address}")
+        lines.append(f"📍 {contact.address[:80].replace(chr(0x202E), '')}")
     # Services from deal title (format: "Name — Services")
     if deal.title and " — " in deal.title:
-        lines.append(f"🔧 {deal.title.split(' — ', 1)[1]}")
+        lines.append(f"🔧 {deal.title.split(' — ', 1)[1][:60]}")
     if deal.value and deal.value > 0:
         lines.append(f"💰 Estimate: ${deal.value:.2f}")
     if deal.notes:
-        lines.append(f"📝 {deal.notes}")
+        lines.append(f"📝 {deal.notes[:200]}")
     lines.append("\nReply anytime if you have questions. See you soon!")
 
     body = "\n".join(lines)
+    if len(body) > 1500:
+        body = body[:1497] + "..."
 
     # Save to chat thread
     try:
