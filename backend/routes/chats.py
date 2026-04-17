@@ -6,22 +6,16 @@ import os
 from database import get_db
 import models
 import schemas
-from auth import get_current_user
+from auth import get_current_user, require_admin
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
-
-
-def _require_admin(user):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
 
 
 @router.get("/", response_model=List[schemas.ChatConversation])
 def list_conversations(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
-    _require_admin(current_user)
     """Return the most recent message per contact, sorted newest first."""
     msgs = (
         db.query(models.ChatMessage)
@@ -52,9 +46,8 @@ def list_conversations(
 def get_messages(
     contact_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
-    _require_admin(current_user)
     if not db.query(models.Contact).filter(models.Contact.id == contact_id).first():
         raise HTTPException(status_code=404, detail="Contact not found")
 
@@ -91,9 +84,8 @@ def send_message(
     contact_id: int,
     payload: schemas.ChatMessageCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
-    _require_admin(current_user)
     contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")

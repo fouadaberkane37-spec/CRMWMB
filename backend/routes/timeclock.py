@@ -74,8 +74,8 @@ def list_entries(
         .join(models.User, models.TimeClock.user_id == models.User.id)
     )
 
-    # Technicians can only see their own entries
-    if current_user.role == "technician":
+    # Non-admins always see only their own entries
+    if current_user.role != "admin":
         q = q.filter(models.TimeClock.user_id == current_user.id)
     elif user_id is not None:
         q = q.filter(models.TimeClock.user_id == user_id)

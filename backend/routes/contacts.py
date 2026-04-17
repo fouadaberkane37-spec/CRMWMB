@@ -214,6 +214,11 @@ def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user=
     if not _own_contact(db_contact, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
     db_contact.deleted_at = datetime.utcnow()
+    # Cascade: stage open deals to "lost" so they don't float without a contact
+    db.query(models.Deal).filter(
+        models.Deal.contact_id == db_contact.id,
+        models.Deal.stage.notin_(["won", "lost"]),
+    ).update({"stage": "lost"})
     db.commit()
     return {"message": "Moved to trash"}
 
@@ -329,7 +334,10 @@ async def import_contacts_csv(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    content = await file.read()
+    MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB
+    content = await file.read(MAX_CSV_BYTES + 1)
+    if len(content) > MAX_CSV_BYTES:
+        raise HTTPException(status_code=400, detail="CSV file too large (max 5 MB)")
     try:
         reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
     except Exception:

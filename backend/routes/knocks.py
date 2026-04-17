@@ -9,9 +9,16 @@ from auth import get_current_user
 router = APIRouter(prefix="/api/knocks", tags=["knocks"])
 
 
+def _own_knock(knock: models.Knock, user: models.User) -> bool:
+    return user.role == "admin" or knock.created_by == user.id
+
+
 @router.get("/", response_model=List[schemas.Knock])
-def list_knocks(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return db.query(models.Knock).options(joinedload(models.Knock.contact)).order_by(models.Knock.created_at.desc()).all()
+def list_knocks(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    q = db.query(models.Knock).options(joinedload(models.Knock.contact))
+    if current_user.role != "admin":
+        q = q.filter(models.Knock.created_by == current_user.id)
+    return q.order_by(models.Knock.created_at.desc()).all()
 
 
 @router.post("/", response_model=schemas.Knock)
@@ -24,10 +31,12 @@ def create_knock(data: schemas.KnockCreate, db: Session = Depends(get_db), curre
 
 
 @router.patch("/{knock_id}", response_model=schemas.Knock)
-def update_knock(knock_id: int, data: schemas.KnockUpdate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def update_knock(knock_id: int, data: schemas.KnockUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     knock = db.query(models.Knock).filter(models.Knock.id == knock_id).first()
     if not knock:
         raise HTTPException(status_code=404, detail="Not found")
+    if not _own_knock(knock, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(knock, k, v)
     db.commit()
@@ -36,10 +45,12 @@ def update_knock(knock_id: int, data: schemas.KnockUpdate, db: Session = Depends
 
 
 @router.delete("/{knock_id}")
-def delete_knock(knock_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def delete_knock(knock_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     knock = db.query(models.Knock).filter(models.Knock.id == knock_id).first()
     if not knock:
         raise HTTPException(status_code=404, detail="Not found")
+    if not _own_knock(knock, current_user):
+        raise HTTPException(status_code=403, detail="Access denied")
     db.delete(knock)
     db.commit()
     return {"ok": True}

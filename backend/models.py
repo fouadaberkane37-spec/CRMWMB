@@ -231,3 +231,15 @@ class TimeClock(Base):
 
     user = relationship("User", foreign_keys=[user_id])
     deal = relationship("Deal", foreign_keys=[deal_id])
+
+
+class OTPSession(Base):
+    """Database-backed OTP sessions — works across multiple workers."""
+    __tablename__ = "otp_sessions"
+    id         = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, unique=True, nullable=False, index=True)
+    username   = Column(String, nullable=False)
+    otp        = Column(String, nullable=False)
+    attempts   = Column(Integer, default=0)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

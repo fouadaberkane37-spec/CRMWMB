@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 
 @router.get("/")
 def global_search(
-    q: str = Query(..., min_length=1),
+    q: str = Query(..., min_length=1, max_length=100),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):

@@ -14,11 +14,16 @@ router = APIRouter(prefix="/api/deals", tags=["deals"])
 
 def _enrich(deal: models.Deal, db: Session) -> dict:
     """Return a deal dict with assigned_techs list."""
+    import logging as _log
     rows = db.query(models.DealTechnician).filter(
         models.DealTechnician.deal_id == deal.id
     ).all()
-    techs = [{"id": r.user.id, "username": r.user.username, "full_name": r.user.full_name}
-             for r in rows if r.user]
+    techs = []
+    for r in rows:
+        if r.user:
+            techs.append({"id": r.user.id, "username": r.user.username, "full_name": r.user.full_name})
+        else:
+            _log.warning("Ghost DealTechnician row id=%s deal_id=%s — user deleted", r.id, deal.id)
     d = schemas.Deal.model_validate(deal).model_dump()
     d["assigned_techs"] = techs
     return d

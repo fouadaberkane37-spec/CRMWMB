@@ -168,10 +168,12 @@ def call_number_direct(
     sid      = os.getenv("TWILIO_ACCOUNT_SID")
     token    = os.getenv("TWILIO_AUTH_TOKEN")
     from_num = os.getenv("TWILIO_FROM_NUMBER")
-    my_phone = os.getenv("CALL_FORWARD_TO", "+15145597007")
+    my_phone = os.getenv("CALL_FORWARD_TO", "").strip()
 
     if not sid or not token or not from_num:
         raise HTTPException(status_code=500, detail="Twilio not configured")
+    if not my_phone:
+        raise HTTPException(status_code=500, detail="CALL_FORWARD_TO not configured")
 
     base_url    = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
     connect_url = f"{base_url}/api/twilio/connect?to={payload.phone}&from_num={from_num}"
@@ -206,10 +208,12 @@ def initiate_call(
     sid        = os.getenv("TWILIO_ACCOUNT_SID")
     token      = os.getenv("TWILIO_AUTH_TOKEN")
     from_num   = os.getenv("TWILIO_FROM_NUMBER")
-    my_phone   = os.getenv("CALL_FORWARD_TO", "+15145597007")
+    my_phone   = os.getenv("CALL_FORWARD_TO", "").strip()
 
     if not sid or not token or not from_num:
         raise HTTPException(status_code=500, detail="Twilio not configured")
+    if not my_phone:
+        raise HTTPException(status_code=500, detail="CALL_FORWARD_TO not configured")
 
     # Build the connect URL — Twilio fetches this when Fouad picks up
     base_url = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
@@ -249,7 +253,7 @@ def test_notify(
     sid       = os.getenv("TWILIO_ACCOUNT_SID")
     token     = os.getenv("TWILIO_AUTH_TOKEN")
     from_num  = os.getenv("TWILIO_FROM_NUMBER")
-    notify_to = os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "+15145597007").strip()
+    notify_to = (os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "")).strip()
 
     # Return diagnostic info regardless
     debug = {
@@ -379,7 +383,7 @@ async def twilio_voice(
     Set your Twilio phone number's Voice webhook to:
         POST  https://crmwmb-production.up.railway.app/api/twilio/voice
     """
-    forward_to = os.getenv("CALL_FORWARD_TO", "+15145597007").strip()
+    forward_to = os.getenv("CALL_FORWARD_TO", "").strip()
     if not forward_to:
         # No forward number configured — play a message and hang up
         twiml = (

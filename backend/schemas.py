@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
 from datetime import datetime
 
 
@@ -11,10 +11,10 @@ class Token(BaseModel):
 
 # ── User ──────────────────────────────────────────────────────────────────────
 class UserBase(BaseModel):
-    username: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    full_name: Optional[str] = None
+    username: str = Field(..., max_length=64)
+    email: Optional[str] = Field(default=None, max_length=254)
+    phone: Optional[str] = Field(default=None, max_length=32)
+    full_name: Optional[str] = Field(default=None, max_length=128)
     role: str = "user"
 
 
@@ -23,9 +23,9 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    full_name: Optional[str] = None
+    email: Optional[str] = Field(default=None, max_length=254)
+    phone: Optional[str] = Field(default=None, max_length=32)
+    full_name: Optional[str] = Field(default=None, max_length=128)
     role: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
@@ -42,14 +42,14 @@ class User(UserBase):
 
 # ── Company ───────────────────────────────────────────────────────────────────
 class CompanyBase(BaseModel):
-    name: str
-    industry: Optional[str] = None
-    website: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    city: Optional[str] = None
-    country: Optional[str] = None
-    notes: Optional[str] = None
+    name: str = Field(..., max_length=256)
+    industry: Optional[str] = Field(default=None, max_length=128)
+    website: Optional[str] = Field(default=None, max_length=512)
+    phone: Optional[str] = Field(default=None, max_length=32)
+    address: Optional[str] = Field(default=None, max_length=512)
+    city: Optional[str] = Field(default=None, max_length=128)
+    country: Optional[str] = Field(default=None, max_length=128)
+    notes: Optional[str] = Field(default=None, max_length=5000)
 
 
 class CompanyCreate(CompanyBase):
@@ -57,7 +57,7 @@ class CompanyCreate(CompanyBase):
 
 
 class CompanyUpdate(CompanyBase):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, max_length=256)
 
 
 class Company(CompanyBase):
@@ -71,17 +71,17 @@ class Company(CompanyBase):
 
 # ── Contact ───────────────────────────────────────────────────────────────────
 class ContactBase(BaseModel):
-    first_name: str
-    last_name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    services: Optional[str] = None   # comma-separated service tags
-    price: Optional[float] = None
-    title: Optional[str] = None
+    first_name: str = Field(..., max_length=128)
+    last_name: Optional[str] = Field(default=None, max_length=128)
+    email: Optional[str] = Field(default=None, max_length=254)
+    phone: Optional[str] = Field(default=None, max_length=32)
+    address: Optional[str] = Field(default=None, max_length=300)
+    services: Optional[str] = Field(default=None, max_length=512)
+    price: Optional[float] = Field(default=None, ge=0)
+    title: Optional[str] = Field(default=None, max_length=128)
     company_id: Optional[int] = None
     status: str = "lead"
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=5000)
 
 
 class ContactCreate(ContactBase):
@@ -89,7 +89,7 @@ class ContactCreate(ContactBase):
 
 
 class ContactUpdate(ContactBase):
-    first_name: Optional[str] = None
+    first_name: Optional[str] = Field(default=None, max_length=128)
 
 
 class Contact(ContactBase):
@@ -107,15 +107,15 @@ class Contact(ContactBase):
 
 # ── Deal ──────────────────────────────────────────────────────────────────────
 class DealBase(BaseModel):
-    title: str
-    value: float = 0
+    title: str = Field(..., max_length=256)
+    value: float = Field(default=0, ge=0)
     stage: str = "lead"
     contact_id: Optional[int] = None
     company_id: Optional[int] = None
     expected_close_date: Optional[datetime] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=5000)
     assigned_to: Optional[int] = None
-    job_status: str = "todo"  # todo | payment_pending | done | cancelled
+    job_status: Literal["todo", "payment_pending", "done", "cancelled"] = "todo"
 
 
 class DealCreate(DealBase):
@@ -123,7 +123,7 @@ class DealCreate(DealBase):
 
 
 class DealUpdate(DealBase):
-    title: Optional[str] = None
+    title: Optional[str] = Field(default=None, max_length=256)
 
 
 class TechBasic(BaseModel):
@@ -152,8 +152,8 @@ class Deal(DealBase):
 # ── Activity ──────────────────────────────────────────────────────────────────
 class ActivityBase(BaseModel):
     type: str = "note"
-    title: str
-    description: Optional[str] = None
+    title: str = Field(..., max_length=256)
+    description: Optional[str] = Field(default=None, max_length=5000)
     contact_id: Optional[int] = None
     deal_id: Optional[int] = None
     company_id: Optional[int] = None
@@ -166,7 +166,7 @@ class ActivityCreate(ActivityBase):
 
 
 class ActivityUpdate(ActivityBase):
-    title: Optional[str] = None
+    title: Optional[str] = Field(default=None, max_length=256)
     completed: Optional[bool] = None
     completed_at: Optional[datetime] = None
 
@@ -186,9 +186,9 @@ class Activity(ActivityBase):
 class KnockBase(BaseModel):
     lat: float
     lng: float
-    address: Optional[str] = None
+    address: Optional[str] = Field(default=None, max_length=300)
     status: str = "knocked"
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=2000)
     contact_id: Optional[int] = None
 
 
@@ -197,9 +197,9 @@ class KnockCreate(KnockBase):
 
 
 class KnockUpdate(BaseModel):
-    address: Optional[str] = None
+    address: Optional[str] = Field(default=None, max_length=300)
     status: Optional[str] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=2000)
     contact_id: Optional[int] = None
 
 
@@ -215,7 +215,7 @@ class Knock(KnockBase):
 
 # ── Chat ──────────────────────────────────────────────────────────────────────
 class ChatMessageCreate(BaseModel):
-    body: str
+    body: str = Field(..., max_length=2000)
 
 
 class ChatMessageOut(BaseModel):
@@ -224,7 +224,7 @@ class ChatMessageOut(BaseModel):
     sender_id: Optional[int] = None
     sender_name: Optional[str] = None
     body: str
-    direction: str = "outbound"  # "outbound" | "inbound"
+    direction: str = "outbound"
     created_at: datetime
 
     class Config:
@@ -241,8 +241,8 @@ class ChatConversation(BaseModel):
 
 # ── Invite ────────────────────────────────────────────────────────────────────
 class InviteCreate(BaseModel):
-    phone: str
-    full_name: str
+    phone: str = Field(..., max_length=32)
+    full_name: str = Field(..., max_length=128)
     role: str = "user"
 
 
@@ -255,15 +255,15 @@ class InviteOut(BaseModel):
     created_at: datetime
     expires_at: datetime
     used_at: Optional[datetime] = None
-    invite_url: Optional[str] = None  # populated by the endpoint, not from DB
+    invite_url: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
 class InviteAccept(BaseModel):
-    username: str
-    full_name: Optional[str] = None
+    username: str = Field(..., max_length=64)
+    full_name: Optional[str] = Field(default=None, max_length=128)
     password: str
 
 
@@ -299,7 +299,7 @@ class DashboardStats(BaseModel):
 class TimeClockCreate(BaseModel):
     clock_type: str  # "in" | "out"
     deal_id: Optional[int] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=500)
 
 
 class TimeClockOut(BaseModel):

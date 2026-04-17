@@ -2,6 +2,7 @@ import os
 import secrets
 import time
 from collections import defaultdict
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -13,29 +14,35 @@ from auth import verify_password, create_access_token, get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# In-memory OTP store: session_id -> {username, otp, expires_at, attempts}
-_otp_store: dict[str, dict] = {}
-OTP_TTL = 600       # 10 minutes
+OTP_TTL_MINUTES = 10
 MAX_OTP_ATTEMPTS = 5
 
-# Simple in-memory rate limiter: ip -> [timestamps]
-_login_hits: dict[str, list] = defaultdict(list)
-_otp_hits:   dict[str, list] = defaultdict(list)
+# Simple in-memory rate limiter: key -> [timestamps]
+_rate_store: dict[str, list] = defaultdict(list)
 
 
-def _rate_check(store: dict, key: str, max_calls: int, window: int):
+def _real_ip(request: Request) -> str:
+    """Extract real client IP, respecting X-Forwarded-For from Railway's proxy."""
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host or "unknown"
+
+
+def _rate_check(key: str, max_calls: int, window: int):
     now = time.time()
-    hits = [t for t in store[key] if now - t < window]
+    hits = [t for t in _rate_store[key] if now - t < window]
     if len(hits) >= max_calls:
         raise HTTPException(status_code=429, detail="Too many attempts. Please wait and try again.")
     hits.append(now)
-    store[key] = hits
+    _rate_store[key] = hits
 
 
-def _cleanup_otp():
-    now = time.time()
-    for k in [k for k, v in _otp_store.items() if v["expires_at"] < now]:
-        del _otp_store[k]
+def _cleanup_otp_sessions(db: Session):
+    db.query(models.OTPSession).filter(
+        models.OTPSession.expires_at < datetime.utcnow()
+    ).delete()
+    db.commit()
 
 
 def _send_otp_sms(phone: str, otp: str) -> bool:
@@ -69,8 +76,8 @@ class LoginStep1Response(BaseModel):
 
 @router.post("/login")
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    ip = request.client.host or "unknown"
-    _rate_check(_login_hits, ip, max_calls=10, window=60)  # 10 attempts/min per IP
+    ip = _real_ip(request)
+    _rate_check(f"login:{ip}", max_calls=10, window=60)
 
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -86,17 +93,21 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     otp = str(secrets.randbelow(900000) + 100000)  # 6-digit
     session_id = secrets.token_urlsafe(24)
 
-    _cleanup_otp()
-    _otp_store[session_id] = {
-        "username": user.username,
-        "otp": otp,
-        "expires_at": time.time() + OTP_TTL,
-        "attempts": 0,
-    }
+    _cleanup_otp_sessions(db)
+    session = models.OTPSession(
+        session_id=session_id,
+        username=user.username,
+        otp=otp,
+        attempts=0,
+        expires_at=datetime.utcnow() + timedelta(minutes=OTP_TTL_MINUTES),
+    )
+    db.add(session)
+    db.commit()
 
     sent = _send_otp_sms(user.phone, otp)
     if not sent:
-        del _otp_store[session_id]
+        db.delete(session)
+        db.commit()
         raise HTTPException(status_code=500, detail="Failed to send verification SMS. Contact admin.")
 
     masked = "***" + user.phone[-4:] if len(user.phone) >= 4 else "***"
@@ -105,29 +116,40 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
 
 @router.post("/verify-otp", response_model=schemas.Token)
 def verify_otp(request: Request, body: OTPVerify, db: Session = Depends(get_db)):
-    ip = request.client.host or "unknown"
-    _rate_check(_otp_hits, ip, max_calls=15, window=60)  # 15 attempts/min per IP
+    ip = _real_ip(request)
+    _rate_check(f"otp:{ip}", max_calls=15, window=60)
 
-    entry = _otp_store.get(body.session_id)
-    if not entry:
+    _cleanup_otp_sessions(db)
+    session = db.query(models.OTPSession).filter(
+        models.OTPSession.session_id == body.session_id
+    ).first()
+
+    if not session or session.expires_at < datetime.utcnow():
+        if session:
+            db.delete(session)
+            db.commit()
         raise HTTPException(status_code=401, detail="Invalid or expired session")
-    if time.time() > entry["expires_at"]:
-        del _otp_store[body.session_id]
-        raise HTTPException(status_code=401, detail="Verification code expired")
 
-    entry["attempts"] += 1
-    if entry["attempts"] > MAX_OTP_ATTEMPTS:
-        del _otp_store[body.session_id]
+    session.attempts += 1
+    db.commit()
+
+    if session.attempts > MAX_OTP_ATTEMPTS:
+        db.delete(session)
+        db.commit()
         raise HTTPException(status_code=401, detail="Too many failed attempts. Please log in again.")
 
-    if entry["otp"] != body.otp.strip():
-        if entry["attempts"] >= MAX_OTP_ATTEMPTS:
-            del _otp_store[body.session_id]
+    if session.otp != body.otp.strip():
+        if session.attempts >= MAX_OTP_ATTEMPTS:
+            db.delete(session)
+            db.commit()
             raise HTTPException(status_code=401, detail="Too many failed attempts. Please log in again.")
         raise HTTPException(status_code=401, detail="Incorrect verification code")
 
-    del _otp_store[body.session_id]
-    user = db.query(models.User).filter(models.User.username == entry["username"]).first()
+    username = session.username
+    db.delete(session)
+    db.commit()
+
+    user = db.query(models.User).filter(models.User.username == username).first()
     token = create_access_token({"sub": user.username})
     return {"access_token": token, "token_type": "bearer"}
 
