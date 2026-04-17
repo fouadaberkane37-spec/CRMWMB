@@ -27,17 +27,14 @@ def global_search(
         contacts_q = contacts_q.filter(models.Contact.created_by == current_user.id)
     contacts = contacts_q.limit(10).all()
 
-    # Companies are always visible (not user-scoped)
-    companies = (
-        db.query(models.Company)
-        .filter(
-            models.Company.name.ilike(like)
-            | models.Company.industry.ilike(like)
-            | models.Company.city.ilike(like)
-        )
-        .limit(10)
-        .all()
+    companies_q = db.query(models.Company).filter(
+        models.Company.name.ilike(like)
+        | models.Company.industry.ilike(like)
+        | models.Company.city.ilike(like)
     )
+    if not is_admin:
+        companies_q = companies_q.filter(models.Company.created_by == current_user.id)
+    companies = companies_q.limit(10).all()
 
     deals_q = db.query(models.Deal).filter(models.Deal.title.ilike(like))
     if not is_admin:

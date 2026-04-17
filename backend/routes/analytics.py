@@ -34,11 +34,15 @@ def sales_analytics(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    # Resolve target user
-    target_id = (
-        user_id if (user_id and current_user.role == "admin")
-        else current_user.id
-    )
+    # Resolve target user — admin can view any user, others see only themselves
+    if user_id and current_user.role == "admin":
+        from fastapi import HTTPException as _HTTPException
+        target_user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not target_user:
+            raise _HTTPException(status_code=404, detail="User not found")
+        target_id = target_user.id
+    else:
+        target_id = current_user.id
 
     try:
         start_dt = datetime.strptime(start, "%Y-%m-%d").date()

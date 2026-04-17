@@ -243,7 +243,7 @@ class ChatConversation(BaseModel):
 class InviteCreate(BaseModel):
     phone: str = Field(..., max_length=32)
     full_name: str = Field(..., max_length=128)
-    role: str = "user"
+    role: Literal["admin", "user", "technician", "sales"] = "user"
 
 
 class InviteOut(BaseModel):

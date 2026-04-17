@@ -34,6 +34,8 @@ def send_sms(
     contact = db.query(models.Contact).filter(models.Contact.id == payload.contact_id).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+    if current_user.role != "admin" and contact.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     if not contact.phone:
         raise HTTPException(status_code=400, detail="This contact has no phone number")
 

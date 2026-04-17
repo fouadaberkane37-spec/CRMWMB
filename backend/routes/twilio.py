@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
@@ -7,6 +8,8 @@ import os
 from auth import get_current_user
 from pydantic import BaseModel as _BaseModel, Field as _Field
 from datetime import datetime
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/twilio", tags=["twilio"])
 
@@ -122,8 +125,10 @@ async def twilio_incoming(
             signature = request.headers.get("X-Twilio-Signature", "")
             form_dict = {k: v for k, v in form.items()}
             if not validator.validate(url, form_dict, signature):
+                log.warning("[twilio/incoming] Invalid signature from %s", request.client.host if request.client else "unknown")
                 return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
-        except Exception:
+        except Exception as _e:
+            log.warning("[twilio/incoming] Signature validation error: %s", _e)
             return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
 
     from_number: str = (form.get("From") or "").strip()

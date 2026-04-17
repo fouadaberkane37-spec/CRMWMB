@@ -17,6 +17,7 @@ from auth import get_current_user, require_admin, get_password_hash
 router = APIRouter(prefix="/api/invites", tags=["invites"])
 
 _invite_check_hits: dict[str, list] = defaultdict(list)
+_invite_token_hits: dict[str, list] = defaultdict(list)
 
 
 def _invite_rate_check(request: Request):
@@ -28,6 +29,16 @@ def _invite_rate_check(request: Request):
         raise HTTPException(status_code=429, detail="Too many requests")
     hits.append(now)
     _invite_check_hits[ip] = hits
+
+
+def _invite_token_rate_check(token: str):
+    """Per-token rate limit to prevent brute-force against a specific invite."""
+    now = time.time()
+    hits = [t for t in _invite_token_hits[token] if now - t < 60]
+    if len(hits) >= 5:
+        raise HTTPException(status_code=429, detail="Too many attempts for this invite")
+    hits.append(now)
+    _invite_token_hits[token] = hits
 
 INVITE_EXPIRY_HOURS = 48
 
@@ -159,6 +170,7 @@ def check_invite(request: Request, token: str, db: Session = Depends(get_db)):
 def accept_invite(request: Request, token: str, data: schemas.InviteAccept, db: Session = Depends(get_db)):
     """Public — register an account using a valid invite token (no auth required)."""
     _invite_rate_check(request)
+    _invite_token_rate_check(token)
     invite = db.query(models.Invite).filter(models.Invite.token == token).first()
     if not invite or invite.used_at or invite.expires_at < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Invite link is invalid or has expired")

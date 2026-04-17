@@ -43,7 +43,14 @@ def update_knock(knock_id: int, data: schemas.KnockUpdate, db: Session = Depends
         raise HTTPException(status_code=404, detail="Not found")
     if not _own_knock(knock, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
-    for k, v in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    if "contact_id" in updates and updates["contact_id"] is not None and current_user.role != "admin":
+        contact = db.query(models.Contact).filter(models.Contact.id == updates["contact_id"]).first()
+        if not contact:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        if contact.created_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Cannot link knock to a contact you don't own")
+    for k, v in updates.items():
         setattr(knock, k, v)
     db.commit()
     db.refresh(knock)
