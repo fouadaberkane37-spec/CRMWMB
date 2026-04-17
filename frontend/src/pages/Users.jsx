@@ -63,9 +63,14 @@ export default function Users() {
   }
 
   async function del() {
-    await api.delete(`/users/${deleteId}`)
-    setDeleteId(null)
-    load()
+    try {
+      await api.delete(`/users/${deleteId}`)
+      setDeleteId(null)
+      load()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to delete user')
+      setDeleteId(null)
+    }
   }
 
   const f = (k) => (e) => setForm({ ...form, [k]: e.target.value })

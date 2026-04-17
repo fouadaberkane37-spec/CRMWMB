@@ -69,6 +69,24 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user=Depend
         raise HTTPException(status_code=404, detail="User not found")
     if db_user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    uid = db_user.id
+    # Nullify nullable FK references so the delete doesn't violate constraints
+    db.query(models.Deal).filter(models.Deal.assigned_to == uid).update({"assigned_to": None})
+    db.query(models.Deal).filter(models.Deal.created_by == uid).update({"created_by": None})
+    db.query(models.Contact).filter(models.Contact.created_by == uid).update({"created_by": None})
+    db.query(models.Company).filter(models.Company.created_by == uid).update({"created_by": None})
+    db.query(models.Activity).filter(models.Activity.created_by == uid).update({"created_by": None})
+
+    # Delete rows that hard-reference the user
+    db.query(models.DealTechnician).filter(models.DealTechnician.user_id == uid).delete()
+    db.query(models.ReminderLog).filter(models.ReminderLog.user_id == uid).delete()
+    for tbl in [models.TimeClock, models.TechAvailability, models.ShiftConfirmation, models.ChatMessage, models.Invite]:
+        try:
+            db.query(tbl).filter(tbl.user_id == uid).delete()
+        except Exception:
+            pass
+
     db.delete(db_user)
     db.commit()
     return {"message": "User deleted"}
