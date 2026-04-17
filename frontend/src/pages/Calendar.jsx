@@ -114,6 +114,17 @@ function ReschedulePopup({ deal, onSave, onClose }) {
   )
 }
 
+// ── Staffing helpers ──────────────────────────────────────────────────────────
+function requiredTechs(deal) {
+  const raw  = (deal.contact?.services || deal.title || '').toLowerCase()
+  const tags = raw.split(/[,\s—–-]+/).map(s => s.trim()).filter(Boolean)
+  const needs2     = tags.some(t => t.includes('gutter') || t.includes('int') || t.includes('interior'))
+  const hasExt     = tags.some(t => t.includes('ext') || t.includes('exterior') || t.includes('window'))
+  const hasPressure= tags.some(t => t.includes('pressure') || t.includes('wash'))
+  const multi      = (hasExt ? 1 : 0) + (hasPressure ? 1 : 0) + (needs2 ? 1 : 0) >= 2
+  return (needs2 || multi) ? 2 : 1
+}
+
 // ── Service label map ──────────────────────────────────────────────────────────
 const SERVICE_LABELS = {
   'window-ext':  'Windows (Exterior)',
@@ -421,9 +432,10 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
   const [reschedule, setReschedule] = useState(false)
   const [techModal, setTechModal] = useState(false)
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
-  const unassigned = isAdmin && !(deal.assigned_techs?.length)
-  const chipBg   = unassigned ? 'bg-amber-400'  : s.color
-  const chipText = unassigned ? 'text-amber-900' : s.text
+  const chipAssigned    = deal.assigned_techs?.length || 0
+  const chipUnderstaffed = isAdmin && chipAssigned < requiredTechs(deal)
+  const chipBg   = chipUnderstaffed ? 'bg-amber-400'  : s.color
+  const chipText = chipUnderstaffed ? 'text-amber-900' : s.text
 
   const time = deal.expected_close_date
     ? new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -460,11 +472,11 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
             setOpen(v => !v)
           }}
           className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight ${chipBg} ${chipText} ${!isAdmin && !isTech ? 'cursor-default' : ''}`}
-          title={isAdmin ? `${clientName}${unassigned ? ' — ⚠ No tech assigned' : ''}` : clientName}
+          title={isAdmin ? `${clientName}${chipUnderstaffed ? ' — ⚠ Understaffed' : ''}` : clientName}
         >
           {time && <span className="opacity-75 mr-1">{time}</span>}
           <span className="truncate">{clientName}</span>
-          {unassigned && <span className="ml-1 opacity-80">⚠</span>}
+          {chipUnderstaffed && <span className="ml-1 opacity-80">⚠</span>}
           {isTech && <ExternalLink size={8} className="inline ml-1 opacity-60" />}
           {!isAdmin && !isTech && <Lock size={8} className="inline ml-1 opacity-40" />}
         </button>
@@ -851,9 +863,10 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
   const [sheet, setSheet]         = useState(false) // admin action sheet
   const [clocking, setClocking]   = useState(false)
 
-  const unassigned = isAdmin && !(deal.assigned_techs?.length)
-  const cardBg   = unassigned ? 'bg-amber-400'       : s.color
-  const cardText = unassigned ? 'text-amber-900'      : s.text
+  const assignedCount  = deal.assigned_techs?.length || 0
+  const understaffed   = isAdmin && assignedCount < requiredTechs(deal)
+  const cardBg   = understaffed ? 'bg-amber-400'  : s.color
+  const cardText = understaffed ? 'text-amber-900' : s.text
 
   // Reschedule state inside the sheet
   const [newDate, setNewDate] = useState((deal.expected_close_date || '').slice(0, 10))
@@ -961,8 +974,10 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {unassigned
-              ? <span className={`text-xs font-bold ${cardText}`}>⚠ No tech</span>
+            {understaffed
+              ? <span className={`text-xs font-bold ${cardText}`}>
+                  {assignedCount === 0 ? '⚠ No tech' : `⚠ Need ${requiredTechs(deal) - assignedCount} more`}
+                </span>
               : <span className={`text-xs font-medium opacity-80 ${cardText}`}>{s.label}</span>
             }
             {isAdmin && <Pencil size={12} className={`opacity-50 ${cardText}`} />}
