@@ -19,7 +19,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class UserUpdate(BaseModel):
@@ -28,7 +28,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(default=None, max_length=128)
     role: Optional[str] = None
     is_active: Optional[bool] = None
-    password: Optional[str] = None
+    password: Optional[str] = Field(default=None, max_length=128)
 
 
 class User(UserBase):
@@ -264,7 +264,7 @@ class InviteOut(BaseModel):
 class InviteAccept(BaseModel):
     username: str = Field(..., max_length=64)
     full_name: Optional[str] = Field(default=None, max_length=128)
-    password: str
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class InviteCheck(BaseModel):

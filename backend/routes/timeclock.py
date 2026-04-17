@@ -33,6 +33,15 @@ def clock_in_out(
     if body.clock_type not in ("in", "out"):
         raise HTTPException(status_code=400, detail="clock_type must be 'in' or 'out'")
 
+    # Prevent duplicate events within 30 seconds (race-condition / double-submit guard)
+    recent = db.query(models.TimeClock).filter(
+        models.TimeClock.user_id == current_user.id,
+        models.TimeClock.clock_type == body.clock_type,
+        models.TimeClock.clocked_at >= datetime.utcnow() - timedelta(seconds=30),
+    ).first()
+    if recent:
+        raise HTTPException(status_code=409, detail="Duplicate clock event — please wait before submitting again")
+
     # Validate deal exists if provided
     if body.deal_id is not None:
         deal = db.query(models.Deal).filter(models.Deal.id == body.deal_id).first()

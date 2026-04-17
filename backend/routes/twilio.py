@@ -124,7 +124,7 @@ async def twilio_incoming(
             if not validator.validate(url, form_dict, signature):
                 return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
         except Exception:
-            pass  # If validation library fails, continue processing
+            return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
 
     from_number: str = (form.get("From") or "").strip()
     body: str = (form.get("Body") or "").strip()

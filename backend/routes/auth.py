@@ -5,12 +5,12 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from database import get_db
 import models
 import schemas
-from auth import verify_password, create_access_token, get_current_user
+from auth import verify_password, get_password_hash, create_access_token, get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -63,9 +63,12 @@ def _send_otp_sms(phone: str, otp: str) -> bool:
         return False
 
 
+_DUMMY_HASH = get_password_hash("dummy-timing-protection-only")
+
+
 class OTPVerify(BaseModel):
-    session_id: str
-    otp: str
+    session_id: str = Field(..., max_length=128)
+    otp: str = Field(..., max_length=16)
 
 
 class LoginStep1Response(BaseModel):
@@ -80,14 +83,17 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     _rate_check(f"login:{ip}", max_calls=10, window=60)
 
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user:
+        verify_password(form_data.password, _DUMMY_HASH)  # constant-time — prevent user enumeration
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not user.is_active:
         raise HTTPException(status_code=401, detail="Account is disabled")
 
     # No phone on file — skip 2FA and issue token directly
     if not user.phone:
-        token = create_access_token({"sub": user.username})
+        token = create_access_token({"sub": str(user.id)})
         return {"access_token": token, "token_type": "bearer", "otp_required": False}
 
     otp = str(secrets.randbelow(900000) + 100000)  # 6-digit
@@ -130,8 +136,12 @@ def verify_otp(request: Request, body: OTPVerify, db: Session = Depends(get_db))
             db.commit()
         raise HTTPException(status_code=401, detail="Invalid or expired session")
 
-    session.attempts += 1
+    # Atomic increment — prevents concurrent-request races on attempt count
+    db.query(models.OTPSession).filter(
+        models.OTPSession.session_id == body.session_id
+    ).update({"attempts": models.OTPSession.attempts + 1}, synchronize_session="fetch")
     db.commit()
+    db.refresh(session)
 
     if session.attempts > MAX_OTP_ATTEMPTS:
         db.delete(session)
@@ -150,7 +160,7 @@ def verify_otp(request: Request, body: OTPVerify, db: Session = Depends(get_db))
     db.commit()
 
     user = db.query(models.User).filter(models.User.username == username).first()
-    token = create_access_token({"sub": user.username})
+    token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
 
 

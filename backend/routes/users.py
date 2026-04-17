@@ -1,6 +1,7 @@
 import os
 import secrets
 import string
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -8,6 +9,8 @@ from database import get_db
 import models
 import schemas
 from auth import require_admin, get_current_user, get_password_hash
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -90,6 +93,10 @@ def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(ge
     if user.role is not None:
         if user.role not in ALLOWED_ROLES:
             raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(sorted(ALLOWED_ROLES))}")
+        if user.role == "admin" and db_user.role != "admin":
+            log.warning("[AUDIT] user_id=%s promoted to admin by admin_id=%s", user_id, current_user.id)
+        elif db_user.role == "admin" and user.role != "admin":
+            log.warning("[AUDIT] user_id=%s demoted from admin by admin_id=%s", user_id, current_user.id)
         db_user.role = user.role
     if user.is_active is not None:
         db_user.is_active = user.is_active
