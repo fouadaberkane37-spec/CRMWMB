@@ -86,6 +86,7 @@ def save_inbound_message(db: Session, contact: models.Contact, body: str):
         sender_id=None,       # no CRM user — message came from the customer
         body=body,
         direction="inbound",
+        is_read=False,
     )
     db.add(msg)
     db.commit()

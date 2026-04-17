@@ -112,6 +112,8 @@ class ChatMessage(Base):
     body = Column(Text, nullable=False)
     # "outbound" = sent by CRM agent, "inbound" = received from customer via SMS
     direction = Column(String, default="outbound", nullable=False)
+    # False for inbound messages until an admin opens the conversation
+    is_read = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     contact = relationship("Contact")

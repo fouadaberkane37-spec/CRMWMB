@@ -101,6 +101,18 @@ except Exception as _e:
     # Column already exists or SQLite duplicate-column error â safe to ignore
     pass
 
+# Add 'is_read' column to existing chat_messages tables
+if _is_sqlite:
+    _add_is_read = "ALTER TABLE chat_messages ADD COLUMN is_read BOOLEAN NOT NULL DEFAULT 1"
+else:
+    _add_is_read = "ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT TRUE"
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(_add_is_read))
+    print("[OK] chat_messages.is_read column ensured")
+except Exception as _e:
+    pass
+
 
 # Ensure invites table exists
 _invites_ddl = """

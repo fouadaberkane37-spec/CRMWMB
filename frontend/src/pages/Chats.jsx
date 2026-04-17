@@ -30,8 +30,9 @@ function Avatar({ name = '?', size = 'md' }) {
 export default function Chats() {
   const { user } = useAuth()
   const [contacts, setContacts] = useState([])
-  const [lastMessages, setLastMessages] = useState({}) // contactId -> {body, created_at}
-  const [activeContact, setActiveContact] = useState(null) // full contact object
+  // contactId -> { body, created_at, unread }
+  const [convMap, setConvMap] = useState({})
+  const [activeContact, setActiveContact] = useState(null)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -40,21 +41,25 @@ export default function Chats() {
   const bottomRef = useRef(null)
   const pollRef = useRef(null)
 
-  // Load all contacts + their last messages
   const loadList = useCallback(() => {
-    api.get('/contacts/').then((r) => {
-      setContacts(r.data)
-    })
+    api.get('/contacts/').then((r) => setContacts(r.data)).catch(() => {})
     api.get('/chats/').then((r) => {
       const map = {}
-      r.data.forEach((c) => { map[c.contact_id] = { body: c.last_message, created_at: c.last_at } })
-      setLastMessages(map)
+      r.data.forEach((c) => {
+        map[c.contact_id] = { body: c.last_message, created_at: c.last_at, unread: c.unread || 0 }
+      })
+      setConvMap(map)
     }).catch(() => {})
   }, [])
 
   useEffect(() => { loadList() }, [loadList])
 
-  // Poll messages every 4s when a chat is open
+  // Poll the conversation list every 10s to keep unread counts fresh
+  useEffect(() => {
+    const id = setInterval(loadList, 10000)
+    return () => clearInterval(id)
+  }, [loadList])
+
   const loadMessages = useCallback((cid) => {
     if (!cid) return
     api.get(`/chats/${cid}`).then((r) => {
@@ -71,6 +76,19 @@ export default function Chats() {
     }
     return () => clearInterval(pollRef.current)
   }, [activeContact, loadMessages])
+
+  function openContact(contact) {
+    setActiveContact(contact)
+    setMessages([])
+    setError('')
+    // Mark as read — fire and forget, then refresh list
+    api.post(`/chats/${contact.id}/read`).then(() => {
+      setConvMap(prev => ({
+        ...prev,
+        [contact.id]: { ...prev[contact.id], unread: 0 },
+      }))
+    }).catch(() => {})
+  }
 
   async function sendMessage(e) {
     e.preventDefault()
@@ -90,24 +108,22 @@ export default function Chats() {
     }
   }
 
-  function openContact(contact) {
-    setActiveContact(contact)
-    setMessages([])
-    setError('')
-  }
-
   const filtered = contacts.filter((c) => {
     const name = `${c.first_name} ${c.last_name || ''}`.toLowerCase()
     return name.includes(searchQ.toLowerCase())
   })
 
-  // Sort: contacts with messages first (most recent), then alphabetical
+  // Sort: unread first, then by recency, then alphabetical
   const sorted = [...filtered].sort((a, b) => {
-    const aMsg = lastMessages[a.id]
-    const bMsg = lastMessages[b.id]
-    if (aMsg && !bMsg) return -1
-    if (!aMsg && bMsg) return 1
-    if (aMsg && bMsg) return new Date(bMsg.created_at) - new Date(aMsg.created_at)
+    const aConv = convMap[a.id]
+    const bConv = convMap[b.id]
+    const aUnread = aConv?.unread || 0
+    const bUnread = bConv?.unread || 0
+    if (aUnread && !bUnread) return -1
+    if (!aUnread && bUnread) return 1
+    if (aConv && !bConv) return -1
+    if (!aConv && bConv) return 1
+    if (aConv && bConv) return new Date(bConv.created_at) - new Date(aConv.created_at)
     return `${a.first_name}`.localeCompare(`${b.first_name}`)
   })
 
@@ -118,9 +134,8 @@ export default function Chats() {
     <div className="flex h-full overflow-hidden">
       {/* ── Contact / conversation list ── */}
       <div className={`${showThread ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-80 lg:w-96 border-r border-slate-700/50 flex-shrink-0`}>
-        {/* Header */}
         <div className="px-4 py-4 border-b border-slate-700/50">
-          <h1 className="text-white font-bold text-lg mb-3">Chats</h1>
+          <h1 className="text-white font-bold text-lg mb-3">Messages</h1>
           <div className="flex items-center gap-2 bg-slate-800 rounded-xl px-3 py-2">
             <Search size={15} className="text-slate-500 flex-shrink-0" />
             <input
@@ -132,7 +147,6 @@ export default function Chats() {
           </div>
         </div>
 
-        {/* List — all contacts */}
         <div className="flex-1 overflow-y-auto">
           {sorted.length === 0 && (
             <div className="flex flex-col items-center justify-center h-48 gap-2 text-slate-500">
@@ -142,8 +156,10 @@ export default function Chats() {
           )}
           {sorted.map((contact) => {
             const name = `${contact.first_name} ${contact.last_name || ''}`.trim()
-            const last = lastMessages[contact.id]
+            const conv = convMap[contact.id]
             const isActive = activeContact?.id === contact.id
+            const hasUnread = (conv?.unread || 0) > 0
+
             return (
               <button
                 key={contact.id}
@@ -152,14 +168,28 @@ export default function Chats() {
                   isActive ? 'bg-slate-800' : 'hover:bg-slate-800/60 active:bg-slate-800'
                 }`}
               >
-                <Avatar name={name} />
+                <div className="relative flex-shrink-0">
+                  <Avatar name={name} />
+                  {hasUnread && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900" />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-white text-sm font-semibold truncate">{name}</p>
-                    {last && <span className="text-slate-500 text-xs flex-shrink-0 ml-2">{timeAgo(last.created_at)}</span>}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-sm truncate ${hasUnread ? 'text-white font-bold' : 'text-white font-semibold'}`}>
+                      {name}
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {conv && <span className="text-slate-500 text-xs">{timeAgo(conv.created_at)}</span>}
+                      {hasUnread && (
+                        <span className="min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                          {conv.unread > 99 ? '99+' : conv.unread}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-slate-500 text-xs truncate mt-0.5">
-                    {last ? last.body : 'Tap to start chatting'}
+                  <p className={`text-xs truncate mt-0.5 ${hasUnread ? 'text-slate-200 font-medium' : 'text-slate-500'}`}>
+                    {conv ? conv.body : 'Tap to start chatting'}
                   </p>
                 </div>
               </button>
@@ -171,7 +201,6 @@ export default function Chats() {
       {/* ── Thread ── */}
       {showThread ? (
         <div className="flex-1 flex flex-col min-w-0 bg-slate-950">
-          {/* Header */}
           <div className="px-4 py-3 border-b border-slate-700/50 flex items-center gap-3 bg-slate-900">
             <button onClick={() => setActiveContact(null)} className="md:hidden text-slate-400 p-1 -ml-1">
               <ArrowLeft size={22} />
@@ -183,7 +212,6 @@ export default function Chats() {
             </div>
           </div>
 
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-700">
@@ -193,8 +221,6 @@ export default function Chats() {
               </div>
             )}
             {messages.map((msg) => {
-              // outbound = sent by a CRM agent (show on right, blue)
-              // inbound  = received from customer via SMS (show on left, grey)
               const isOutbound = msg.direction !== 'inbound'
               return (
                 <div key={msg.id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} gap-2 items-end`}>
@@ -220,7 +246,6 @@ export default function Chats() {
             </div>
           )}
 
-          {/* Input */}
           <form onSubmit={sendMessage} className="px-3 py-3 border-t border-slate-700/50 flex items-center gap-2 bg-slate-900">
             <input
               value={input}

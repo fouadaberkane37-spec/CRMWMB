@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
@@ -6,7 +6,18 @@ import {
   UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe, CalendarDays,
   Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase,
 } from 'lucide-react'
+import api from '../api.js'
 
+// ── Admin-only nav (exactly 5 items) ──────────────────────────────────────────
+const ADMIN_NAV = [
+  { to: '/',               label: 'Dashboard',      icon: LayoutDashboard, exact: true },
+  { to: '/map',            label: 'Personal Map',   icon: MapPin },
+  { to: '/booking',        label: 'Booking',        icon: BookOpen },
+  { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase },
+  { to: '/chats',          label: 'Messages',       icon: MessageSquare, badge: true },
+]
+
+// ── Non-admin nav (unchanged) ──────────────────────────────────────────────────
 const NAV_GROUPS = [
   {
     label: 'Sales',
@@ -15,14 +26,11 @@ const NAV_GROUPS = [
       { to: '/contacts',   label: 'Contacts',    icon: Users,           hideForTech: true },
       { to: '/booking',    label: 'Booking',     icon: BookOpen,        hideForTech: true },
       { to: '/analytics',  label: 'Analytics',   icon: TrendingUp,      hideForTech: true },
-      { to: '/team-sales', label: 'Team Sales',  icon: BarChart2,       adminOnly: true },
-      { to: '/new-numbers',label: 'New Numbers', icon: PhoneIncoming,   adminOnly: true },
     ],
   },
   {
     label: 'Customer Service',
     items: [
-      { to: '/chats',    label: 'Chats',    icon: MessageSquare, chatsOnly: true, hideForTech: true },
       { to: '/calendar', label: 'Calendar', icon: CalendarDays },
       { to: '/search',   label: 'Search',   icon: Search,        hideForTech: true },
       { to: '/map',      label: 'My Map',   icon: MapPin,        hideForTech: true },
@@ -32,27 +40,41 @@ const NAV_GROUPS = [
   {
     label: 'Technician Management',
     items: [
-      { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase,    adminOnly: true },
-      { to: '/timesheet',      label: 'Timesheet',      icon: ClipboardList, adminOnly: true },
-      { to: '/clock',          label: 'Clock In/Out',   icon: Timer,         hideForSales: true },
-      { to: '/tech-schedule',  label: 'My Schedule',    icon: ClipboardList, techOnly: true },
-      { to: '/users',          label: 'Users',          icon: UserCog,       adminOnly: true },
+      { to: '/clock',         label: 'Clock In/Out', icon: Timer,         hideForSales: true },
+      { to: '/tech-schedule', label: 'My Schedule',  icon: ClipboardList, techOnly: true },
     ],
   },
 ]
 
+function useUnreadCount(isAdmin) {
+  const [unread, setUnread] = useState(0)
+
+  useEffect(() => {
+    if (!isAdmin) return
+    let active = true
+
+    function poll() {
+      api.get('/chats/unread-count').then(r => {
+        if (active) setUnread(r.data.unread || 0)
+      }).catch(() => {})
+    }
+
+    poll()
+    const id = setInterval(poll, 15000)
+    return () => { active = false; clearInterval(id) }
+  }, [isAdmin])
+
+  return unread
+}
+
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-
-  const canSeeChats = user?.role === 'admin' ||
-    user?.username?.toLowerCase().includes('fouad') ||
-    user?.full_name?.toLowerCase().includes('fouad')
+  const isAdmin = user?.role === 'admin'
+  const unread = useUnreadCount(isAdmin)
 
   function isVisible(item) {
-    if (item.adminOnly  && user?.role !== 'admin')       return false
     if (item.techOnly   && user?.role !== 'technician')  return false
-    if (item.chatsOnly  && !canSeeChats)                 return false
     if (item.hideForTech  && user?.role === 'technician') return false
     if (item.hideForSales && (user?.role === 'sales' || user?.role === 'user')) return false
     return true
@@ -78,26 +100,42 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
-        {NAV_GROUPS.map(group => {
-          const visible = group.items.filter(isVisible)
-          if (!visible.length) return null
-          return (
-            <div key={group.label}>
-              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
-                {group.label}
-              </p>
-              <div className="space-y-0.5">
-                {visible.map(({ to, label, icon: Icon, exact }) => (
-                  <NavLink key={to} to={to} end={exact} className={linkClass}>
-                    <Icon size={17} />
-                    {label}
-                  </NavLink>
-                ))}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
+        {isAdmin ? (
+          ADMIN_NAV.map(({ to, label, icon: Icon, exact, badge }) => (
+            <NavLink key={to} to={to} end={exact} className={linkClass}>
+              <div className="relative">
+                <Icon size={17} />
+                {badge && unread > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
               </div>
-            </div>
-          )
-        })}
+              {label}
+            </NavLink>
+          ))
+        ) : (
+          NAV_GROUPS.map(group => {
+            const visible = group.items.filter(isVisible)
+            if (!visible.length) return null
+            return (
+              <div key={group.label} className="mb-4">
+                <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+                  {group.label}
+                </p>
+                <div className="space-y-0.5">
+                  {visible.map(({ to, label, icon: Icon, exact }) => (
+                    <NavLink key={to} to={to} end={exact} className={linkClass}>
+                      <Icon size={17} />
+                      {label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            )
+          })
+        )}
       </nav>
 
       {/* User footer */}

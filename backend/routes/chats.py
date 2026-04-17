@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from typing import List
 import os
 from database import get_db
@@ -9,6 +9,23 @@ import schemas
 from auth import get_current_user, require_admin
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
+
+
+@router.get("/unread-count")
+def unread_count(
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Total number of unread inbound messages across all contacts."""
+    count = (
+        db.query(func.count(models.ChatMessage.id))
+        .filter(
+            models.ChatMessage.direction == "inbound",
+            models.ChatMessage.is_read == False,  # noqa: E712
+        )
+        .scalar()
+    ) or 0
+    return {"unread": count}
 
 
 @router.get("/", response_model=List[schemas.ChatConversation])
@@ -28,6 +45,18 @@ def list_conversations(
         if m.contact_id not in seen:
             seen[m.contact_id] = m
 
+    # Count unread inbound messages per contact
+    unread_rows = (
+        db.query(models.ChatMessage.contact_id, func.count(models.ChatMessage.id))
+        .filter(
+            models.ChatMessage.direction == "inbound",
+            models.ChatMessage.is_read == False,  # noqa: E712
+        )
+        .group_by(models.ChatMessage.contact_id)
+        .all()
+    )
+    unread_map = {cid: cnt for cid, cnt in unread_rows}
+
     result = []
     for contact_id, last in seen.items():
         contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
@@ -38,8 +67,25 @@ def list_conversations(
             contact_name=f"{contact.first_name} {contact.last_name or ''}".strip(),
             last_message=last.body,
             last_at=last.created_at,
+            unread=unread_map.get(contact_id, 0),
         ))
     return result
+
+
+@router.post("/{contact_id}/read")
+def mark_read(
+    contact_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Mark all inbound messages for a contact as read."""
+    db.query(models.ChatMessage).filter(
+        models.ChatMessage.contact_id == contact_id,
+        models.ChatMessage.direction == "inbound",
+        models.ChatMessage.is_read == False,  # noqa: E712
+    ).update({"is_read": True}, synchronize_session=False)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/{contact_id}", response_model=List[schemas.ChatMessageOut])
@@ -64,7 +110,6 @@ def get_messages(
             sender = db.query(models.User).filter(models.User.id == m.sender_id).first()
             sender_name = (sender.full_name or sender.username) if sender else "Unknown"
         else:
-            # Inbound message from the contact/customer
             contact = db.query(models.Contact).filter(models.Contact.id == m.contact_id).first()
             sender_name = f"{contact.first_name} {contact.last_name or ''}".strip() if contact else "Customer"
         result.append(schemas.ChatMessageOut(
@@ -101,12 +146,12 @@ def send_message(
         sender_id=current_user.id,
         body=body,
         direction="outbound",
+        is_read=True,
     )
     db.add(msg)
     db.commit()
     db.refresh(msg)
 
-    # Fire Twilio SMS if the contact has a phone — graceful: never blocks the save
     if contact.phone:
         _try_send_twilio(contact.phone, body)
 
