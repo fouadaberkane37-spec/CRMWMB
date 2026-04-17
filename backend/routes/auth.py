@@ -61,11 +61,10 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not user.is_active:
         raise HTTPException(status_code=401, detail="Account is disabled")
 
+    # No phone on file — skip 2FA and issue token directly
     if not user.phone:
-        raise HTTPException(
-            status_code=400,
-            detail="No phone number on your account. Contact an admin to add one.",
-        )
+        token = create_access_token({"sub": user.username})
+        return {"access_token": token, "token_type": "bearer", "otp_required": False}
 
     otp = str(secrets.randbelow(900000) + 100000)  # 6-digit
     session_id = secrets.token_urlsafe(24)

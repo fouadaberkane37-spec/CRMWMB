@@ -27,6 +27,15 @@ export default function Login() {
       const { data } = await api.post('/auth/login', params, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
+      // No phone on account — 2FA skipped, token returned directly
+      if (data.access_token) {
+        const { data: user } = await api.get('/auth/me', {
+          headers: { Authorization: `Bearer ${data.access_token}` },
+        })
+        login(user, data.access_token)
+        navigate('/')
+        return
+      }
       setSessionId(data.session_id)
       setPhoneHint(data.phone_hint)
       setStep('otp')
