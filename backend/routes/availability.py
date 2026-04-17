@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import Optional, List
 from datetime import datetime, timedelta
 from database import get_db
@@ -119,13 +120,20 @@ def confirm_shift(
         models.ShiftConfirmation.shift_date == body.shift_date,
     ).first()
     if not existing:
-        existing = models.ShiftConfirmation(
-            user_id=current_user.id,
-            shift_date=body.shift_date,
-        )
-        db.add(existing)
-        db.commit()
-        db.refresh(existing)
+        try:
+            existing = models.ShiftConfirmation(
+                user_id=current_user.id,
+                shift_date=body.shift_date,
+            )
+            db.add(existing)
+            db.commit()
+            db.refresh(existing)
+        except IntegrityError:
+            db.rollback()
+            existing = db.query(models.ShiftConfirmation).filter(
+                models.ShiftConfirmation.user_id == current_user.id,
+                models.ShiftConfirmation.shift_date == body.shift_date,
+            ).first()
     return {
         "user_id": existing.user_id,
         "shift_date": existing.shift_date,

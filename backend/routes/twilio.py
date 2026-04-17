@@ -355,16 +355,25 @@ def dismiss_unknown_lead(
     return {"message": "Dismissed"}
 
 
+_E164_RE = __import__("re").compile(r"^\+?[1-9]\d{6,14}$")
+
+
 @router.get("/connect", include_in_schema=False, response_class=PlainTextResponse)
 async def connect_call(to: str, from_num: str = ""):
     """
-    TwiML fetched by Twilio when Fouad answers — dials the contact.
+    TwiML fetched by Twilio when admin answers — dials the contact.
     Contact sees the Twilio number as caller ID.
     """
+    to_clean = to.replace(" ", "").replace("-", "")
+    from_clean = from_num.replace(" ", "").replace("-", "")
+    if not _E164_RE.match(to_clean):
+        return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
+    safe_to = to_clean
+    safe_from = from_clean if _E164_RE.match(from_clean) else ""
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f"<Response>"
-        f'<Dial callerId="{from_num}">{to}</Dial>'
+        f'<Dial callerId="{safe_from}">{safe_to}</Dial>'
         f"</Response>"
     )
     return PlainTextResponse(twiml, media_type="application/xml")

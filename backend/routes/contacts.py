@@ -30,6 +30,8 @@ def geocode_address(address: str):
 
     if not address or not address.strip():
         return None, None
+    if len(address) > 500:
+        return None, None  # Reject oversized input — prevent request amplification
 
     # Bounding box: Saint-Jérôme (N) → South Shore (S), Vaudreuil (W) → Repentigny (E)
     # lat 45.2–46.1, lon -74.7 to -73.3
@@ -343,11 +345,17 @@ async def import_contacts_csv(
     current_user=Depends(get_current_user),
 ):
     MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB
+    if file.content_type and file.content_type not in ("text/csv", "application/csv", "application/vnd.ms-excel", "text/plain"):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
     content = await file.read(MAX_CSV_BYTES + 1)
     if len(content) > MAX_CSV_BYTES:
         raise HTTPException(status_code=400, detail="CSV file too large (max 5 MB)")
     try:
-        reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
+        csv_text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="CSV file must be valid UTF-8")
+    try:
+        reader = csv.DictReader(io.StringIO(csv_text))
     except Exception:
         raise HTTPException(status_code=400, detail="Could not parse CSV file")
 
