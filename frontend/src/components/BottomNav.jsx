@@ -16,6 +16,10 @@ export default function BottomNav() {
   const canSeeChats = isAdmin ||
     user?.username?.toLowerCase().includes('fouad') ||
     user?.full_name?.toLowerCase().includes('fouad')
+  const isFouad = !isAdmin && (
+    user?.username?.toLowerCase().includes('fouad') ||
+    user?.full_name?.toLowerCase().includes('fouad')
+  )
   const navigate = useNavigate()
 
   const primaryNav = isTech
@@ -26,10 +30,11 @@ export default function BottomNav() {
       ]
     : isSales
     ? [
+        ...(isFouad ? [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true }] : []),
         { to: '/map',        label: 'Map',       icon: MapPin },
         { to: '/booking',    label: 'Booking',   icon: BookOpen },
         { to: '/contacts',   label: 'Contacts',  icon: Users },
-        { to: '/analytics',  label: 'Analytics', icon: TrendingUp },
+        ...(!isFouad ? [{ to: '/analytics', label: 'Analytics', icon: TrendingUp }] : []),
       ]
     : [
         { to: '/',           label: 'Dashboard', icon: LayoutDashboard, exact: true },
