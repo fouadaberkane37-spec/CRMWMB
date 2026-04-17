@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -11,6 +12,7 @@ import models
 import schemas
 from auth import get_current_user, require_admin
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
 
@@ -176,6 +178,8 @@ def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session 
     db_contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
     if not db_contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+    if db_contact.deleted_at is not None:
+        raise HTTPException(status_code=410, detail="Contact has been deleted")
     if not _own_contact(db_contact, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
     data = contact.model_dump(exclude_unset=True)
@@ -572,6 +576,7 @@ def bulk_update_services(
             created.append({"name": row["name"]})
 
     db.commit()
+    log.warning("[AUDIT] bulk-update-services by admin_id=%s: updated=%d created=%d", current_user.id, len(updated), len(created))
     return {
         "ok": True,
         "updated": len(updated),

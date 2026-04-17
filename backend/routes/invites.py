@@ -158,9 +158,11 @@ def check_invite(request: Request, token: str, db: Session = Depends(get_db)):
     invite = db.query(models.Invite).filter(models.Invite.token == token).first()
     if not invite or invite.used_at or invite.expires_at < datetime.utcnow():
         return schemas.InviteCheck(phone=None, full_name=None, role="user", valid=False)
+    # Mask PII — return only role so frontend can show context without leaking phone/name
+    masked_phone = ("***" + invite.phone[-4:]) if invite.phone and len(invite.phone) >= 4 else None
     return schemas.InviteCheck(
-        phone=invite.phone,
-        full_name=invite.full_name,
+        phone=masked_phone,
+        full_name=None,
         role=invite.role,
         valid=True,
     )

@@ -28,6 +28,9 @@ def list_activities(
     if type:
         q = q.filter(models.Activity.type == type)
     if contact_id:
+        contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+        if contact and contact.deleted_at is not None:
+            return []
         q = q.filter(models.Activity.contact_id == contact_id)
     if deal_id:
         q = q.filter(models.Activity.deal_id == deal_id)

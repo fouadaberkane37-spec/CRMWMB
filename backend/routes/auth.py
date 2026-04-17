@@ -67,8 +67,8 @@ _DUMMY_HASH = get_password_hash("dummy-timing-protection-only")
 
 
 class OTPVerify(BaseModel):
-    session_id: str = Field(..., max_length=128)
-    otp: str = Field(..., max_length=16)
+    session_id: str = Field(..., max_length=128, pattern=r"^[A-Za-z0-9_\-]+$")
+    otp: str = Field(..., max_length=6, pattern=r"^\d{6}$")
 
 
 class LoginStep1Response(BaseModel):

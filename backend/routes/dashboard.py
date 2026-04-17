@@ -20,8 +20,11 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
         contacts_q = contacts_q.filter(models.Contact.created_by == current_user.id)
     total_contacts = contacts_q.scalar() or 0
 
-    # Companies — always global (companies aren't user-scoped)
-    total_companies = db.query(func.count(models.Company.id)).scalar() or 0
+    # Companies — scoped like contacts
+    companies_q = db.query(func.count(models.Company.id))
+    if not is_admin:
+        companies_q = companies_q.filter(models.Company.created_by == current_user.id)
+    total_companies = companies_q.scalar() or 0
 
     # Deals — admin sees all, sales sees assigned/created
     deals_q = db.query(models.Deal)
