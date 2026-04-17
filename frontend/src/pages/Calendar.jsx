@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
          ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut,
-         List, LayoutGrid, Trash2, Pencil, Loader2 } from 'lucide-react'
+         List, LayoutGrid, Trash2, Pencil, Loader2, Users, UserCheck } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -304,22 +304,24 @@ function TechJobModal({ deal, allDeals, onClose, onClockAction }) {
             </div>
           )}
 
-          {/* Pricing */}
-          <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <DollarSign size={12} /> Pricing & Billing
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-slate-500 mb-0.5">Quoted Price</p>
-                <p className="text-xl font-bold text-emerald-400">${(deal.value || 0).toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-0.5">Payment Status</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${statusColor}`}>{s.label}</span>
+          {/* Assigned Technicians */}
+          {(deal.assigned_techs?.length > 0) && (
+            <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Users size={12} /> Assigned Technicians
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {deal.assigned_techs.map(tech => (
+                  <div key={tech.id} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-900/30 border border-indigo-700/40 rounded-full">
+                    <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0">
+                      {(tech.full_name || tech.username || '?')[0].toUpperCase()}
+                    </div>
+                    <span className="text-xs font-medium text-indigo-200">{tech.full_name || tech.username}</span>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Notes / Special Instructions */}
           {deal.notes && (
