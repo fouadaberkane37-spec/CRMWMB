@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react'
 import api from '../api.js'
 import {
   ClipboardList, ChevronLeft, ChevronRight, Loader2,
-  Users, CheckCircle2, Circle, AlertCircle, XCircle, RefreshCw,
-  MapPin, DollarSign, Clock, Bell, BellOff, AlertTriangle,
+  Users, User, CheckCircle2, Circle, AlertCircle, XCircle, RefreshCw,
+  MapPin, DollarSign, Clock, Bell, BellOff, AlertTriangle, UserCheck, UserX,
 } from 'lucide-react'
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
@@ -417,15 +417,11 @@ export default function JobAssignment() {
                       const assigned  = deal.assigned_techs || []
                       const required  = requiredTechs(deal)
                       const staffed   = assigned.length >= required
-                      const staffColor = assigned.length === 0
-                        ? 'bg-red-900/30 text-red-400 border-red-700/40'
-                        : staffed
-                          ? 'bg-emerald-900/30 text-emerald-400 border-emerald-700/40'
-                          : 'bg-amber-900/30 text-amber-400 border-amber-700/40'
+                      const missing   = Math.max(0, required - assigned.length)
 
                       return (
                         <div key={deal.id} className={`bg-slate-900 border rounded-2xl overflow-hidden ${
-                          staffed ? 'border-slate-800' : 'border-amber-700/30'
+                          staffed ? 'border-slate-800' : 'border-red-700/40'
                         }`}>
                           {/* Job info row */}
                           <div className="px-4 pt-3 pb-2">
@@ -437,14 +433,27 @@ export default function JobAssignment() {
                                     <MapPin size={9} />{deal.contact.address}
                                   </p>
                                 )}
-                                <div className="flex items-center gap-3 mt-1">
+                                <div className="flex items-center gap-3 mt-1 flex-wrap">
                                   {time && <span className="text-slate-400 text-xs flex items-center gap-1"><Clock size={9}/>{time}</span>}
                                   {deal.value > 0 && <span className="text-slate-400 text-xs flex items-center gap-0.5"><DollarSign size={9}/>{deal.value.toFixed(0)}</span>}
-                                  {/* Staffing badge */}
-                                  <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold ${staffColor}`}>
-                                    <Users size={9} />
-                                    {assigned.length}/{required}
+                                </div>
+                                {/* Staffing requirement row */}
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  {/* Min requirement pill */}
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-semibold text-slate-400">
+                                    {required === 1 ? <User size={9} /> : <Users size={9} />}
+                                    {required} tech min
                                   </span>
+                                  {/* Staffing status */}
+                                  {staffed ? (
+                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-900/30 border border-emerald-700/40 text-[10px] font-semibold text-emerald-400">
+                                      <UserCheck size={9} /> Staffed
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-900/30 border border-red-700/40 text-[10px] font-semibold text-red-400">
+                                      <UserX size={9} /> Need {missing} more
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex flex-col items-end gap-1 flex-shrink-0">
