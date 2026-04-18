@@ -31,7 +31,7 @@ export default function Layout() {
       </div>
 
       {/* Bottom nav — mobile only (always at bottom, respects home indicator) */}
-      <div className="md:hidden flex-shrink-0">
+      <div className="md:hidden flex-shrink-0 relative z-10">
         <BottomNav />
       </div>
     </div>

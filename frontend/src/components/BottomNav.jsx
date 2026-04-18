@@ -36,6 +36,14 @@ export default function BottomNav() {
         { to: '/contacts',   label: 'Contacts',  icon: Users },
         ...(!isFouad ? [{ to: '/analytics', label: 'Analytics', icon: TrendingUp }] : []),
       ]
+    : isAdmin
+    ? [
+        { to: '/',               label: 'Dashboard', icon: LayoutDashboard, exact: true },
+        { to: '/map',            label: 'Map',        icon: MapPin },
+        { to: '/booking',        label: 'Booking',    icon: BookOpen },
+        { to: '/job-assignment', label: 'Jobs',       icon: Briefcase },
+        { to: '/chats',          label: 'Messages',   icon: MessageSquare },
+      ]
     : [
         { to: '/',           label: 'Dashboard', icon: LayoutDashboard, exact: true },
         { to: '/calendar',   label: 'Calendar',  icon: CalendarDays },
@@ -73,14 +81,16 @@ export default function BottomNav() {
           </NavLink>
         ))}
 
-        <button
-          onClick={() => setShowMore(true)}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-500"
-          style={{ minHeight: '68px', paddingTop: '12px', paddingBottom: '12px' }}
-        >
-          <Menu size={24} />
-          <span className="text-[10px] font-medium leading-none">More</span>
-        </button>
+        {!isAdmin && (
+          <button
+            onClick={() => setShowMore(true)}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-500"
+            style={{ minHeight: '68px', paddingTop: '12px', paddingBottom: '12px' }}
+          >
+            <Menu size={24} />
+            <span className="text-[10px] font-medium leading-none">More</span>
+          </button>
+        )}
       </nav>
 
       {/* More drawer */}
@@ -88,8 +98,11 @@ export default function BottomNav() {
         <div className="fixed inset-0 z-[200]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowMore(false)} />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl px-4 pt-5 slide-up"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}
+            className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl px-4 pt-5 slide-up overflow-y-auto"
+            style={{
+              paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)',
+              maxHeight: 'calc(85vh - env(safe-area-inset-top))',
+            }}
           >
             {/* Handle bar */}
             <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-5" />

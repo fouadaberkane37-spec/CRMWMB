@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
 import { useAuth } from '../App.jsx'
-import { Plus, Search, Pencil, Trash2, Phone, Download, Upload, MessageSquare, MapPin, Wrench, DollarSign, ShieldCheck, RotateCcw, X, PhoneCall, Loader2 } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Phone, Download, Upload, MessageSquare, MapPin, Wrench, DollarSign, ShieldCheck, RotateCcw, X, PhoneCall, Loader2, Users } from 'lucide-react'
 
 const STATUS_COLORS = {
   lead: 'bg-blue-900/40 text-blue-400',
