@@ -284,6 +284,36 @@ class Booking(BookingBase):
         from_attributes = True
 
 
+# ── JobTechnician ─────────────────────────────────────────────────────────────
+class JobTechnicianOut(BaseModel):
+    id: int
+    job_id: int
+    technician_id: int
+    technician: Optional[User] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── TechnicianShift ───────────────────────────────────────────────────────────
+class TechnicianShiftBase(BaseModel):
+    user_id: int
+    date: str  # YYYY-MM-DD
+    status: str = "available"  # confirmed | available
+
+
+class TechnicianShiftCreate(TechnicianShiftBase):
+    pass
+
+
+class TechnicianShiftOut(TechnicianShiftBase):
+    id: int
+    user: Optional[User] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ── JobAssignment ─────────────────────────────────────────────────────────────
 class JobAssignmentBase(BaseModel):
     title: str
@@ -291,9 +321,11 @@ class JobAssignmentBase(BaseModel):
     contact_id: Optional[int] = None
     assigned_to: Optional[int] = None
     booking_id: Optional[int] = None
-    status: str = "pending"
+    status: str = "scheduled"
     priority: str = "normal"
     scheduled_at: Optional[datetime] = None
+    value: Optional[float] = None
+    address: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -311,6 +343,8 @@ class JobAssignmentUpdate(BaseModel):
     priority: Optional[str] = None
     scheduled_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    value: Optional[float] = None
+    address: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -322,6 +356,7 @@ class JobAssignment(JobAssignmentBase):
     updated_at: datetime
     contact: Optional[Contact] = None
     assignee: Optional[User] = None
+    technicians: List[JobTechnicianOut] = []
 
     class Config:
         from_attributes = True

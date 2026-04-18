@@ -153,10 +153,12 @@ class JobAssignment(Base):
     contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=True)
-    status = Column(String, default="pending")  # pending | in_progress | completed | cancelled
+    status = Column(String, default="scheduled")  # scheduled | confirmed | in_progress | completed | cancelled
     priority = Column(String, default="normal")  # low | normal | high | urgent
     scheduled_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
+    value = Column(Float, nullable=True)
+    address = Column(String, nullable=True)
     notes = Column(Text)
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -165,6 +167,28 @@ class JobAssignment(Base):
     contact = relationship("Contact")
     assignee = relationship("User", foreign_keys=[assigned_to])
     booking = relationship("Booking")
+    technicians = relationship("JobTechnician", back_populates="job", cascade="all, delete-orphan")
+
+
+class JobTechnician(Base):
+    __tablename__ = "job_technicians"
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("job_assignments.id", ondelete="CASCADE"), nullable=False)
+    technician_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    job = relationship("JobAssignment", back_populates="technicians")
+    technician = relationship("User")
+
+
+class TechnicianShift(Base):
+    __tablename__ = "technician_shifts"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    date = Column(String, nullable=False)  # YYYY-MM-DD
+    status = Column(String, default="available")  # confirmed | available
+
+    user = relationship("User")
 
 
 class TimeEntry(Base):
