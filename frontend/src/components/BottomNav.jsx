@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
-  LayoutDashboard, Users, BookOpen, Search,
+  LayoutDashboard, Users, BookOpen,
   Menu, MapPin, UserCog, LogOut, X, MessageSquare, Globe, CalendarDays,
   Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase,
 } from 'lucide-react'
@@ -10,23 +10,28 @@ import {
 export default function BottomNav() {
   const [showMore, setShowMore] = useState(false)
   const { user, logout } = useAuth()
-  const isAdmin  = user?.role === 'admin'
-  const isTech   = user?.role === 'technician'
-  const isSales  = user?.role === 'sales' || user?.role === 'user'
-  const canSeeChats = isAdmin ||
-    user?.username?.toLowerCase().includes('fouad') ||
-    user?.full_name?.toLowerCase().includes('fouad')
+  const isAdmin = user?.role === 'admin'
+  const isTech  = user?.role === 'technician'
+  const isSales = user?.role === 'sales' || user?.role === 'user'
   const isFouad = !isAdmin && (
     user?.username?.toLowerCase().includes('fouad') ||
     user?.full_name?.toLowerCase().includes('fouad')
   )
   const navigate = useNavigate()
 
+  // Primary tab items (always visible)
   const primaryNav = isTech
     ? [
-        { to: '/calendar',      label: 'Calendar',  icon: CalendarDays },
-        { to: '/tech-schedule', label: 'Schedule',  icon: ClipboardList },
-        { to: '/clock',         label: 'Clock',     icon: Timer },
+        { to: '/calendar',      label: 'Calendar', icon: CalendarDays },
+        { to: '/tech-schedule', label: 'Schedule', icon: ClipboardList },
+        { to: '/clock',         label: 'Clock',    icon: Timer },
+      ]
+    : isAdmin
+    ? [
+        { to: '/',               label: 'Dashboard', icon: LayoutDashboard, exact: true },
+        { to: '/booking',        label: 'Booking',   icon: BookOpen },
+        { to: '/job-assignment', label: 'Jobs',      icon: Briefcase },
+        { to: '/chats',          label: 'Messages',  icon: MessageSquare },
       ]
     : isSales
     ? [
@@ -36,14 +41,6 @@ export default function BottomNav() {
         { to: '/contacts',   label: 'Contacts',  icon: Users },
         ...(!isFouad ? [{ to: '/analytics', label: 'Analytics', icon: TrendingUp }] : []),
       ]
-    : isAdmin
-    ? [
-        { to: '/',               label: 'Dashboard', icon: LayoutDashboard, exact: true },
-        { to: '/map',            label: 'Map',        icon: MapPin },
-        { to: '/booking',        label: 'Booking',    icon: BookOpen },
-        { to: '/job-assignment', label: 'Jobs',       icon: Briefcase },
-        { to: '/chats',          label: 'Messages',   icon: MessageSquare },
-      ]
     : [
         { to: '/',           label: 'Dashboard', icon: LayoutDashboard, exact: true },
         { to: '/calendar',   label: 'Calendar',  icon: CalendarDays },
@@ -52,11 +49,40 @@ export default function BottomNav() {
         { to: '/contacts',   label: 'Contacts',  icon: Users },
       ]
 
+  // More drawer items (role-specific)
+  const moreNav = isAdmin
+    ? [
+        { to: '/',             label: 'Dashboard',      icon: LayoutDashboard },
+        { to: '/analytics',    label: 'Analytics',      icon: TrendingUp },
+        { to: '/contacts',     label: 'Contacts',       icon: Users },
+        { to: '/calendar',     label: 'Calendar',       icon: CalendarDays },
+        { to: '/map',          label: 'My Map',         icon: MapPin },
+        { to: '/team-map',     label: 'Team Map',       icon: Globe },
+        { to: '/booking',      label: 'Booking',        icon: BookOpen },
+        { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase },
+        { to: '/chats',        label: 'Messages',       icon: MessageSquare },
+        { to: '/team-sales',   label: 'Team Sales',     icon: BarChart2 },
+        { to: '/timesheet',    label: 'Timesheet',      icon: ClipboardList },
+        { to: '/new-numbers',  label: 'New Numbers',    icon: PhoneIncoming },
+        { to: '/users',        label: 'Users',          icon: UserCog },
+      ]
+    : isSales
+    ? [
+        { to: '/',           label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/analytics',  label: 'Analytics', icon: TrendingUp },
+        { to: '/calendar',   label: 'Calendar',  icon: CalendarDays },
+        { to: '/team-map',   label: 'Team Map',  icon: Globe },
+      ]
+    : []
+
   function handleLogout() {
     setShowMore(false)
     logout()
     navigate('/login')
   }
+
+  // Techs have no More drawer
+  const showMoreBtn = !isTech && moreNav.length > 0
 
   return (
     <>
@@ -81,7 +107,7 @@ export default function BottomNav() {
           </NavLink>
         ))}
 
-        {!isAdmin && (
+        {showMoreBtn && (
           <button
             onClick={() => setShowMore(true)}
             className="flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-500"
@@ -119,27 +145,7 @@ export default function BottomNav() {
             </div>
 
             <div className="space-y-1">
-              {!isTech && [
-                ...(isSales ? [
-                  { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
-                  { to: '/analytics',  label: 'Analytics',  icon: TrendingUp },
-                  { to: '/calendar',   label: 'Calendar',   icon: CalendarDays },
-                  { to: '/team-map',   label: 'Team Map',   icon: Globe },
-                ] : [
-                  { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
-                  { to: '/analytics',  label: 'Analytics',  icon: TrendingUp },
-                  { to: '/contacts',   label: 'Contacts',   icon: Users },
-                  { to: '/calendar',   label: 'Calendar',   icon: CalendarDays },
-                  { to: '/map',        label: 'My Map',     icon: MapPin },
-                  { to: '/team-map',   label: 'Team Map',   icon: Globe },
-                ]),
-                ...(canSeeChats ? [{ to: '/chats',     label: 'Chats',      icon: MessageSquare }] : []),
-                ...(isAdmin ? [{ to: '/team-sales',     label: 'Team Sales',    icon: BarChart2 }] : []),
-                ...(isAdmin ? [{ to: '/job-assignment', label: 'Job Assignment', icon: Briefcase }] : []),
-                ...(isAdmin ? [{ to: '/timesheet',      label: 'Timesheet',     icon: ClipboardList }] : []),
-                ...(isAdmin ? [{ to: '/new-numbers',    label: 'New Numbers',   icon: PhoneIncoming }] : []),
-                ...(isAdmin ? [{ to: '/users',          label: 'Users',         icon: UserCog }] : []),
-              ].map(({ to, label, icon: Icon }) => (
+              {moreNav.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
