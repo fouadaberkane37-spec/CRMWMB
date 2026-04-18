@@ -11,7 +11,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     full_name = Column(String)
     hashed_password = Column(String, nullable=False)
-    role = Column(String, default="user")  # admin | user
+    role = Column(String, default="sales")  # admin | technician | sales
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -108,3 +108,74 @@ class Activity(Base):
 
     contact = relationship("Contact", back_populates="activities")
     deal = relationship("Deal", back_populates="activities")
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    direction = Column(String, nullable=False)  # inbound | outbound
+    from_number = Column(String, nullable=False)
+    to_number = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
+    sent_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    contact = relationship("Contact")
+
+
+class Booking(Base):
+    __tablename__ = "bookings"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
+    technician_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    scheduled_at = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer, default=60)
+    type = Column(String, default="service")  # service | estimate | follow_up | install
+    status = Column(String, default="scheduled")  # scheduled | confirmed | completed | cancelled | no_show
+    notes = Column(Text)
+    address = Column(String)
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contact = relationship("Contact")
+    technician = relationship("User", foreign_keys=[technician_id])
+
+
+class JobAssignment(Base):
+    __tablename__ = "job_assignments"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
+    assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=True)
+    status = Column(String, default="pending")  # pending | in_progress | completed | cancelled
+    priority = Column(String, default="normal")  # low | normal | high | urgent
+    scheduled_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contact = relationship("Contact")
+    assignee = relationship("User", foreign_keys=[assigned_to])
+    booking = relationship("Booking")
+
+
+class TimeEntry(Base):
+    __tablename__ = "time_entries"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    clock_in = Column(DateTime, nullable=False)
+    clock_out = Column(DateTime, nullable=True)
+    notes = Column(Text)
+    job_id = Column(Integer, ForeignKey("job_assignments.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+    job = relationship("JobAssignment")

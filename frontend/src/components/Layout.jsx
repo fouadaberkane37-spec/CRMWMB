@@ -14,8 +14,10 @@ export default function Layout() {
       <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
         <Outlet />
       </main>
-      {/* Bottom nav — mobile only */}
-      <BottomNav />
+      {/* Bottom nav — mobile only, z-10 relative so modals can stack above */}
+      <div className="z-10 relative">
+        <BottomNav />
+      </div>
     </div>
   )
 }

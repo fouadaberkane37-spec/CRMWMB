@@ -18,7 +18,7 @@ def list_deals(
     company_id: Optional[int] = None,
     search: Optional[str] = None,
     skip: int = 0,
-    limit: int = 500,
+    limit: int = 2000,
     db: Session = Depends(get_db),
     _=Depends(get_current_user),
 ):

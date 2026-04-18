@@ -9,6 +9,17 @@ import Deals from './pages/Deals.jsx'
 import Activities from './pages/Activities.jsx'
 import Users from './pages/Users.jsx'
 import KnockMap from './pages/KnockMap.jsx'
+import TeamMap from './pages/TeamMap.jsx'
+import Booking from './pages/Booking.jsx'
+import Calendar from './pages/Calendar.jsx'
+import Chats from './pages/Chats.jsx'
+import JobAssignment from './pages/JobAssignment.jsx'
+import TechSchedule from './pages/TechSchedule.jsx'
+import ClockInOut from './pages/ClockInOut.jsx'
+import Timesheet from './pages/Timesheet.jsx'
+import Analytics from './pages/Analytics.jsx'
+import TeamSales from './pages/TeamSales.jsx'
+import NewNumbers from './pages/NewNumbers.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -54,6 +65,17 @@ export default function App() {
             <Route path="activities" element={<Activities />} />
             <Route path="users" element={<Users />} />
             <Route path="map" element={<KnockMap />} />
+            <Route path="team-map" element={<TeamMap />} />
+            <Route path="booking" element={<Booking />} />
+            <Route path="calendar" element={<Calendar />} />
+            <Route path="chats" element={<Chats />} />
+            <Route path="jobs" element={<JobAssignment />} />
+            <Route path="tech-schedule" element={<TechSchedule />} />
+            <Route path="clock-in" element={<ClockInOut />} />
+            <Route path="timesheet" element={<Timesheet />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="team-sales" element={<TeamSales />} />
+            <Route path="new-numbers" element={<NewNumbers />} />
           </Route>
         </Routes>
       </BrowserRouter>
