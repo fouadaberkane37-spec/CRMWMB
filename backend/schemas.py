@@ -388,3 +388,26 @@ class TimeEntryOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── AppointmentReminder ───────────────────────────────────────────────────────
+class ReminderOut(BaseModel):
+    id: int
+    job_id: Optional[int]
+    contact_id: Optional[int]
+    reminder_type: str
+    phone_number: str
+    message_body: Optional[str]
+    status: str
+    sent_at: datetime
+    contact: Optional[Contact] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CampaignResult(BaseModel):
+    sent: int
+    skipped: int
+    failed: int
+    details: List[ReminderOut]

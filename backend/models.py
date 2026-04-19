@@ -191,6 +191,21 @@ class TechnicianShift(Base):
     user = relationship("User")
 
 
+class AppointmentReminder(Base):
+    __tablename__ = "appointment_reminders"
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("job_assignments.id", ondelete="SET NULL"), nullable=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
+    reminder_type = Column(String, nullable=False)  # 7day | 48h | 24h
+    phone_number = Column(String, nullable=False)
+    message_body = Column(Text)
+    status = Column(String, default="sent")  # sent | failed | skipped
+    sent_at = Column(DateTime, default=datetime.utcnow)
+
+    contact = relationship("Contact")
+    job = relationship("JobAssignment")
+
+
 class TimeEntry(Base):
     __tablename__ = "time_entries"
     id = Column(Integer, primary_key=True, index=True)

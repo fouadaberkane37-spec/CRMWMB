@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from database import engine, Base, SessionLocal
 import models
 from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks
-from routes import chats, booking, jobs, timesheet, analytics
+from routes import chats, booking, jobs, timesheet, analytics, reminders
 from auth import get_password_hash
 import os
 
@@ -65,6 +65,7 @@ app.include_router(booking.router)
 app.include_router(jobs.router)
 app.include_router(timesheet.router)
 app.include_router(analytics.router)
+app.include_router(reminders.router)
 
 # --- Serve built React frontend (production) ---
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")

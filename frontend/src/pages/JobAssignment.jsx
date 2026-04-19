@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../App.jsx'
-import { Plus, ChevronLeft, ChevronRight, X, Check, Clock, MapPin, DollarSign } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, X, Check, Clock, MapPin, DollarSign, Bell } from 'lucide-react'
 
 const API = '/api'
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -199,12 +199,15 @@ function AssignDrawer({ job, techs, shifts, onAssign, onUnassign, onClose }) {
   )
 }
 
+const REMINDER_LABEL = { '7day': '7d', '48h': '48h', '24h': '24h' }
+
 // ── Job card ──────────────────────────────────────────────────────────────────
-function JobCard({ job, techs, onOpenAssign, onStatusChange }) {
+function JobCard({ job, techs, remindersSent, onOpenAssign, onStatusChange }) {
   const assignedIds = new Set(job.technicians.map(jt => jt.technician_id))
   const contactName = job.contact
     ? `${job.contact.first_name} ${job.contact.last_name || ''}`.trim()
     : job.title
+  const sentTypes = remindersSent || []
 
   return (
     <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50 mb-3">
@@ -225,16 +228,33 @@ function JobCard({ job, techs, onOpenAssign, onStatusChange }) {
             )}
           </div>
         </div>
-        <select
-          value={job.status}
-          onChange={e => { e.stopPropagation(); onStatusChange(job.id, e.target.value) }}
-          onClick={e => e.stopPropagation()}
-          className={`text-xs font-medium rounded-xl px-3 py-1.5 border-0 focus:outline-none shrink-0 ${STATUS_STYLES[job.status] || 'bg-slate-700 text-slate-300'}`}
-          style={{ background: 'transparent' }}
-        >
-          {['scheduled','confirmed','in_progress','completed','cancelled'].map(s =>
-            <option key={s} value={s} className="bg-slate-800 text-white">{s.replace('_',' ')}</option>)}
-        </select>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <select
+            value={job.status}
+            onChange={e => { e.stopPropagation(); onStatusChange(job.id, e.target.value) }}
+            onClick={e => e.stopPropagation()}
+            className={`text-xs font-medium rounded-xl px-3 py-1.5 border-0 focus:outline-none ${STATUS_STYLES[job.status] || 'bg-slate-700 text-slate-300'}`}
+            style={{ background: 'transparent' }}
+          >
+            {['scheduled','confirmed','in_progress','completed','cancelled'].map(s =>
+              <option key={s} value={s} className="bg-slate-800 text-white">{s.replace('_',' ')}</option>)}
+          </select>
+          {/* Reminder badges */}
+          {sentTypes.length > 0 && (
+            <div className="flex gap-1">
+              {['7day','48h','24h'].map(t => (
+                <span key={t}
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 ${
+                    sentTypes.includes(t)
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-slate-700/50 text-slate-600 border border-slate-700'
+                  }`}>
+                  <Bell size={8} />{REMINDER_LABEL[t]}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Assigned techs row */}
@@ -276,6 +296,7 @@ export default function JobAssignment() {
   const [jobs, setJobs] = useState([])
   const [techs, setTechs] = useState([])
   const [shifts, setShifts] = useState([])
+  const [reminderMap, setReminderMap] = useState({})  // jobId → [types sent]
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [contacts, setContacts] = useState([])
@@ -296,6 +317,11 @@ export default function JobAssignment() {
     setShifts(await res.json())
   }, [dateStr])
 
+  const loadReminders = useCallback(async () => {
+    const res = await fetch(`${API}/reminders/by-date/${dateStr}`, { headers })
+    setReminderMap(await res.json())
+  }, [dateStr])
+
   useEffect(() => {
     async function init() {
       const [cRes, uRes] = await Promise.all([
@@ -311,6 +337,7 @@ export default function JobAssignment() {
   useEffect(() => {
     loadJobs()
     loadShifts()
+    loadReminders()
   }, [dateStr])
 
   // Re-sync selected week when selectedDate changes
@@ -453,6 +480,7 @@ export default function JobAssignment() {
               key={job.id}
               job={job}
               techs={techs}
+              remindersSent={reminderMap[job.id] || []}
               onOpenAssign={j => setAssignTarget(j)}
               onStatusChange={handleStatusChange}
             />
