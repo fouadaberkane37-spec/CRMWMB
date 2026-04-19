@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../App.jsx'
-import { ChevronLeft, ChevronRight, Clock, User, Bell, Send, CheckCircle2, AlertCircle, Loader } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, User, Bell, Send, CheckCircle2, AlertCircle, Loader, Phone, Wrench } from 'lucide-react'
 
 const API = '/api'
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -234,15 +234,45 @@ export default function Calendar() {
           ) : (
             <div className="space-y-2">
               {selectedBookings.map(b => (
-                <div key={b.id} className="bg-slate-900 rounded-xl p-3 border border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <span className="text-white font-medium text-sm">{b.title}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">{b.status}</span>
+                <div key={b.id} className="bg-slate-900 rounded-xl p-4 border border-slate-800">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <span className="text-white font-semibold text-sm">{b.title}</span>
+                      {b.contact && (
+                        <p className="text-slate-400 text-xs mt-0.5">
+                          {b.contact.first_name} {b.contact.last_name || ''}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 shrink-0">{b.status}</span>
                   </div>
-                  <div className="flex gap-4 mt-1 text-xs text-slate-400">
-                    <span className="flex items-center gap-1"><Clock size={11} />{new Date(b.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {b.duration_minutes}m</span>
-                    {b.technician && <span className="flex items-center gap-1"><User size={11} />{b.technician.full_name || b.technician.username}</span>}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Clock size={11} />
+                      {new Date(b.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {b.duration_minutes}m
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Wrench size={11} />
+                      {b.type}
+                    </span>
+                    {b.contact?.phone && (
+                      <a href={`tel:${b.contact.phone}`}
+                        className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors"
+                        onClick={e => e.stopPropagation()}>
+                        <Phone size={11} />
+                        {b.contact.phone}
+                      </a>
+                    )}
+                    {b.technician && (
+                      <span className="flex items-center gap-1">
+                        <User size={11} />
+                        {b.technician.full_name || b.technician.username}
+                      </span>
+                    )}
                   </div>
+                  {b.notes && (
+                    <p className="text-slate-500 text-xs mt-2 leading-relaxed">{b.notes}</p>
+                  )}
                 </div>
               ))}
             </div>
