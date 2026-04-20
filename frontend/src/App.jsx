@@ -19,6 +19,7 @@ import NewNumbers from './pages/NewNumbers.jsx'
 import TeamSales from './pages/TeamSales.jsx'
 import TechSchedule from './pages/TechSchedule.jsx'
 import JobAssignment from './pages/JobAssignment.jsx'
+import LandscapePipeline from './pages/LandscapePipeline.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="team-sales" element={<RequireAdmin><TeamSales /></RequireAdmin>} />
             <Route path="tech-schedule" element={<TechSchedule />} />
             <Route path="job-assignment" element={<RequireAdmin><JobAssignment /></RequireAdmin>} />
+            <Route path="landscape" element={<RequireAdmin><LandscapePipeline /></RequireAdmin>} />
           </Route>
         </Routes>
       </BrowserRouter>
