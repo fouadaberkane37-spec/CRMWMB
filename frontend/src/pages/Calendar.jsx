@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
          ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut,
-         List, LayoutGrid, Trash2, Pencil, Loader2, Users, UserCheck } from 'lucide-react'
+         List, LayoutGrid, Trash2, Pencil, Loader2, Users, UserCheck, Wrench } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -994,8 +994,8 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
         <div className="fixed inset-0" style={{ zIndex: 9999 }}>
           <div className="absolute inset-0 bg-black/70" onClick={() => setSheet(false)} />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl px-4 pt-5 space-y-4"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}
+            className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl px-4 pt-5 space-y-4 overflow-y-auto"
+            style={{ maxHeight: '90vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}
           >
             {/* Handle + header */}
             <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto -mt-1 mb-1" />
@@ -1007,6 +1007,46 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
               <button onClick={() => setSheet(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
                 <X size={16} />
               </button>
+            </div>
+
+            {/* Service section */}
+            {deal.contact?.services && (
+              <div>
+                <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Service</p>
+                <div className="bg-slate-800 rounded-2xl px-4 py-3 flex flex-wrap gap-2">
+                  {deal.contact.services.split(',').map(s => s.trim()).filter(Boolean).map(svc => (
+                    <span key={svc} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-600/30 text-indigo-300 text-sm font-medium">
+                      <Wrench size={13} className="shrink-0" />
+                      {SERVICE_LABELS[svc] || svc}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Contact section */}
+            <div>
+              <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Contact</p>
+              <div className="bg-slate-800 rounded-2xl overflow-hidden">
+                {deal.contact?.phone ? (
+                  <a href={`tel:${deal.contact.phone}`} className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-700 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-green-600/20 flex items-center justify-center shrink-0">
+                      <Phone size={16} className="text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs mb-0.5">Phone</p>
+                      <p className="text-white font-semibold text-base">{deal.contact.phone}</p>
+                    </div>
+                  </a>
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-3.5">
+                    <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
+                      <Phone size={16} className="text-slate-500" />
+                    </div>
+                    <p className="text-slate-500 text-sm">No phone on file</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Status section */}
