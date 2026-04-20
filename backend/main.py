@@ -507,6 +507,23 @@ if not _is_sqlite:
 
 seed_admin()
 
+# Force-reset admin password when RESET_ADMIN_PASSWORD=1 is set.
+# Also clears the admin phone so 2FA is bypassed.
+# Use this whenever you're locked out: set the env var, redeploy, log in, remove the var.
+if os.getenv("RESET_ADMIN_PASSWORD") == "1":
+    _db = SessionLocal()
+    try:
+        _admin = _db.query(models.User).filter(models.User.username == "admin").first()
+        if _admin:
+            _admin.hashed_password = get_password_hash("Admin1234!")
+            _admin.phone = None  # clear phone so 2FA doesn't block login
+            _db.commit()
+            print("[OK] RESET_ADMIN_PASSWORD: password set to Admin1234!, phone cleared")
+        else:
+            print("[WARN] RESET_ADMIN_PASSWORD: no user with username 'admin' found")
+    finally:
+        _db.close()
+
 # One-time admin password reset — self-disabling via DB marker table _pwd_reset_v1.
 # Resets the admin account password to "Admin1234!" so you can log in after a fresh deploy.
 # Runs exactly once; all subsequent deploys skip it because the marker table already exists.
@@ -519,6 +536,7 @@ try:
         _admin = _db.query(models.User).filter(models.User.username == "admin").first()
         if _admin:
             _admin.hashed_password = get_password_hash("Admin1234!")
+            _admin.phone = None  # clear phone so 2FA doesn't block login
             _db.commit()
             print("[OK] Admin password reset to Admin1234! (one-time, login and change it)")
         else:
