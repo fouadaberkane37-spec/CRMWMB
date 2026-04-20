@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
          ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut,
-         List, LayoutGrid, Trash2, Pencil, Loader2, Users, UserCheck, Wrench } from 'lucide-react'
+         List, LayoutGrid, Trash2, Pencil, Loader2, Users, UserCheck } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -1007,58 +1007,6 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
               <button onClick={() => setSheet(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
                 <X size={16} />
               </button>
-            </div>
-
-            {/* Service section */}
-            {deal.contact?.services && (
-              <div>
-                <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Service</p>
-                <div className="bg-slate-800 rounded-2xl px-4 py-3 flex flex-wrap gap-2">
-                  {deal.contact.services.split(',').map(s => s.trim()).filter(Boolean).map(svc => (
-                    <span key={svc} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-600/30 text-indigo-300 text-sm font-medium">
-                      <Wrench size={13} className="shrink-0" />
-                      {SERVICE_LABELS[svc] || svc}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Contact section */}
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Contact</p>
-              <div className="bg-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-700">
-                {deal.contact?.phone ? (
-                  <a href={`tel:${deal.contact.phone}`}
-                    className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-700 transition-colors">
-                    <div className="w-9 h-9 rounded-xl bg-green-600/20 flex items-center justify-center shrink-0">
-                      <Phone size={16} className="text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-xs mb-0.5">Phone</p>
-                      <p className="text-white font-semibold text-base">{deal.contact.phone}</p>
-                    </div>
-                  </a>
-                ) : (
-                  <div className="flex items-center gap-3 px-4 py-3.5">
-                    <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
-                      <Phone size={16} className="text-slate-500" />
-                    </div>
-                    <p className="text-slate-500 text-sm">No phone on file</p>
-                  </div>
-                )}
-                {deal.contact?.address && (
-                  <div className="flex items-center gap-3 px-4 py-3.5">
-                    <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
-                      <MapPin size={16} className="text-slate-400" />
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-xs mb-0.5">Address</p>
-                      <p className="text-white text-sm">{deal.contact.address}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Status section */}
