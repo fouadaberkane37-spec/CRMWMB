@@ -107,7 +107,7 @@ function LeadForm({ initial, onSave, onClose }) {
   return (
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="absolute bottom-0 left-0 right-0 bg-[#050f0a] rounded-t-2xl px-4 pt-5 overflow-y-auto"
+      <div className="absolute bottom-0 left-0 right-0 bg-[#020805] rounded-t-2xl px-4 pt-5 overflow-y-auto"
         style={{ maxHeight: '92vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
         <div className="w-10 h-1 bg-emerald-900 rounded-full mx-auto -mt-1 mb-4" />
         <div className="flex items-center justify-between mb-5">
@@ -238,7 +238,7 @@ function DealSheet({ deal, onClose, onUpdated, onDeleted }) {
   return (
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="absolute bottom-0 left-0 right-0 bg-[#050f0a] rounded-t-2xl px-4 pt-5 overflow-y-auto"
+      <div className="absolute bottom-0 left-0 right-0 bg-[#020805] rounded-t-2xl px-4 pt-5 overflow-y-auto"
         style={{ maxHeight: '90vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
         <div className="w-10 h-1 bg-emerald-900 rounded-full mx-auto -mt-1 mb-4" />
 
@@ -415,7 +415,7 @@ export default function LandscapePipeline() {
   const curStage = STAGE_MAP[activeStage] || STAGE_MAP.lead
 
   return (
-    <div className="flex flex-col h-full bg-[#050f0a]">
+    <div className="flex flex-col h-full bg-[#020805]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0">
         <div>

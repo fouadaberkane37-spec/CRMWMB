@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, BookOpen,
@@ -18,6 +18,8 @@ export default function BottomNav() {
     user?.full_name?.toLowerCase().includes('fouad')
   )
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const isLandscape = pathname === '/landscape'
 
   // Primary tab items (always visible)
   const primaryNav = isTech
@@ -88,7 +90,7 @@ export default function BottomNav() {
   return (
     <>
       <nav
-        className="bg-slate-900/95 backdrop-blur-md border-t border-slate-700/50 flex flex-shrink-0"
+        className={`backdrop-blur-md border-t flex flex-shrink-0 ${isLandscape ? 'bg-[#020805]/95 border-emerald-900/40' : 'bg-slate-900/95 border-slate-700/50'}`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {primaryNav.map(({ to, label, icon: Icon, exact }) => (
@@ -98,7 +100,7 @@ export default function BottomNav() {
             end={exact}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                isActive ? 'text-indigo-400' : 'text-slate-500'
+                isActive ? (isLandscape ? 'text-emerald-400' : 'text-indigo-400') : (isLandscape ? 'text-emerald-900' : 'text-slate-500')
               }`
             }
             style={{ minHeight: '68px', paddingTop: '12px', paddingBottom: '12px' }}
@@ -111,7 +113,7 @@ export default function BottomNav() {
         {showMoreBtn && (
           <button
             onClick={() => setShowMore(true)}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 text-slate-500"
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 ${isLandscape ? 'text-emerald-900' : 'text-slate-500'}`}
             style={{ minHeight: '68px', paddingTop: '12px', paddingBottom: '12px' }}
           >
             <Menu size={24} />

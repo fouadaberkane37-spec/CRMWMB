@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, BookOpen,
@@ -97,7 +97,9 @@ function useUnreadCount(isAdmin) {
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const isAdmin = user?.role === 'admin'
+  const isLandscape = pathname === '/landscape'
   const unread = useUnreadCount(isAdmin)
 
   function isVisible(item) {
@@ -110,16 +112,16 @@ export default function Sidebar() {
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
       isActive
-        ? 'bg-indigo-600 text-white'
-        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+        ? (isLandscape ? 'bg-emerald-800/60 text-emerald-200' : 'bg-indigo-600 text-white')
+        : (isLandscape ? 'text-emerald-700 hover:text-emerald-200 hover:bg-emerald-900/40' : 'text-slate-400 hover:text-white hover:bg-slate-800')
     }`
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-slate-900 flex flex-col h-full">
+    <aside className={`w-60 flex-shrink-0 flex flex-col h-full ${isLandscape ? 'bg-[#020805]' : 'bg-slate-900'}`}>
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-slate-700/50">
+      <div className={`px-6 py-5 border-b ${isLandscape ? 'border-emerald-900/30' : 'border-slate-700/50'}`}>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isLandscape ? 'bg-emerald-800' : 'bg-indigo-500'}`}>
             <Zap size={16} className="text-white" />
           </div>
           <span className="text-white font-bold text-lg">CRM</span>
@@ -131,7 +133,7 @@ export default function Sidebar() {
         {isAdmin ? (
           ADMIN_NAV_GROUPS.map(group => (
             <div key={group.label} className="mb-4">
-              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+              <p className={`px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest ${isLandscape ? 'text-emerald-900' : 'text-slate-600'}`}>
                 {group.label}
               </p>
               <div className="space-y-0.5">
@@ -157,7 +159,7 @@ export default function Sidebar() {
             if (!visible.length) return null
             return (
               <div key={group.label} className="mb-4">
-                <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+                <p className={`px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest ${isLandscape ? 'text-emerald-900' : 'text-slate-600'}`}>
                   {group.label}
                 </p>
                 <div className="space-y-0.5">
@@ -175,14 +177,14 @@ export default function Sidebar() {
       </nav>
 
       {/* User footer */}
-      <div className="px-3 py-4 border-t border-slate-700/50">
+      <div className={`px-3 py-4 border-t ${isLandscape ? 'border-emerald-900/30' : 'border-slate-700/50'}`}>
         <div className="px-3 py-2 mb-1">
           <p className="text-white text-sm font-medium truncate">{user?.full_name || user?.username}</p>
-          <p className="text-slate-400 text-xs truncate capitalize">{user?.role}</p>
+          <p className={`text-xs truncate capitalize ${isLandscape ? 'text-emerald-700' : 'text-slate-400'}`}>{user?.role}</p>
         </div>
         <button
           onClick={() => { logout(); navigate('/login') }}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isLandscape ? 'text-emerald-700 hover:text-emerald-200 hover:bg-emerald-900/30' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
         >
           <LogOut size={18} />
           Sign out
