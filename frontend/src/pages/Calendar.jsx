@@ -931,6 +931,10 @@ export default function Calendar() {
   const [businessType, setBusinessType] = useState('window') // 'window' | 'landscape'
   const [phases, setPhases] = useState([])
   const [phasesLoading, setPhasesLoading] = useState(false)
+  const [projectPicker, setProjectPicker] = useState(false)
+  const [approvedProjects, setApprovedProjects] = useState([])
+  const [pickerLoading, setPickerLoading] = useState(false)
+  const [scheduleTarget, setScheduleTarget] = useState(null) // synthetic phase obj for LandscapeProjectSheet
 
   const loadPhases = useCallback(() => {
     setPhasesLoading(true)
@@ -942,6 +946,14 @@ export default function Calendar() {
   useEffect(() => {
     if (businessType === 'landscape') loadPhases()
   }, [businessType, loadPhases])
+
+  function openProjectPicker() {
+    setProjectPicker(true)
+    setPickerLoading(true)
+    api.get('/deals/', { params: { limit: 200, business_type: 'landscape' } })
+      .then(r => setApprovedProjects(r.data.filter(d => d.stage === 'won')))
+      .finally(() => setPickerLoading(false))
+  }
 
   // Drag state
   const [draggingDealId, setDraggingDealId] = useState(null)
@@ -1091,6 +1103,15 @@ export default function Calendar() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Schedule project button — landscape + admin only */}
+          {businessType === 'landscape' && isAdmin && (
+            <button
+              onClick={openProjectPicker}
+              className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-semibold"
+            >
+              <Plus size={14} /> Schedule
+            </button>
+          )}
           {/* View toggle — mobile only */}
           <button
             onClick={() => setViewMode(v => v === 'agenda' ? 'grid' : 'agenda')}
@@ -1316,6 +1337,81 @@ export default function Calendar() {
             </span>
           </div>
         </>
+      )}
+
+      {/* ── Project picker sheet ── */}
+      {projectPicker && (
+        <div className="fixed inset-0" style={{ zIndex: 9999 }}>
+          <div className="absolute inset-0 bg-black/70" onClick={() => setProjectPicker(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl px-4 pt-5 overflow-y-auto"
+            style={{ maxHeight: '80vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+            <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto -mt-1 mb-4" />
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-white font-bold text-base">Approved Projects</p>
+                <p className="text-slate-500 text-xs mt-0.5">Tap a project to schedule its steps</p>
+              </div>
+              <button onClick={() => setProjectPicker(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
+                <X size={16} />
+              </button>
+            </div>
+            {pickerLoading ? (
+              <div className="flex items-center justify-center py-10 text-slate-500 text-sm">
+                <Loader2 size={18} className="animate-spin mr-2" /> Loading…
+              </div>
+            ) : approvedProjects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-slate-600">
+                <Leaf size={32} className="mb-3 opacity-30" />
+                <p className="text-sm text-center">No approved projects yet.</p>
+                <p className="text-xs text-slate-600 mt-1 text-center">Move a lead to Construction in the Landscape Pipeline first.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {approvedProjects.map(deal => {
+                  const contact = deal.contact || {}
+                  const name = [contact.first_name, contact.last_name].filter(Boolean).join(' ') || deal.title
+                  const services = (contact.services || '').split(',').map(s => s.trim()).filter(Boolean)
+                  return (
+                    <button key={deal.id} onClick={() => {
+                      setProjectPicker(false)
+                      setScheduleTarget({
+                        deal_id: deal.id,
+                        deal_title: deal.title,
+                        deal_value: deal.value,
+                        contact: deal.contact,
+                      })
+                    }}
+                      className="w-full text-left bg-slate-800 border border-slate-700/50 rounded-2xl px-4 py-3 active:bg-slate-700 transition-colors">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-white font-semibold text-sm">{name}</p>
+                        {deal.value > 0 && <span className="text-emerald-400 text-xs font-bold">${deal.value.toFixed(0)}</span>}
+                      </div>
+                      {contact.address && <p className="text-slate-500 text-xs truncate mb-1.5">{contact.address}</p>}
+                      {services.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {services.map(svc => (
+                            <span key={svc} className="text-[10px] px-2 py-0.5 bg-emerald-900/30 border border-emerald-700/30 rounded-full text-emerald-400">
+                              {svc.replace('pavers-', 'Pavers ').replace('-', ' ')}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Schedule sheet for picked project ── */}
+      {scheduleTarget && (
+        <LandscapeProjectSheet
+          phase={scheduleTarget}
+          onClose={() => setScheduleTarget(null)}
+          onUpdated={loadPhases}
+        />
       )}
     </div>
   )
