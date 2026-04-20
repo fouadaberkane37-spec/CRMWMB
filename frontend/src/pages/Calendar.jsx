@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../App.jsx'
-import { ChevronLeft, ChevronRight, LayoutGrid, List, X, Calendar as CalIcon, Bell, Send, CheckCircle2, AlertCircle, Loader, Phone, Wrench } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LayoutGrid, List, X, Calendar as CalIcon, Bell, Send, CheckCircle2, AlertCircle, Loader, Phone, Wrench, MapPin } from 'lucide-react'
 
 const API = '/api'
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -79,24 +79,38 @@ function DetailSheet({ booking, onClose, onUpdate }) {
 
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
-          <div>
+          <div className="flex-1 min-w-0 pr-3">
             <h2 className="text-white font-bold text-xl">{contactName}</h2>
             <p className="text-slate-400 text-sm mt-0.5">
               {fmtTime(booking.scheduled_at)}
               {booking.value != null && ` · $${booking.value}`}
-              {booking.contact?.phone && (
-                <a href={`tel:${booking.contact.phone}`} className="ml-2 text-indigo-400">
-                  {booking.contact.phone}
-                </a>
-              )}
             </p>
-            {booking.type && (
-              <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1">
-                <Wrench size={10} /> {booking.type}
-              </p>
-            )}
+            {/* Info rows */}
+            <div className="mt-3 space-y-2">
+              {booking.type && (
+                <div className="flex items-center gap-2">
+                  <Wrench size={13} className="text-slate-500 shrink-0" />
+                  <span className="text-slate-300 text-sm capitalize">{booking.type.replace('_', ' ')}</span>
+                </div>
+              )}
+              {booking.contact?.phone && (
+                <div className="flex items-center gap-2">
+                  <Phone size={13} className="text-slate-500 shrink-0" />
+                  <a href={`tel:${booking.contact.phone}`}
+                    className="text-indigo-400 text-sm hover:text-indigo-300 transition-colors">
+                    {booking.contact.phone}
+                  </a>
+                </div>
+              )}
+              {booking.address && (
+                <div className="flex items-start gap-2">
+                  <MapPin size={13} className="text-slate-500 shrink-0 mt-0.5" />
+                  <span className="text-slate-300 text-sm">{booking.address}</span>
+                </div>
+              )}
+            </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0">
             <X size={16} />
           </button>
         </div>
@@ -348,18 +362,23 @@ export default function Calendar() {
                         onClick={() => setSelected(b)}
                         className={`w-full text-left bg-slate-900 border-l-4 ${cfg.card} rounded-r-2xl rounded-l-sm px-4 py-3.5 border border-slate-800 hover:border-slate-700 transition-colors`}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-start justify-between gap-2">
                           <span className="text-white font-semibold text-sm">{contactName}</span>
-                          <span className={`text-xs font-medium ${cfg.text}`}>{cfg.label}</span>
+                          <span className={`text-xs font-medium shrink-0 ${cfg.text}`}>{cfg.label}</span>
                         </div>
-                        <div className="flex items-center gap-3 mt-1 text-slate-400 text-xs">
+                        <div className="flex items-center gap-2 mt-1 text-slate-400 text-xs flex-wrap">
                           <span>{fmtTime(b.scheduled_at)}</span>
                           {b.value != null && <span>· ${b.value}</span>}
-                          {b.type && <span>· {b.type}</span>}
+                          {b.type && <span className="flex items-center gap-0.5"><Wrench size={10} />{b.type.replace('_',' ')}</span>}
                           {b.contact?.phone && (
-                            <span className="text-indigo-400">{b.contact.phone}</span>
+                            <span className="text-indigo-400 flex items-center gap-0.5"><Phone size={10} />{b.contact.phone}</span>
                           )}
                         </div>
+                        {b.address && (
+                          <p className="text-slate-500 text-xs mt-1 flex items-center gap-1">
+                            <MapPin size={10} className="shrink-0" />{b.address}
+                          </p>
+                        )}
                       </button>
                     )
                   })}
