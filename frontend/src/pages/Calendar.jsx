@@ -509,13 +509,14 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
 }
 
 // ── Day cell — drop target ─────────────────────────────────────────────────────
-function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, isDragOver, onDragOver, onDragLeave, onDrop, onUpdate, onReschedule, onDragStart, onDragEnd, draggingDealId, isAdmin, isTech }) {
+function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, isDragOver, onDragOver, onDragLeave, onDrop, onUpdate, onReschedule, onDragStart, onDragEnd, draggingDealId, isAdmin, isTech, landscapePhases = [], isLandscape = false }) {
   return (
     <div
-      className={`border-b border-r border-slate-700/30 p-1.5 flex flex-col gap-1 transition-colors ${
-        !isValid   ? 'bg-slate-900/30' :
+      className={`border-b border-r p-1.5 flex flex-col gap-1 transition-colors ${
+        !isValid   ? (isLandscape ? 'bg-emerald-950/40 border-emerald-900/30' : 'bg-slate-900/30 border-slate-700/30') :
         isDragOver ? 'bg-indigo-900/25 border-indigo-500/60' :
-        isPast     ? 'bg-slate-900/60' : 'bg-slate-900'
+        isPast     ? (isLandscape ? 'bg-emerald-950/70 border-emerald-900/30' : 'bg-slate-900/60 border-slate-700/30') :
+                     (isLandscape ? 'bg-emerald-950 border-emerald-900/30' : 'bg-slate-900 border-slate-700/30')
       }`}
       onDragOver={isValid && isAdmin ? onDragOver : undefined}
       onDragLeave={isValid && isAdmin ? onDragLeave : undefined}
@@ -528,7 +529,7 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, i
 
       {isValid && (
         <span className={`text-xs font-semibold self-start w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 ${
-          isToday ? 'bg-indigo-600 text-white' : isPast ? 'text-slate-600' : 'text-slate-400'
+          isToday ? (isLandscape ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white') : isPast ? 'text-slate-600' : 'text-slate-400'
         }`}>
           {dayNum}
         </span>
@@ -555,6 +556,21 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, i
           isDragging={draggingDealId === deal.id}
         />
       ))}
+
+      {landscapePhases.map(p => {
+        const time = p.phase_date
+          ? new Date(p.phase_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+          : ''
+        return (
+          <div key={p.id} className={`px-1.5 py-1 rounded-md text-xs font-medium leading-tight truncate flex items-center gap-1 ${
+            p.status === 'done' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-emerald-700/30 text-emerald-200'
+          }`}>
+            <Leaf size={8} className="shrink-0 opacity-70" />
+            {time && <span className="opacity-60 shrink-0">{time}</span>}
+            <span className="truncate">{p.title}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -1092,6 +1108,13 @@ export default function Calendar() {
     done: monthPhases.filter(p => p.status === 'done').length,
   }
 
+  const phasesByDate = monthPhases.reduce((acc, p) => {
+    const key = fmt(new Date(p.phase_date))
+    if (!acc[key]) acc[key] = []
+    acc[key].push(p)
+    return acc
+  }, {})
+
   return (
     <div className={`flex flex-col transition-colors ${businessType === 'landscape' ? 'bg-emerald-950' : ''}`} style={{ height: '100%' }}>
       {/* ── Header ── */}
@@ -1276,8 +1299,8 @@ export default function Calendar() {
           </div>
 
           {/* ── GRID VIEW (desktop default, mobile optional) ── */}
-          <div className={`flex-1 flex flex-col min-h-0 mx-4 mb-3 bg-slate-900 rounded-2xl border border-slate-700/50 overflow-hidden ${viewMode === 'grid' ? 'block' : 'hidden md:flex md:flex-col'}`}>
-            <div className="grid grid-cols-7 border-b border-slate-700/50 flex-shrink-0">
+          <div className={`flex-1 flex flex-col min-h-0 mx-4 mb-3 rounded-2xl overflow-hidden ${businessType === 'landscape' ? 'bg-emerald-950 border border-emerald-900/50' : 'bg-slate-900 border border-slate-700/50'} ${viewMode === 'grid' ? 'block' : 'hidden md:flex md:flex-col'}`}>
+            <div className={`grid grid-cols-7 border-b flex-shrink-0 ${businessType === 'landscape' ? 'border-emerald-900/50' : 'border-slate-700/50'}`}>
               {DAYS.map(d => (
                 <div key={d} className="py-2 text-center text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{d.slice(0,1)}</div>
               ))}
@@ -1323,6 +1346,8 @@ export default function Calendar() {
                       onDragEnd={() => { setDraggingDealId(null); setDragOverDate(undefined) }}
                       isAdmin={isAdmin}
                       isTech={isTech}
+                      isLandscape={businessType === 'landscape'}
+                      landscapePhases={businessType === 'landscape' ? (phasesByDate[dateStr] || []) : []}
                     />
                   </div>
                 )
