@@ -132,35 +132,37 @@ function AssignDrawer({ job, techs, shifts, onAssign, onUnassign, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center md:hidden">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-slate-900 rounded-t-2xl w-full px-4 pt-5"
-        style={{ maxHeight: '80vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-white font-bold text-lg">Assign Technicians</span>
-          <button onClick={onClose}
-            className="bg-indigo-600 text-white text-sm font-semibold px-4 py-1.5 rounded-lg">
-            Done
-          </button>
-        </div>
-        <p className="text-slate-400 text-sm mb-4">
-          {contactName} · {assignedIds.size} assigned
-        </p>
+      <div className="relative bg-slate-900 rounded-t-2xl w-full flex flex-col"
+        style={{ maxHeight: '82vh' }}>
 
-        {/* Legend */}
-        <div className="flex gap-5 mb-4 flex-wrap">
-          <span className="flex items-center gap-1.5 text-xs text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-green-500" /> Shift confirmed
-          </span>
-          <span className="flex items-center gap-1.5 text-xs text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-blue-500" /> Available
-          </span>
-          <span className="flex items-center gap-1.5 text-xs text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-slate-500" /> No availability set
-          </span>
+        {/* Fixed header — never scrolls */}
+        <div className="px-4 pt-5 shrink-0">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-white font-bold text-lg">Assign Technicians</span>
+            <button onClick={onClose}
+              className="bg-indigo-600 text-white text-sm font-semibold px-4 py-1.5 rounded-lg">
+              Done
+            </button>
+          </div>
+          <p className="text-slate-400 text-sm mb-3">
+            {contactName} · {assignedIds.size} assigned
+          </p>
+          <div className="flex gap-5 mb-3 flex-wrap">
+            <span className="flex items-center gap-1.5 text-xs text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-green-500" /> Shift confirmed
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-blue-500" /> Available
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-slate-500" /> No availability set
+            </span>
+          </div>
         </div>
 
-        {/* Tech list */}
-        <div className="overflow-y-auto flex-1 space-y-2 pb-2">
+        {/* Scrollable tech list */}
+        <div className="overflow-y-auto flex-1 px-4 space-y-2"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}>
           {techs.map(tech => {
             const assigned = assignedIds.has(tech.id)
             const { text, color, dot } = techLabel(tech.id)
