@@ -8,16 +8,42 @@ import {
 } from 'lucide-react'
 import api from '../api.js'
 
-// ── Admin-only nav (exactly 5 items) ──────────────────────────────────────────
-const ADMIN_NAV = [
-  { to: '/',               label: 'Dashboard',      icon: LayoutDashboard, exact: true },
-  { to: '/map',            label: 'Personal Map',   icon: MapPin },
-  { to: '/booking',        label: 'Booking',        icon: BookOpen },
-  { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase },
-  { to: '/chats',          label: 'Messages',       icon: MessageSquare, badge: true },
+const ADMIN_NAV_GROUPS = [
+  {
+    label: 'Overview',
+    items: [
+      { to: '/',          label: 'Dashboard',  icon: LayoutDashboard, exact: true },
+      { to: '/analytics', label: 'Analytics',  icon: TrendingUp },
+      { to: '/contacts',  label: 'Contacts',   icon: Users },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { to: '/booking',        label: 'Booking',        icon: BookOpen },
+      { to: '/calendar',       label: 'Calendar',       icon: CalendarDays },
+      { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase },
+    ],
+  },
+  {
+    label: 'Maps & Leads',
+    items: [
+      { to: '/map',         label: 'My Map',      icon: MapPin },
+      { to: '/team-map',    label: 'Team Map',    icon: Globe },
+      { to: '/new-numbers', label: 'New Numbers', icon: PhoneIncoming },
+    ],
+  },
+  {
+    label: 'Team',
+    items: [
+      { to: '/chats',      label: 'Messages',   icon: MessageSquare, badge: true },
+      { to: '/team-sales', label: 'Team Sales', icon: BarChart2 },
+      { to: '/timesheet',  label: 'Timesheet',  icon: ClipboardList },
+      { to: '/users',      label: 'Users',      icon: UserCog },
+    ],
+  },
 ]
 
-// ── Non-admin nav (unchanged) ──────────────────────────────────────────────────
 const NAV_GROUPS = [
   {
     label: 'Sales',
@@ -100,20 +126,29 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {isAdmin ? (
-          ADMIN_NAV.map(({ to, label, icon: Icon, exact, badge }) => (
-            <NavLink key={to} to={to} end={exact} className={linkClass}>
-              <div className="relative">
-                <Icon size={17} />
-                {badge && unread > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
-                    {unread > 99 ? '99+' : unread}
-                  </span>
-                )}
+          ADMIN_NAV_GROUPS.map(group => (
+            <div key={group.label} className="mb-4">
+              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map(({ to, label, icon: Icon, exact, badge }) => (
+                  <NavLink key={to} to={to} end={exact} className={linkClass}>
+                    <div className="relative">
+                      <Icon size={17} />
+                      {badge && unread > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
+                    </div>
+                    {label}
+                  </NavLink>
+                ))}
               </div>
-              {label}
-            </NavLink>
+            </div>
           ))
         ) : (
           NAV_GROUPS.map(group => {
