@@ -648,7 +648,7 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
     reload()
   }
 
-  const PhaseForm = () => (
+  const phaseFormJSX = (
     <div className="bg-slate-800 rounded-2xl p-4 space-y-3 border border-slate-700/50">
       <input
         value={form.title}
@@ -781,7 +781,7 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
                 return (
                   <div key={p.id}>
                     {editing === p.id ? (
-                      <PhaseForm />
+                      phaseFormJSX
                     ) : (
                       <div className={`flex items-start gap-3 px-4 py-3 rounded-2xl border transition-colors ${
                         isDone ? 'bg-emerald-900/20 border-emerald-700/30' : 'bg-slate-800 border-slate-700/50'
@@ -841,7 +841,7 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
 
         {/* Add step form or button */}
         {adding ? (
-          <PhaseForm />
+          phaseFormJSX
         ) : (
           <button
             onClick={startAdd}
