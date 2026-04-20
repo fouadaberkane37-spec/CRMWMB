@@ -513,10 +513,10 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, i
   return (
     <div
       className={`border-b border-r p-1.5 flex flex-col gap-1 transition-colors ${
-        !isValid   ? (isLandscape ? 'bg-emerald-950 border-emerald-800/40' : 'bg-slate-900/30 border-slate-700/30') :
-        isDragOver ? (isLandscape ? 'bg-emerald-700/50 border-emerald-500' : 'bg-indigo-900/25 border-indigo-500/60') :
-        isPast     ? (isLandscape ? 'bg-emerald-950 border-emerald-800/40' : 'bg-slate-900/60 border-slate-700/30') :
-                     (isLandscape ? 'bg-emerald-900 border-emerald-700/60' : 'bg-slate-900 border-slate-700/30')
+        !isValid   ? (isLandscape ? 'bg-[#050f0a] border-emerald-950' : 'bg-slate-900/30 border-slate-700/30') :
+        isDragOver ? (isLandscape ? 'bg-emerald-900/40 border-emerald-700/60' : 'bg-indigo-900/25 border-indigo-500/60') :
+        isPast     ? (isLandscape ? 'bg-[#060d09] border-emerald-950' : 'bg-slate-900/60 border-slate-700/30') :
+                     (isLandscape ? 'bg-[#0a1f14] border-emerald-900/40' : 'bg-slate-900 border-slate-700/30')
       }`}
       onDragOver={isValid && isAdmin ? onDragOver : undefined}
       onDragLeave={isValid && isAdmin ? onDragLeave : undefined}
@@ -741,10 +741,10 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div
-        className="absolute bottom-0 left-0 right-0 bg-emerald-950 rounded-t-2xl px-4 pt-5 overflow-y-auto"
+        className="absolute bottom-0 left-0 right-0 bg-[#050f0a] rounded-t-2xl px-4 pt-5 overflow-y-auto"
         style={{ maxHeight: '92vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
       >
-        <div className="w-10 h-1 bg-emerald-800 rounded-full mx-auto -mt-1 mb-4" />
+        <div className="w-10 h-1 bg-emerald-900 rounded-full mx-auto -mt-1 mb-4" />
 
         {/* Project header */}
         <div className="flex items-start justify-between mb-4">
@@ -1116,7 +1116,7 @@ export default function Calendar() {
   }, {})
 
   return (
-    <div className={`flex flex-col transition-colors ${businessType === 'landscape' ? 'bg-emerald-950' : 'bg-slate-950'}`} style={{ height: '100%' }}>
+    <div className={`flex flex-col transition-colors ${businessType === 'landscape' ? 'bg-[#050f0a]' : ''}`} style={{ height: '100%' }}>
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0">
         <div>
@@ -1299,8 +1299,8 @@ export default function Calendar() {
           </div>
 
           {/* ── GRID VIEW (desktop default, mobile optional) ── */}
-          <div className={`flex-1 flex flex-col min-h-0 mx-4 mb-3 rounded-2xl overflow-hidden ${businessType === 'landscape' ? 'bg-emerald-950 border border-emerald-800/60' : 'bg-slate-900 border border-slate-700/50'} ${viewMode === 'grid' ? 'block' : 'hidden md:flex md:flex-col'}`}>
-            <div className={`grid grid-cols-7 border-b flex-shrink-0 ${businessType === 'landscape' ? 'bg-emerald-950 border-emerald-800/60' : 'border-slate-700/50'}`}>
+          <div className={`flex-1 flex flex-col min-h-0 mx-4 mb-3 rounded-2xl overflow-hidden ${businessType === 'landscape' ? 'bg-[#050f0a] border border-emerald-900/30' : 'bg-slate-900 border border-slate-700/50'} ${viewMode === 'grid' ? 'block' : 'hidden md:flex md:flex-col'}`}>
+            <div className={`grid grid-cols-7 border-b flex-shrink-0 ${businessType === 'landscape' ? 'bg-[#050f0a] border-emerald-900/30' : 'border-slate-700/50'}`}>
               {DAYS.map(d => (
                 <div key={d} className={`py-2 text-center text-[10px] font-semibold uppercase tracking-wide ${businessType === 'landscape' ? 'text-emerald-500' : 'text-slate-500'}`}>{d.slice(0,1)}</div>
               ))}
