@@ -16,14 +16,9 @@ const SERVICES_WINDOW = [
 ]
 
 const SERVICES_LANDSCAPE = [
-  { value: 'lawn-mowing',        label: 'Lawn Mowing' },
-  { value: 'hedge-trimming',     label: 'Hedge Trimming' },
-  { value: 'landscape-cleanup',  label: 'Cleanup' },
-  { value: 'mulching',           label: 'Mulching' },
-  { value: 'weeding',            label: 'Weeding' },
-  { value: 'planting',           label: 'Planting' },
-  { value: 'aeration',           label: 'Lawn Aeration' },
-  { value: 'snow-removal',       label: 'Snow Removal' },
+  { value: 'pavers-pressure', label: 'Pavers Pressure Washing' },
+  { value: 'pavers-relevel',  label: 'Pavers Relevel' },
+  { value: 'pavers-install',  label: 'Pavers Install' },
 ]
 
 function Field({ label, icon: Icon, children }) {

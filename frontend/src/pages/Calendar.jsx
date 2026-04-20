@@ -560,14 +560,9 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, i
 }
 
 const LANDSCAPE_SERVICE_LABELS = {
-  'lawn-mowing':       'Lawn Mowing',
-  'hedge-trimming':    'Hedge Trimming',
-  'landscape-cleanup': 'Cleanup',
-  'mulching':          'Mulching',
-  'weeding':           'Weeding',
-  'planting':          'Planting',
-  'aeration':          'Lawn Aeration',
-  'snow-removal':      'Snow Removal',
+  'pavers-pressure': 'Pavers Pressure Washing',
+  'pavers-relevel':  'Pavers Relevel',
+  'pavers-install':  'Pavers Install',
 }
 
 // ── Landscape Project Sheet ────────────────────────────────────────────────────
