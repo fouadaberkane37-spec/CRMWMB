@@ -613,12 +613,8 @@ try:
 except Exception as _e:
     print(f"[WARN] pwd reset skipped: {_e}")
 
-# One-time data wipe (fresh start) — self-disabling via DB marker table.
-# Creates _wipe_v1_done on first run; subsequent deploys skip it automatically.
-try:
-    with engine.begin() as _conn:
-        _conn.execute(text("CREATE TABLE _wipe_v1_done (id int)"))
-    # Table didn't exist → this is the first run → perform wipe
+# Data wipe — only runs when WIPE_DATA=1 is explicitly set.
+if os.getenv("WIPE_DATA") == "1":
     _db = SessionLocal()
     try:
         _db.query(models.Deal).delete(synchronize_session=False)
@@ -640,17 +636,12 @@ try:
         except Exception:
             pass
         _db.commit()
-        print("[OK] One-time wipe complete — contacts, deals, calendar, knocks, chats, activities cleared")
+        print("[OK] WIPE_DATA=1: contacts, deals, calendar, knocks, chats, activities cleared")
     except Exception as _e:
         _db.rollback()
-        print(f"[ERR] One-time wipe failed: {_e}")
+        print(f"[ERR] Wipe failed: {_e}")
     finally:
         _db.close()
-except Exception:
-    pass  # Marker table already exists → wipe already ran, skip
-
-if os.getenv("WIPE_DATA") == "1":
-    print("[INFO] WIPE_DATA env var is set but one-time wipe already ran via DB marker.")
 
 if os.getenv("SEED_CALENDAR") == "1":
     seed_calendar_data()
