@@ -4,7 +4,7 @@ import api from '../api.js'
 import { useAuth } from '../App.jsx'
 import { CalendarDays, User, MapPin, Phone, Wrench, DollarSign, Clock, CheckCircle, ChevronDown, Loader2 } from 'lucide-react'
 
-const SERVICES = [
+const SERVICES_WINDOW = [
   { value: 'window-ext',        label: 'Windows — Exterior' },
   { value: 'window-int',        label: 'Windows — Interior' },
   { value: 'window-both',       label: 'Windows — Int + Ext' },
@@ -13,6 +13,17 @@ const SERVICES = [
   { value: 'roof',              label: 'Roof Cleaning' },
   { value: 'screens',           label: 'Screen Cleaning' },
   { value: 'solar',             label: 'Solar Panels' },
+]
+
+const SERVICES_LANDSCAPE = [
+  { value: 'lawn-mowing',        label: 'Lawn Mowing' },
+  { value: 'hedge-trimming',     label: 'Hedge Trimming' },
+  { value: 'landscape-cleanup',  label: 'Cleanup' },
+  { value: 'mulching',           label: 'Mulching' },
+  { value: 'weeding',            label: 'Weeding' },
+  { value: 'planting',           label: 'Planting' },
+  { value: 'aeration',           label: 'Lawn Aeration' },
+  { value: 'snow-removal',       label: 'Snow Removal' },
 ]
 
 function Field({ label, icon: Icon, children }) {
@@ -37,6 +48,7 @@ export default function Booking() {
   const navigate  = useNavigate()
 
   const [form, setForm] = useState({
+    business:  'window',
     firstName: '',
     lastName:  '',
     phone:     '',
@@ -54,6 +66,7 @@ export default function Booking() {
   const [checking, setChecking]     = useState(false)
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
+  function setBusiness(val) { setForm(f => ({ ...f, business: val, services: [] })) }
 
   function toggleService(val) {
     setForm(f => ({
@@ -69,7 +82,7 @@ export default function Booking() {
     if (!dateStr) { setDayCount(null); return }
     setChecking(true)
     try {
-      const { data } = await api.get('/deals/', { params: { limit: 1000 } })
+      const { data } = await api.get('/deals/', { params: { limit: 1000, business_type: form.business } })
       const count = data.filter(d => {
         if (!d.expected_close_date) return false
         return d.expected_close_date.slice(0, 10) === dateStr
@@ -110,8 +123,9 @@ export default function Booking() {
       const apptIso = `${form.date}T${timeStr}:00`
 
       // 3. Create deal linked to that contact
+      const allServices = form.business === 'landscape' ? SERVICES_LANDSCAPE : SERVICES_WINDOW
       const serviceLabel = form.services.length > 0
-        ? form.services.map(s => SERVICES.find(x => x.value === s)?.label || s).join(', ')
+        ? form.services.map(s => allServices.find(x => x.value === s)?.label || s).join(', ')
         : 'Appointment'
       const dealPayload = {
         title:               `${form.firstName} ${form.lastName}`.trim() + ` — ${serviceLabel}`,
@@ -122,6 +136,7 @@ export default function Booking() {
         notes:               form.notes.trim() || null,
         assigned_to:         user?.id,
         job_status:          'todo',
+        business_type:       form.business,
       }
       await api.post('/deals/', dealPayload)
 
@@ -160,6 +175,24 @@ export default function Booking() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+
+        {/* Business selector */}
+        <div className="flex gap-2">
+          {[{ v: 'window', label: 'Window Cleaning' }, { v: 'landscape', label: 'Landscape' }].map(({ v, label }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setBusiness(v)}
+              className={`flex-1 py-3 rounded-2xl text-sm font-semibold border transition-all ${
+                form.business === v
+                  ? 'bg-indigo-600 border-indigo-500 text-white'
+                  : 'bg-slate-900 border-slate-700 text-slate-400 active:bg-slate-800'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {/* Customer Name */}
         <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4">
@@ -259,7 +292,7 @@ export default function Booking() {
             <Wrench size={12} /> Services
           </h2>
           <div className="grid grid-cols-2 gap-2">
-            {SERVICES.map(s => {
+            {(form.business === 'landscape' ? SERVICES_LANDSCAPE : SERVICES_WINDOW).map(s => {
               const active = form.services.includes(s.value)
               return (
                 <button

@@ -570,6 +570,8 @@ export default function Calendar() {
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const [businessType, setBusinessType] = useState('window') // 'window' | 'landscape'
+
   // Drag state
   const [draggingDealId, setDraggingDealId] = useState(null)
   const [dragOverDate, setDragOverDate]     = useState(undefined)
@@ -656,14 +658,16 @@ export default function Calendar() {
   const firstDayOfWeek = getFirstDayOfWeek(year, month)
   const totalCells     = Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7
 
+  const visibleDeals = deals.filter(d => (d.business_type || 'window') === businessType)
+
   const dealsByDate = {}
-  deals.forEach(d => {
+  visibleDeals.forEach(d => {
     const key = fmt(new Date(d.expected_close_date))
     if (!dealsByDate[key]) dealsByDate[key] = []
     dealsByDate[key].push(d)
   })
 
-  const monthDeals = deals.filter(d => {
+  const monthDeals = visibleDeals.filter(d => {
     const dt = new Date(d.expected_close_date)
     return dt.getFullYear() === year && dt.getMonth() === month
   })
@@ -674,7 +678,7 @@ export default function Calendar() {
   const monthRevenue  = monthDeals.filter(d => d.job_status === 'done').reduce((s, d) => s + (d.value || 0), 0)
   const monthPipeline = monthDeals.reduce((s, d) => s + (d.value || 0), 0)
   const todayStr   = fmt(today)
-  const allDeals   = [...deals].sort((a,b) => new Date(a.expected_close_date) - new Date(b.expected_close_date))
+  const allDeals   = [...visibleDeals].sort((a,b) => new Date(a.expected_close_date) - new Date(b.expected_close_date))
 
   // Agenda: group month deals by date, sorted
   const agendaDays = Object.entries(
@@ -713,6 +717,23 @@ export default function Calendar() {
             <ChevronRight size={18} />
           </button>
         </div>
+      </div>
+
+      {/* ── Business toggle ── */}
+      <div className="flex gap-2 px-4 mb-3 flex-shrink-0">
+        {[{ v: 'window', label: 'Window Cleaning' }, { v: 'landscape', label: 'Landscape' }].map(({ v, label }) => (
+          <button
+            key={v}
+            onClick={() => setBusinessType(v)}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
+              businessType === v
+                ? 'bg-indigo-600 border-indigo-500 text-white'
+                : 'bg-slate-900 border-slate-700 text-slate-400 active:bg-slate-800'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* ── Stats pills (scrollable) ── */}

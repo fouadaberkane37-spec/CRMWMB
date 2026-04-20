@@ -39,6 +39,7 @@ def _own_deal(deal, user):
 @router.get("/", response_model=List[schemas.Deal])
 def list_deals(
     stage: Optional[str] = None,
+    business_type: Optional[str] = None,
     contact_id: Optional[int] = None,
     company_id: Optional[int] = None,
     search: Optional[str] = None,
@@ -75,6 +76,8 @@ def list_deals(
         if stage not in STAGES:
             raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {', '.join(STAGES)}")
         q = q.filter(models.Deal.stage == stage)
+    if business_type:
+        q = q.filter(models.Deal.business_type == business_type)
     if contact_id:
         q = q.filter(models.Deal.contact_id == contact_id)
     if company_id:

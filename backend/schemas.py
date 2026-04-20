@@ -116,6 +116,7 @@ class DealBase(BaseModel):
     notes: Optional[str] = Field(default=None, max_length=5000)
     assigned_to: Optional[int] = None
     job_status: Literal["todo", "payment_pending", "done", "cancelled"] = "todo"
+    business_type: Literal["window", "landscape"] = "window"
 
 
 class DealCreate(DealBase):

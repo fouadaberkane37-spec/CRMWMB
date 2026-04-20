@@ -314,7 +314,8 @@ for _col, _stmt in _user_migrations:
 
 # Add new contact columns (address, services, price) for existing production DBs
 _deal_migrations = [
-    ("job_status", "ALTER TABLE deals ADD COLUMN{if_not_exists} job_status VARCHAR DEFAULT 'todo'"),
+    ("job_status",     "ALTER TABLE deals ADD COLUMN{if_not_exists} job_status VARCHAR DEFAULT 'todo'"),
+    ("business_type",  "ALTER TABLE deals ADD COLUMN{if_not_exists} business_type VARCHAR DEFAULT 'window'"),
 ]
 for _col, _stmt in _deal_migrations:
     _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")
