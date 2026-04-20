@@ -1,39 +1,160 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../App.jsx'
-import { ChevronLeft, ChevronRight, Clock, User, Bell, Send, CheckCircle2, AlertCircle, Loader, Phone, Wrench } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LayoutGrid, List, X, Calendar as CalIcon, Bell, Send, CheckCircle2, AlertCircle, Loader, Phone, Wrench } from 'lucide-react'
 
 const API = '/api'
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
-const STATUS_DOT = {
-  scheduled:   'bg-blue-400',
-  confirmed:   'bg-green-400',
-  completed:   'bg-slate-400',
-  cancelled:   'bg-red-400',
-  no_show:     'bg-yellow-400',
-  in_progress: 'bg-indigo-400',
+// ── Status config ─────────────────────────────────────────────────────────────
+const STATUSES = [
+  { value: 'todo',            label: 'To Do',           dot: 'bg-indigo-400',  card: 'border-l-indigo-500',  chip: 'bg-indigo-600/80 text-white',    text: 'text-indigo-300' },
+  { value: 'payment_pending', label: 'Payment Pending', dot: 'bg-amber-400',   card: 'border-l-amber-500',   chip: 'bg-amber-600/80 text-white',     text: 'text-amber-300' },
+  { value: 'done',            label: 'Done',            dot: 'bg-green-400',   card: 'border-l-green-500',   chip: 'bg-green-700/80 text-white',     text: 'text-green-300' },
+  { value: 'cancelled',       label: 'Cancelled',       dot: 'bg-slate-500',   card: 'border-l-slate-600',   chip: 'bg-slate-700 text-slate-300',    text: 'text-slate-400' },
+]
+// also handle legacy statuses from backend
+const STATUS_MAP = {
+  scheduled: 'todo', confirmed: 'todo', completed: 'done',
+  no_show: 'cancelled', in_progress: 'todo',
 }
+function normalise(s) { return STATUS_MAP[s] || s }
+function statusCfg(s) { return STATUSES.find(x => x.value === normalise(s)) || STATUSES[0] }
 
 function toYMD(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
-function addDays(d, n) { const c = new Date(d); c.setDate(c.getDate()+n); return c }
+function fmtTime(dt) {
+  if (!dt) return ''
+  return new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+function fmtDateLocal(dt) {
+  if (!dt) return ''
+  return new Date(dt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// ── Detail bottom sheet ───────────────────────────────────────────────────────
+function DetailSheet({ booking, onClose, onUpdate }) {
+  const { token } = useAuth()
+  const [status, setStatus] = useState(normalise(booking.status))
+  const [date, setDate] = useState(booking.scheduled_at ? toYMD(new Date(booking.scheduled_at)) : '')
+  const [time, setTime] = useState(booking.scheduled_at ? fmtTime(booking.scheduled_at).replace(' AM','').replace(' PM','') : '')
+  const [saving, setSaving] = useState(false)
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+
+  const contactName = booking.contact
+    ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`.trim()
+    : booking.title
+
+  async function saveStatus(newStatus) {
+    setStatus(newStatus)
+    await fetch(`${API}/bookings/${booking.id}`, {
+      method: 'PUT', headers,
+      body: JSON.stringify({ ...booking, status: newStatus, contact: undefined, technician: undefined }),
+    })
+    onUpdate()
+  }
+
+  async function saveTime() {
+    if (!date || !time) return
+    setSaving(true)
+    const scheduled_at = new Date(`${date}T${time}:00`).toISOString()
+    await fetch(`${API}/bookings/${booking.id}`, {
+      method: 'PUT', headers,
+      body: JSON.stringify({ ...booking, scheduled_at, status, contact: undefined, technician: undefined }),
+    })
+    setSaving(false)
+    onUpdate()
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-slate-900 rounded-t-3xl w-full px-5 pt-3 pb-8 max-h-[85vh] overflow-y-auto"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 2rem)' }}>
+        {/* Drag handle */}
+        <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-4" />
+
+        {/* Header */}
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <h2 className="text-white font-bold text-xl">{contactName}</h2>
+            <p className="text-slate-400 text-sm mt-0.5">
+              {fmtTime(booking.scheduled_at)}
+              {booking.value != null && ` · $${booking.value}`}
+              {booking.contact?.phone && (
+                <a href={`tel:${booking.contact.phone}`} className="ml-2 text-indigo-400">
+                  {booking.contact.phone}
+                </a>
+              )}
+            </p>
+            {booking.type && (
+              <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1">
+                <Wrench size={10} /> {booking.type}
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Status */}
+        <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Status</p>
+        <div className="grid grid-cols-2 gap-2.5 mb-6">
+          {STATUSES.map(s => (
+            <button
+              key={s.value}
+              onClick={() => saveStatus(s.value)}
+              className={`flex items-center gap-2.5 px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all ${
+                status === s.value
+                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-900'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <span className={`w-2.5 h-2.5 rounded-full ${s.dot} shrink-0`} />
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Reschedule */}
+        <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Reschedule</p>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <input type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="bg-slate-800 text-white rounded-2xl px-4 py-4 text-sm text-center border border-slate-700 focus:outline-none focus:border-indigo-500" />
+          <input type="time"
+            value={time}
+            onChange={e => setTime(e.target.value)}
+            className="bg-slate-800 text-white rounded-2xl px-4 py-4 text-sm text-center border border-slate-700 focus:outline-none focus:border-indigo-500" />
+        </div>
+        <button
+          onClick={saveTime}
+          disabled={saving}
+          className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4 rounded-2xl text-base font-semibold transition-colors"
+        >
+          <CalIcon size={18} />
+          {saving ? 'Saving…' : 'Save New Time'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // ── Campaign panel ─────────────────────────────────────────────────────────────
 function CampaignPanel({ token }) {
-  const [running, setRunning] = useState(null)  // which type is running
+  const [running, setRunning] = useState(null)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const headers = { Authorization: `Bearer ${token}` }
-
-  // For 7-day: "today's clients" means appointments 7 days from today
-  const in7days = toYMD(addDays(new Date(), 7))
+  const in7days = toYMD(new Date(Date.now() + 7 * 86400000))
 
   async function runCampaign(type, targetDate) {
-    setRunning(type)
-    setResult(null)
-    setError(null)
+    setRunning(type); setResult(null); setError(null)
     try {
       const url = targetDate
         ? `${API}/reminders/run?reminder_type=${type}&target_date=${targetDate}`
@@ -41,247 +162,257 @@ function CampaignPanel({ token }) {
       const res = await fetch(url, { method: 'POST', headers })
       if (!res.ok) throw new Error(await res.text())
       setResult({ type, ...(await res.json()) })
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setRunning(null)
-    }
+    } catch (e) { setError(e.message) }
+    finally { setRunning(null) }
   }
 
   const campaigns = [
-    {
-      type: '7day',
-      label: '7-Day Reminder',
-      desc: `Send to clients with appointments on ${in7days}`,
-      targetDate: in7days,
-      color: 'from-indigo-600 to-indigo-500',
-      icon: '📅',
-    },
-    {
-      type: '48h',
-      label: '48h Reminder',
-      desc: 'Send to clients with appointments in ~48 hours',
-      targetDate: null,
-      color: 'from-blue-600 to-blue-500',
-      icon: '⏰',
-    },
-    {
-      type: '24h',
-      label: '24h Reminder',
-      desc: 'Send to clients with appointments tomorrow',
-      targetDate: null,
-      color: 'from-violet-600 to-violet-500',
-      icon: '🔔',
-    },
+    { type: '7day', label: '7-Day Reminder', desc: `Appointments on ${in7days}`, targetDate: in7days, icon: '📅' },
+    { type: '48h',  label: '48h Reminder',   desc: 'Appointments in ~48 hours',  targetDate: null,    icon: '⏰' },
+    { type: '24h',  label: '24h Reminder',   desc: 'Appointments ~tomorrow',     targetDate: null,    icon: '🔔' },
   ]
 
   return (
-    <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden mt-5">
-      <div className="px-4 pt-4 pb-3 border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <Bell size={16} className="text-indigo-400" />
-          <h2 className="text-white font-semibold">SMS Reminder Campaign</h2>
-        </div>
-        <p className="text-slate-500 text-xs mt-0.5">Sends to all eligible clients with a phone number. Skips already-sent.</p>
+    <div className="mt-6 bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+      <div className="px-4 pt-4 pb-3 border-b border-slate-800 flex items-center gap-2">
+        <Bell size={15} className="text-indigo-400" />
+        <span className="text-white font-semibold text-sm">SMS Campaign</span>
+        <span className="text-slate-500 text-xs ml-1">— skips already sent</span>
       </div>
-
       <div className="divide-y divide-slate-800">
         {campaigns.map(c => (
-          <div key={c.type} className="px-4 py-3.5 flex items-center gap-4">
-            <div className="text-2xl">{c.icon}</div>
+          <div key={c.type} className="px-4 py-3 flex items-center gap-3">
+            <span className="text-xl">{c.icon}</span>
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-medium">{c.label}</p>
               <p className="text-slate-500 text-xs">{c.desc}</p>
             </div>
-            <button
-              onClick={() => runCampaign(c.type, c.targetDate)}
-              disabled={!!running}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white bg-gradient-to-r ${c.color} disabled:opacity-50 transition-opacity shrink-0`}
-            >
-              {running === c.type
-                ? <Loader size={13} className="animate-spin" />
-                : <Send size={13} />}
+            <button onClick={() => runCampaign(c.type, c.targetDate)} disabled={!!running}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold transition-colors shrink-0">
+              {running === c.type ? <Loader size={12} className="animate-spin" /> : <Send size={12} />}
               {running === c.type ? 'Sending…' : 'Send'}
             </button>
           </div>
         ))}
       </div>
-
-      {/* Result */}
       {result && (
-        <div className="px-4 py-3 bg-green-900/20 border-t border-green-800/30">
-          <div className="flex items-center gap-2 text-green-400 mb-1">
-            <CheckCircle2 size={15} />
-            <span className="text-sm font-medium">Campaign sent — {result.type}</span>
-          </div>
-          <p className="text-slate-400 text-xs">
-            ✅ {result.sent} sent · ⏭ {result.skipped} skipped · ❌ {result.failed} failed
-          </p>
-          {result.details?.length > 0 && (
-            <div className="mt-2 space-y-1">
-              {result.details.map(d => (
-                <p key={d.id} className="text-xs text-slate-400 truncate">
-                  → {d.phone_number} · {d.message_body?.slice(0, 60)}…
-                </p>
-              ))}
-            </div>
-          )}
+        <div className="px-4 py-3 bg-green-900/20 border-t border-green-800/30 text-xs text-slate-300">
+          <span className="text-green-400 font-medium">✓ {result.type} sent</span> · {result.sent} sent · {result.skipped} skipped · {result.failed} failed
         </div>
       )}
       {error && (
-        <div className="px-4 py-3 bg-red-900/20 border-t border-red-800/30 flex items-center gap-2 text-red-400 text-xs">
-          <AlertCircle size={14} /> {error}
+        <div className="px-4 py-2 bg-red-900/20 border-t border-red-800/30 text-xs text-red-400 flex items-center gap-1">
+          <AlertCircle size={12} /> {error}
         </div>
       )}
     </div>
   )
 }
 
-// ── Main Calendar ──────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function Calendar() {
   const { token } = useAuth()
-  const [today] = useState(new Date())
-  const [current, setCurrent] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
+  const today = new Date()
+  const [monthDate, setMonthDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
+  const [viewMode, setViewMode] = useState('list')  // list | grid
   const [bookings, setBookings] = useState([])
+  const [filterStatus, setFilterStatus] = useState('')
   const [selected, setSelected] = useState(null)
-
   const headers = { Authorization: `Bearer ${token}` }
 
   async function load(year, month) {
     const from = new Date(year, month, 1).toISOString()
-    const to = new Date(year, month + 1, 0, 23, 59, 59).toISOString()
+    const to   = new Date(year, month + 1, 0, 23, 59, 59).toISOString()
     const res = await fetch(`${API}/bookings/?from_date=${from}&to_date=${to}&limit=500`, { headers })
     setBookings(await res.json())
   }
 
-  useEffect(() => { load(current.getFullYear(), current.getMonth()) }, [current])
+  useEffect(() => { load(monthDate.getFullYear(), monthDate.getMonth()) }, [monthDate])
 
-  function prevMonth() { setCurrent(new Date(current.getFullYear(), current.getMonth() - 1, 1)) }
-  function nextMonth() { setCurrent(new Date(current.getFullYear(), current.getMonth() + 1, 1)) }
+  function prevMonth() { setMonthDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)) }
+  function nextMonth() { setMonthDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)) }
 
-  const year = current.getFullYear()
-  const month = current.getMonth()
+  const year = monthDate.getFullYear()
+  const month = monthDate.getMonth()
+
+  // Status counts (normalised)
+  const counts = {}
+  bookings.forEach(b => { const s = normalise(b.status); counts[s] = (counts[s] || 0) + 1 })
+
+  const filtered = filterStatus
+    ? bookings.filter(b => normalise(b.status) === filterStatus)
+    : bookings
+
+  const sorted = [...filtered].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
+
+  // Group by date string
+  const grouped = {}
+  sorted.forEach(b => {
+    const d = b.scheduled_at ? toYMD(new Date(b.scheduled_at)) : 'no-date'
+    grouped[d] = grouped[d] || []
+    grouped[d].push(b)
+  })
+  const groupKeys = Object.keys(grouped).sort()
+
+  // ── Grid view helpers ────────────────────────────────────────────────────────
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-
   const cells = []
   for (let i = 0; i < firstDay; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
   function bookingsOnDay(d) {
     return bookings.filter(b => {
+      if (!b.scheduled_at) return false
       const bd = new Date(b.scheduled_at)
       return bd.getFullYear() === year && bd.getMonth() === month && bd.getDate() === d
     })
   }
 
-  const selectedBookings = selected ? bookingsOnDay(selected) : []
-
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-bold text-white">Calendar</h1>
-        <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><ChevronLeft size={18} /></button>
-          <span className="text-white font-medium text-sm w-36 text-center">{MONTHS[month]} {year}</span>
-          <button onClick={nextMonth} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><ChevronRight size={18} /></button>
+    <div className="flex flex-col min-h-full bg-slate-950">
+      {/* ── Header ── */}
+      <div className="px-4 pt-4 pb-3 border-b border-slate-800">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h1 className="text-white font-bold text-2xl">Calendar</h1>
+            <p className="text-slate-400 text-sm">{bookings.length} appointment{bookings.length !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setViewMode(v => v === 'list' ? 'grid' : 'list')}
+              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+              {viewMode === 'list' ? <LayoutGrid size={20} /> : <List size={20} />}
+            </button>
+            <button onClick={prevMonth} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-white font-semibold text-sm w-24 text-center">
+              {MONTHS_SHORT[month]} {year}
+            </span>
+            <button onClick={nextMonth} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Status chips */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            onClick={() => setFilterStatus('')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors shrink-0 ${
+              filterStatus === '' ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400'
+            }`}>
+            All {bookings.length}
+          </button>
+          {STATUSES.map(s => (
+            <button
+              key={s.value}
+              onClick={() => setFilterStatus(filterStatus === s.value ? '' : s.value)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors shrink-0 ${
+                filterStatus === s.value ? s.chip : 'bg-slate-800 text-slate-400 hover:text-white'
+              }`}>
+              <span className={`w-2 h-2 rounded-full ${s.dot}`} />
+              {s.label} {counts[s.value] || 0}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Grid header */}
-      <div className="grid grid-cols-7 mb-1">
-        {DAYS.map(d => (
-          <div key={d} className="text-center text-xs font-medium text-slate-500 py-1">{d}</div>
-        ))}
-      </div>
-
-      {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-0.5">
-        {cells.map((day, i) => {
-          if (!day) return <div key={`e-${i}`} className="aspect-square" />
-          const dayBookings = bookingsOnDay(day)
-          const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
-          const isSelected = day === selected
-          return (
-            <button
-              key={day}
-              onClick={() => setSelected(day === selected ? null : day)}
-              className={`aspect-square rounded-lg flex flex-col items-center justify-start pt-1 transition-colors ${
-                isSelected ? 'bg-indigo-600' : isToday ? 'bg-indigo-900/50 ring-1 ring-indigo-500' : 'hover:bg-slate-800'
-              }`}
-            >
-              <span className={`text-xs font-medium ${isSelected ? 'text-white' : isToday ? 'text-indigo-300' : 'text-slate-300'}`}>{day}</span>
-              {dayBookings.length > 0 && (
-                <div className="flex flex-wrap gap-0.5 justify-center mt-0.5 px-0.5">
-                  {dayBookings.slice(0, 3).map(b => (
-                    <span key={b.id} className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[b.status] || 'bg-slate-400'}`} />
-                  ))}
-                </div>
-              )}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Selected day bookings */}
-      {selected && (
-        <div className="mt-5">
-          <h2 className="text-white font-medium mb-3">
-            {MONTHS[month]} {selected} — {selectedBookings.length} booking{selectedBookings.length !== 1 ? 's' : ''}
-          </h2>
-          {selectedBookings.length === 0 ? (
-            <p className="text-slate-500 text-sm">No bookings on this day.</p>
-          ) : (
-            <div className="space-y-2">
-              {selectedBookings.map(b => (
-                <div key={b.id} className="bg-slate-900 rounded-xl p-4 border border-slate-800">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div>
-                      <span className="text-white font-semibold text-sm">{b.title}</span>
-                      {b.contact && (
-                        <p className="text-slate-400 text-xs mt-0.5">
-                          {b.contact.first_name} {b.contact.last_name || ''}
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 shrink-0">{b.status}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} />
-                      {new Date(b.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {b.duration_minutes}m
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Wrench size={11} />
-                      {b.type}
-                    </span>
-                    {b.contact?.phone && (
-                      <a href={`tel:${b.contact.phone}`}
-                        className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors"
-                        onClick={e => e.stopPropagation()}>
-                        <Phone size={11} />
-                        {b.contact.phone}
-                      </a>
-                    )}
-                    {b.technician && (
-                      <span className="flex items-center gap-1">
-                        <User size={11} />
-                        {b.technician.full_name || b.technician.username}
-                      </span>
-                    )}
-                  </div>
-                  {b.notes && (
-                    <p className="text-slate-500 text-xs mt-2 leading-relaxed">{b.notes}</p>
-                  )}
-                </div>
-              ))}
+      {/* ── List view ── */}
+      {viewMode === 'list' && (
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+          {groupKeys.length === 0 ? (
+            <div className="text-center py-16 text-slate-600">
+              <CalIcon size={40} className="mx-auto mb-3 opacity-30" />
+              <p>No appointments this month</p>
             </div>
-          )}
+          ) : groupKeys.map(dateKey => {
+            const dayBookings = grouped[dateKey]
+            const d = dateKey !== 'no-date' ? new Date(dateKey + 'T12:00:00') : null
+            return (
+              <div key={dateKey}>
+                {d && (
+                  <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">
+                    {DAYS[d.getDay()]} {d.getDate()} {MONTHS_SHORT[d.getMonth()]}
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {dayBookings.map(b => {
+                    const cfg = statusCfg(b.status)
+                    const contactName = b.contact
+                      ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim()
+                      : b.title
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => setSelected(b)}
+                        className={`w-full text-left bg-slate-900 border-l-4 ${cfg.card} rounded-r-2xl rounded-l-sm px-4 py-3.5 border border-slate-800 hover:border-slate-700 transition-colors`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-white font-semibold text-sm">{contactName}</span>
+                          <span className={`text-xs font-medium ${cfg.text}`}>{cfg.label}</span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-slate-400 text-xs">
+                          <span>{fmtTime(b.scheduled_at)}</span>
+                          {b.value != null && <span>· ${b.value}</span>}
+                          {b.type && <span>· {b.type}</span>}
+                          {b.contact?.phone && (
+                            <span className="text-indigo-400">{b.contact.phone}</span>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+          <CampaignPanel token={token} />
         </div>
       )}
 
-      {/* SMS Campaign panel */}
-      <CampaignPanel token={token} />
+      {/* ── Grid view ── */}
+      {viewMode === 'grid' && (
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="grid grid-cols-7 mb-1">
+            {DAYS.map(d => <div key={d} className="text-center text-xs font-medium text-slate-500 py-1">{d}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-0.5">
+            {cells.map((day, i) => {
+              if (!day) return <div key={`e-${i}`} className="aspect-square" />
+              const dayBookings = bookingsOnDay(day)
+              const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
+              return (
+                <div key={day}
+                  className={`aspect-square rounded-xl flex flex-col items-center justify-start pt-1.5 cursor-default ${
+                    isToday ? 'bg-indigo-900/40 ring-1 ring-indigo-500' : ''
+                  }`}>
+                  <span className={`text-xs font-medium ${isToday ? 'text-indigo-300' : 'text-slate-400'}`}>{day}</span>
+                  <div className="flex flex-wrap gap-0.5 justify-center mt-0.5 px-0.5">
+                    {dayBookings.slice(0, 4).map(b => (
+                      <button key={b.id} onClick={() => setSelected(b)}
+                        className={`w-1.5 h-1.5 rounded-full ${statusCfg(b.status).dot}`} />
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <CampaignPanel token={token} />
+        </div>
+      )}
+
+      {/* ── Detail sheet ── */}
+      {selected && (
+        <DetailSheet
+          booking={selected}
+          onClose={() => setSelected(null)}
+          onUpdate={() => {
+            load(year, month)
+            setSelected(null)
+          }}
+        />
+      )}
     </div>
   )
 }

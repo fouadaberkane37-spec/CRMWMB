@@ -134,7 +134,7 @@ class Booking(Base):
     scheduled_at = Column(DateTime, nullable=False)
     duration_minutes = Column(Integer, default=60)
     type = Column(String, default="service")  # service | estimate | follow_up | install
-    status = Column(String, default="scheduled")  # scheduled | confirmed | completed | cancelled | no_show
+    status = Column(String, default="todo")  # todo | payment_pending | done | cancelled
     notes = Column(Text)
     address = Column(String)
     created_by = Column(Integer, ForeignKey("users.id"))

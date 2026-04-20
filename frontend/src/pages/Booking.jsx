@@ -3,14 +3,13 @@ import { useAuth } from '../App.jsx'
 import { CalendarDays, Plus, Clock, User, MapPin, X, ChevronDown } from 'lucide-react'
 
 const API = '/api'
-const STATUSES = ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show']
+const STATUSES = ['todo', 'payment_pending', 'done', 'cancelled']
 const TYPES = ['service', 'estimate', 'follow_up', 'install']
 const STATUS_COLORS = {
-  scheduled: 'bg-blue-500/20 text-blue-300',
-  confirmed: 'bg-green-500/20 text-green-300',
-  completed: 'bg-slate-500/20 text-slate-300',
-  cancelled: 'bg-red-500/20 text-red-300',
-  no_show: 'bg-yellow-500/20 text-yellow-300',
+  todo:            'bg-indigo-500/20 text-indigo-300',
+  payment_pending: 'bg-amber-500/20 text-amber-300',
+  done:            'bg-green-500/20 text-green-300',
+  cancelled:       'bg-slate-500/20 text-slate-400',
 }
 
 function formatDateTime(dt) {
@@ -29,7 +28,7 @@ export default function Booking() {
   const [filterStatus, setFilterStatus] = useState('')
   const [form, setForm] = useState({
     title: '', contact_id: '', technician_id: '', scheduled_at: '',
-    duration_minutes: 60, type: 'service', status: 'scheduled', notes: '', address: '',
+    duration_minutes: 60, type: 'service', status: 'todo', notes: '', address: '',
   })
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
