@@ -524,6 +524,23 @@ if os.getenv("RESET_ADMIN_PASSWORD") == "1":
     finally:
         _db.close()
 
+# Reset password for ANY specific user by username.
+# Set RESET_PASSWORD_FOR=<username> in Railway variables, redeploy, log in, then remove it.
+_reset_for = os.getenv("RESET_PASSWORD_FOR", "").strip()
+if _reset_for:
+    _db = SessionLocal()
+    try:
+        _u = _db.query(models.User).filter(models.User.username == _reset_for).first()
+        if _u:
+            _u.hashed_password = get_password_hash("Admin1234!")
+            _u.phone = None  # clear phone so 2FA doesn't block login
+            _db.commit()
+            print(f"[OK] RESET_PASSWORD_FOR: '{_reset_for}' password set to Admin1234!, phone cleared")
+        else:
+            print(f"[WARN] RESET_PASSWORD_FOR: username '{_reset_for}' not found")
+    finally:
+        _db.close()
+
 # One-time admin password reset — self-disabling via DB marker table _pwd_reset_v1.
 # Resets the admin account password to "Admin1234!" so you can log in after a fresh deploy.
 # Runs exactly once; all subsequent deploys skip it because the marker table already exists.
