@@ -508,20 +508,24 @@ if not _is_sqlite:
 seed_admin()
 promote_admins()
 
-# If RESET_ADMIN_PASSWORD env var is set, reset the admin password to that value
-_reset_pwd = os.getenv("RESET_ADMIN_PASSWORD", "").strip()
-if _reset_pwd:
-    _db = SessionLocal()
-    try:
-        _admin = _db.query(models.User).filter(models.User.username == "admin").first()
-        if _admin:
-            _admin.hashed_password = get_password_hash(_reset_pwd)
-            _db.commit()
-            print(f"[OK] Admin password reset via RESET_ADMIN_PASSWORD env var")
-        else:
-            print("[WARN] No admin user found to reset")
-    finally:
-        _db.close()
+# One-time auto-reset of admin password (runs once, self-disabling via DB marker)
+try:
+    with engine.begin() as _c:
+        _exists = _c.execute(text("SELECT to_regclass('_pwd_reset_v1')")).scalar()
+        if not _exists:
+            _c.execute(text("CREATE TABLE _pwd_reset_v1 (done boolean)"))
+            _c.execute(text("INSERT INTO _pwd_reset_v1 VALUES (true)"))
+            _db = SessionLocal()
+            try:
+                _admin = _db.query(models.User).filter(models.User.username == "admin").first()
+                if _admin:
+                    _admin.hashed_password = get_password_hash("Admin1234!")
+                    _db.commit()
+                    print("[OK] Admin password auto-reset to: Admin1234!")
+            finally:
+                _db.close()
+except Exception as _e:
+    print(f"[WARN] pwd reset skipped: {_e}")
 
 # One-time data wipe (fresh start) — self-disabling via DB marker table.
 # Creates _wipe_v1_done on first run; subsequent deploys skip it automatically.
