@@ -34,6 +34,10 @@ function fmtDateLocal(dt) {
   return new Date(dt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// ── Service type config ───────────────────────────────────────────────────────
+const SERVICE_LABELS = { service: 'Service', estimate: 'Estimate', follow_up: 'Follow-Up', install: 'Install' }
+const SERVICE_DESC   = { service: 'On-site service visit', estimate: 'Quote & assessment', follow_up: 'Follow-up appointment', install: 'Installation job' }
+
 // ── Detail bottom sheet ───────────────────────────────────────────────────────
 function DetailSheet({ booking, onClose, onUpdate }) {
   const { token } = useAuth()
@@ -92,56 +96,55 @@ function DetailSheet({ booking, onClose, onUpdate }) {
         </div>
 
         {/* Service */}
-        {booking.type && (() => {
-          const SERVICE_LABELS = { service: 'Service', estimate: 'Estimate', follow_up: 'Follow-Up', install: 'Install' }
-          const SERVICE_DESC = { service: 'On-site service visit', estimate: 'Quote & assessment', follow_up: 'Follow-up appointment', install: 'Installation job' }
-          return (
-            <div className="mb-5">
-              <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Service</p>
-              <div className="flex items-center gap-3 bg-slate-800 rounded-2xl px-4 py-4">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600/20 flex items-center justify-center shrink-0">
-                  <Wrench size={18} className="text-indigo-400" />
-                </div>
-                <div>
-                  <p className="text-white font-semibold text-base">{SERVICE_LABELS[booking.type] || booking.type.replace('_', ' ')}</p>
-                  <p className="text-slate-400 text-sm">{booking.notes || SERVICE_DESC[booking.type] || ''}</p>
-                </div>
-              </div>
+        <div className="mb-5">
+          <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Service</p>
+          <div className="flex items-center gap-3 bg-slate-800 rounded-2xl px-4 py-4">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600/20 flex items-center justify-center shrink-0">
+              <Wrench size={18} className="text-indigo-400" />
             </div>
-          )
-        })()}
-
-        {/* Contact */}
-        {(booking.contact?.phone || booking.address) && (
-          <div className="mb-5">
-            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Contact</p>
-            <div className="bg-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-700">
-              {booking.contact?.phone && (
-                <a href={`tel:${booking.contact.phone}`}
-                  className="flex items-center gap-3 px-4 py-4 hover:bg-slate-700 transition-colors">
-                  <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center shrink-0">
-                    <Phone size={18} className="text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-slate-400 text-xs mb-0.5">Phone</p>
-                    <p className="text-white font-semibold text-base">{booking.contact.phone}</p>
-                  </div>
-                </a>
-              )}
-              {booking.address && (
-                <div className="flex items-center gap-3 px-4 py-4">
-                  <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
-                    <MapPin size={18} className="text-slate-400" />
-                  </div>
-                  <div>
-                    <p className="text-slate-400 text-xs mb-0.5">Address</p>
-                    <p className="text-white text-sm">{booking.address}</p>
-                  </div>
-                </div>
-              )}
+            <div>
+              <p className="text-white font-semibold text-base">{SERVICE_LABELS[booking.type] || (booking.type || 'service').replace('_', ' ')}</p>
+              <p className="text-slate-400 text-sm">{booking.notes || SERVICE_DESC[booking.type] || 'On-site service visit'}</p>
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Contact */}
+        <div className="mb-5">
+          <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Contact</p>
+          <div className="bg-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-700">
+            {booking.contact && booking.contact.phone ? (
+              <a href={`tel:${booking.contact.phone}`}
+                className="flex items-center gap-3 px-4 py-4 hover:bg-slate-700 transition-colors">
+                <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center shrink-0">
+                  <Phone size={18} className="text-green-400" />
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs mb-0.5">Phone</p>
+                  <p className="text-white font-semibold text-base">{booking.contact.phone}</p>
+                </div>
+              </a>
+            ) : (
+              <div className="flex items-center gap-3 px-4 py-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
+                  <Phone size={18} className="text-slate-500" />
+                </div>
+                <p className="text-slate-500 text-sm">No phone on file</p>
+              </div>
+            )}
+            {booking.address ? (
+              <div className="flex items-center gap-3 px-4 py-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
+                  <MapPin size={18} className="text-slate-400" />
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs mb-0.5">Address</p>
+                  <p className="text-white text-sm">{booking.address}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
 
         {/* Status */}
         <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Status</p>
