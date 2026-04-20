@@ -685,8 +685,9 @@ reminders_routes.start_scheduler()
 # --- Serve built React frontend (production) ---
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
-if os.path.isdir(FRONTEND_DIST):
-    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+_assets_dir = os.path.join(FRONTEND_DIST, "assets")
+if os.path.isdir(FRONTEND_DIST) and os.path.isdir(_assets_dir):
+    app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def serve_frontend(full_path: str):
