@@ -524,20 +524,33 @@ if os.getenv("RESET_ADMIN_PASSWORD") == "1":
     finally:
         _db.close()
 
-# Reset password for ANY specific user by username.
+# List all users to Railway logs — set LIST_USERS=1 to see exact usernames.
+if os.getenv("LIST_USERS") == "1":
+    _db = SessionLocal()
+    try:
+        _all_users = _db.query(models.User).all()
+        print(f"[LIST_USERS] {len(_all_users)} user(s) in database:")
+        for _u in _all_users:
+            print(f"  id={_u.id} username='{_u.username}' full_name='{_u.full_name}' role={_u.role} active={_u.is_active} phone={_u.phone or 'none'}")
+    finally:
+        _db.close()
+
+# Reset password for ANY specific user — case-insensitive match on username OR full_name.
 # Set RESET_PASSWORD_FOR=<username> in Railway variables, redeploy, log in, then remove it.
-_reset_for = os.getenv("RESET_PASSWORD_FOR", "").strip()
+_reset_for = os.getenv("RESET_PASSWORD_FOR", "").strip().lower()
 if _reset_for:
     _db = SessionLocal()
     try:
-        _u = _db.query(models.User).filter(models.User.username == _reset_for).first()
+        _all_users = _db.query(models.User).all()
+        _u = next((u for u in _all_users if u.username.lower() == _reset_for or (u.full_name or '').lower() == _reset_for), None)
         if _u:
             _u.hashed_password = get_password_hash("Admin1234!")
             _u.phone = None  # clear phone so 2FA doesn't block login
             _db.commit()
-            print(f"[OK] RESET_PASSWORD_FOR: '{_reset_for}' password set to Admin1234!, phone cleared")
+            print(f"[OK] RESET_PASSWORD_FOR: '{_u.username}' (id={_u.id}) password set to Admin1234!, phone cleared")
         else:
-            print(f"[WARN] RESET_PASSWORD_FOR: username '{_reset_for}' not found")
+            _names = [u.username for u in _all_users]
+            print(f"[WARN] RESET_PASSWORD_FOR: no match for '{_reset_for}'. Existing usernames: {_names}")
     finally:
         _db.close()
 
