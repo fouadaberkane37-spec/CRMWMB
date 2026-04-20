@@ -132,48 +132,58 @@ def create_deal(deal: schemas.DealCreate, db: Session = Depends(get_db), current
 
 def _send_booking_confirmation(db: Session, deal: models.Deal, contact: models.Contact, sender_id: int):
     """Build confirmation SMS, save as ChatMessage, and fire Twilio — best-effort."""
-    from datetime import timezone
-
     dt = deal.expected_close_date
     try:
-        date_str = dt.strftime("%A, %B %-d")
-        time_str = dt.strftime("%-I:%M %p")
+        import locale
+        date_fr = dt.strftime("%A %-d %B")
+        time_str = dt.strftime("%H:%M")
     except Exception:
-        date_str = str(dt.date())
+        date_fr = str(dt.date())
         time_str = str(dt.time())[:5]
 
-    safe_name = (contact.first_name or "")[:30].replace("\r", "").replace("\n", "")
-    lines = [f"Hi {safe_name}! Your appointment is confirmed ✅"]
-    lines.append(f"📅 {date_str} at {time_str}")
-    if contact.address:
-        lines.append(f"📍 {contact.address[:80].replace(chr(0x202E), '')}")
-    # Services from deal title (format: "Name — Services")
-    if deal.title and " — " in deal.title:
-        lines.append(f"🔧 {deal.title.split(' — ', 1)[1][:60]}")
-    if deal.value and deal.value > 0:
-        lines.append(f"💰 Estimate: ${deal.value:.2f}")
-    if deal.notes:
-        lines.append(f"📝 {deal.notes[:200]}")
-    lines.append("\nReply anytime if you have questions. See you soon!")
+    try:
+        date_en = dt.strftime("%A, %B %-d")
+        time_en = dt.strftime("%-I:%M %p")
+    except Exception:
+        date_en = date_fr
+        time_en = time_str
 
-    body = "\n".join(lines)
+    safe_name = (contact.first_name or "")[:30].replace("\r", "").replace("\n", "")
+    addr = contact.address[:80].replace(chr(0x202E), '') if contact.address else None
+    svc = deal.title.split(' — ', 1)[1][:60] if deal.title and " — " in deal.title else None
+
+    fr_lines = [f"Bonjour {safe_name}! Votre rendez-vous est confirmé ✅"]
+    fr_lines.append(f"📅 {date_fr} à {time_str}")
+    if addr:
+        fr_lines.append(f"📍 {addr}")
+    if svc:
+        fr_lines.append(f"🔧 {svc}")
+    if deal.value and deal.value > 0:
+        fr_lines.append(f"💰 Estimation: ${deal.value:.2f}")
+    if deal.notes:
+        fr_lines.append(f"📝 {deal.notes[:200]}")
+    fr_lines.append("Répondez en tout temps si vous avez des questions. À bientôt!")
+
+    en_lines = [f"\nHi {safe_name}! Your appointment is confirmed ✅"]
+    en_lines.append(f"📅 {date_en} at {time_en}")
+    if addr:
+        en_lines.append(f"📍 {addr}")
+    if svc:
+        en_lines.append(f"🔧 {svc}")
+    if deal.value and deal.value > 0:
+        en_lines.append(f"💰 Estimate: ${deal.value:.2f}")
+    en_lines.append("Reply anytime if you have questions. See you soon!")
+
+    body = "\n".join(fr_lines) + "\n" + "\n".join(en_lines)
     if len(body) > 1500:
         body = body[:1497] + "..."
 
-    # Save to chat thread
     try:
-        msg = models.ChatMessage(
-            contact_id=contact.id,
-            sender_id=sender_id,
-            body=body,
-            direction="outbound",
-        )
-        db.add(msg)
+        db.add(models.ChatMessage(contact_id=contact.id, sender_id=sender_id, body=body, direction="outbound"))
         db.commit()
     except Exception:
         pass
 
-    # Fire Twilio SMS
     sid   = os.getenv("TWILIO_ACCOUNT_SID")
     token = os.getenv("TWILIO_AUTH_TOKEN")
     frm   = os.getenv("TWILIO_FROM_NUMBER")
@@ -189,22 +199,40 @@ def _send_reschedule_sms(db: Session, deal: models.Deal, contact: models.Contact
     """Send a reschedule notification SMS — best-effort."""
     dt = deal.expected_close_date
     try:
-        date_str = dt.strftime("%A, %B %-d")
-        time_str = dt.strftime("%-I:%M %p")
+        date_fr = dt.strftime("%A %-d %B")
+        time_str = dt.strftime("%H:%M")
     except Exception:
-        date_str = str(dt.date())
+        date_fr = str(dt.date())
         time_str = str(dt.time())[:5]
 
-    safe_name = (contact.first_name or "")[:30].replace("\r", "").replace("\n", "")
-    lines = [f"Hi {safe_name}! Your appointment has been rescheduled 🔄"]
-    lines.append(f"📅 New date: {date_str} at {time_str}")
-    if contact.address:
-        lines.append(f"📍 {contact.address[:80].replace(chr(0x202E), '')}")
-    if deal.title and " — " in deal.title:
-        lines.append(f"🔧 {deal.title.split(' — ', 1)[1][:60]}")
-    lines.append("\nReply anytime if you have questions. See you then!")
+    try:
+        date_en = dt.strftime("%A, %B %-d")
+        time_en = dt.strftime("%-I:%M %p")
+    except Exception:
+        date_en = date_fr
+        time_en = time_str
 
-    body = "\n".join(lines)
+    safe_name = (contact.first_name or "")[:30].replace("\r", "").replace("\n", "")
+    addr = contact.address[:80].replace(chr(0x202E), '') if contact.address else None
+    svc = deal.title.split(' — ', 1)[1][:60] if deal.title and " — " in deal.title else None
+
+    fr_lines = [f"Bonjour {safe_name}! Votre rendez-vous a été déplacé 🔄"]
+    fr_lines.append(f"📅 Nouvelle date: {date_fr} à {time_str}")
+    if addr:
+        fr_lines.append(f"📍 {addr}")
+    if svc:
+        fr_lines.append(f"🔧 {svc}")
+    fr_lines.append("Répondez en tout temps si vous avez des questions. À bientôt!")
+
+    en_lines = [f"\nHi {safe_name}! Your appointment has been rescheduled 🔄"]
+    en_lines.append(f"📅 New date: {date_en} at {time_en}")
+    if addr:
+        en_lines.append(f"📍 {addr}")
+    if svc:
+        en_lines.append(f"🔧 {svc}")
+    en_lines.append("Reply anytime if you have questions. See you then!")
+
+    body = "\n".join(fr_lines) + "\n" + "\n".join(en_lines)
     if len(body) > 1500:
         body = body[:1497] + "..."
 
