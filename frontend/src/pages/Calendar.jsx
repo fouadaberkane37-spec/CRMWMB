@@ -513,10 +513,10 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, i
   return (
     <div
       className={`border-b border-r p-1.5 flex flex-col gap-1 transition-colors ${
-        !isValid   ? (isLandscape ? 'bg-emerald-900/20 border-emerald-800/30' : 'bg-slate-900/30 border-slate-700/30') :
-        isDragOver ? 'bg-emerald-700/30 border-emerald-500/60' :
-        isPast     ? (isLandscape ? 'bg-emerald-900/30 border-emerald-800/30' : 'bg-slate-900/60 border-slate-700/30') :
-                     (isLandscape ? 'bg-emerald-900/50 border-emerald-800/40' : 'bg-slate-900 border-slate-700/30')
+        !isValid   ? (isLandscape ? 'bg-emerald-950 border-emerald-800/40' : 'bg-slate-900/30 border-slate-700/30') :
+        isDragOver ? (isLandscape ? 'bg-emerald-700/50 border-emerald-500' : 'bg-indigo-900/25 border-indigo-500/60') :
+        isPast     ? (isLandscape ? 'bg-emerald-950 border-emerald-800/40' : 'bg-slate-900/60 border-slate-700/30') :
+                     (isLandscape ? 'bg-emerald-900 border-emerald-700/60' : 'bg-slate-900 border-slate-700/30')
       }`}
       onDragOver={isValid && isAdmin ? onDragOver : undefined}
       onDragLeave={isValid && isAdmin ? onDragLeave : undefined}
@@ -529,7 +529,7 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, i
 
       {isValid && (
         <span className={`text-xs font-semibold self-start w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 ${
-          isToday ? (isLandscape ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white') : isPast ? 'text-slate-600' : 'text-slate-400'
+          isToday ? (isLandscape ? 'bg-emerald-400 text-emerald-950 font-bold' : 'bg-indigo-600 text-white') : isPast ? (isLandscape ? 'text-emerald-800' : 'text-slate-600') : (isLandscape ? 'text-emerald-300' : 'text-slate-400')
         }`}>
           {dayNum}
         </span>
@@ -563,7 +563,7 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, i
           : ''
         return (
           <div key={p.id} className={`px-1.5 py-1 rounded-md text-xs font-medium leading-tight truncate flex items-center gap-1 ${
-            p.status === 'done' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-emerald-700/30 text-emerald-200'
+            p.status === 'done' ? 'bg-emerald-950 text-emerald-500 line-through' : 'bg-emerald-600 text-white'
           }`}>
             <Leaf size={8} className="shrink-0 opacity-70" />
             {time && <span className="opacity-60 shrink-0">{time}</span>}
@@ -1299,10 +1299,10 @@ export default function Calendar() {
           </div>
 
           {/* ── GRID VIEW (desktop default, mobile optional) ── */}
-          <div className={`flex-1 flex flex-col min-h-0 mx-4 mb-3 rounded-2xl overflow-hidden ${businessType === 'landscape' ? 'bg-emerald-900/40 border border-emerald-800/50' : 'bg-slate-900 border border-slate-700/50'} ${viewMode === 'grid' ? 'block' : 'hidden md:flex md:flex-col'}`}>
-            <div className={`grid grid-cols-7 border-b flex-shrink-0 ${businessType === 'landscape' ? 'border-emerald-800/50' : 'border-slate-700/50'}`}>
+          <div className={`flex-1 flex flex-col min-h-0 mx-4 mb-3 rounded-2xl overflow-hidden ${businessType === 'landscape' ? 'bg-emerald-950 border border-emerald-800/60' : 'bg-slate-900 border border-slate-700/50'} ${viewMode === 'grid' ? 'block' : 'hidden md:flex md:flex-col'}`}>
+            <div className={`grid grid-cols-7 border-b flex-shrink-0 ${businessType === 'landscape' ? 'bg-emerald-950 border-emerald-800/60' : 'border-slate-700/50'}`}>
               {DAYS.map(d => (
-                <div key={d} className={`py-2 text-center text-[10px] font-semibold uppercase tracking-wide ${businessType === 'landscape' ? 'text-emerald-700' : 'text-slate-500'}`}>{d.slice(0,1)}</div>
+                <div key={d} className={`py-2 text-center text-[10px] font-semibold uppercase tracking-wide ${businessType === 'landscape' ? 'text-emerald-500' : 'text-slate-500'}`}>{d.slice(0,1)}</div>
               ))}
             </div>
             <div
