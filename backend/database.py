@@ -7,10 +7,6 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./crm.db")
 # Sanitize: strip whitespace and accidental leading "=" (copy-paste artifacts)
 DATABASE_URL = DATABASE_URL.strip().lstrip("=").strip()
 
-# Fall back to SQLite if the variable is empty (e.g. set to "" in Railway)
-if not DATABASE_URL:
-    DATABASE_URL = "sqlite:///./crm.db"
-
 # Railway (and most PaaS) gives postgres:// URLs; SQLAlchemy requires postgresql://
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
