@@ -506,6 +506,28 @@ if not _is_sqlite:
         pass  # Already nullable or column not found
 
 seed_admin()
+
+# One-time admin password reset — self-disabling via DB marker table _pwd_reset_v1.
+# Resets the admin account password to "Admin1234!" so you can log in after a fresh deploy.
+# Runs exactly once; all subsequent deploys skip it because the marker table already exists.
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text("CREATE TABLE _pwd_reset_v1 (id int)"))
+    # Marker table just created → first time running → reset password
+    _db = SessionLocal()
+    try:
+        _admin = _db.query(models.User).filter(models.User.username == "admin").first()
+        if _admin:
+            _admin.hashed_password = get_password_hash("Admin1234!")
+            _db.commit()
+            print("[OK] Admin password reset to Admin1234! (one-time, login and change it)")
+        else:
+            print("[WARN] _pwd_reset_v1: no admin user found to reset")
+    finally:
+        _db.close()
+except Exception:
+    pass  # Marker table already exists → password reset already ran, skip
+
 promote_admins()
 
 # One-time auto-reset of admin password (runs once, self-disabling via DB marker)
