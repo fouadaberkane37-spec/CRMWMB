@@ -249,9 +249,14 @@ export default function Calendar() {
   const year = monthDate.getFullYear()
   const month = monthDate.getMonth()
 
-  // Status counts (normalised)
+  // Status counts + total value (normalised)
   const counts = {}
-  bookings.forEach(b => { const s = normalise(b.status); counts[s] = (counts[s] || 0) + 1 })
+  let totalValue = 0
+  bookings.forEach(b => {
+    const s = normalise(b.status)
+    counts[s] = (counts[s] || 0) + 1
+    if (b.value) totalValue += b.value
+  })
 
   const filtered = filterStatus
     ? bookings.filter(b => normalise(b.status) === filterStatus)
@@ -329,6 +334,12 @@ export default function Calendar() {
               {s.label} {counts[s.value] || 0}
             </button>
           ))}
+          {/* Total value chip */}
+          {totalValue > 0 && (
+            <span className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-emerald-900/60 text-emerald-300 border border-emerald-700/40 shrink-0">
+              $ ${totalValue.toLocaleString()}
+            </span>
+          )}
         </div>
       </div>
 
@@ -392,32 +403,70 @@ export default function Calendar() {
 
       {/* ── Grid view ── */}
       {viewMode === 'grid' && (
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          <div className="grid grid-cols-7 mb-1">
-            {DAYS.map(d => <div key={d} className="text-center text-xs font-medium text-slate-500 py-1">{d}</div>)}
+        <div className="flex-1 overflow-y-auto py-2">
+          {/* Day-of-week headers */}
+          <div className="grid grid-cols-7 border-b border-slate-800 mb-0">
+            {['S','M','T','W','T','F','S'].map((d, i) => (
+              <div key={i} className="text-center text-xs font-medium text-slate-500 py-1.5">{d}</div>
+            ))}
           </div>
-          <div className="grid grid-cols-7 gap-0.5">
+
+          {/* Calendar rows — cells grow to fit events */}
+          <div className="grid grid-cols-7 divide-x divide-slate-800/60">
             {cells.map((day, i) => {
-              if (!day) return <div key={`e-${i}`} className="aspect-square" />
+              if (!day) return (
+                <div key={`e-${i}`} className="min-h-[4.5rem] border-b border-slate-800/60 bg-slate-950/40" />
+              )
               const dayBookings = bookingsOnDay(day)
               const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
               return (
                 <div key={day}
-                  className={`aspect-square rounded-xl flex flex-col items-center justify-start pt-1.5 cursor-default ${
-                    isToday ? 'bg-indigo-900/40 ring-1 ring-indigo-500' : ''
+                  className={`min-h-[4.5rem] border-b border-slate-800/60 p-0.5 overflow-hidden ${
+                    isToday ? 'bg-indigo-950/40' : ''
                   }`}>
-                  <span className={`text-xs font-medium ${isToday ? 'text-indigo-300' : 'text-slate-400'}`}>{day}</span>
-                  <div className="flex flex-wrap gap-0.5 justify-center mt-0.5 px-0.5">
-                    {dayBookings.slice(0, 4).map(b => (
-                      <button key={b.id} onClick={() => setSelected(b)}
-                        className={`w-1.5 h-1.5 rounded-full ${statusCfg(b.status).dot}`} />
-                    ))}
+                  {/* Day number */}
+                  <div className={`text-xs font-semibold text-center py-0.5 mb-0.5 rounded-md ${
+                    isToday ? 'text-white bg-indigo-600' : 'text-slate-400'
+                  }`}>
+                    {day}
+                  </div>
+                  {/* Event pills */}
+                  <div className="space-y-0.5">
+                    {dayBookings.slice(0, 3).map(b => {
+                      const cfg = statusCfg(b.status)
+                      const firstName = b.contact?.first_name || b.title || ''
+                      return (
+                        <button
+                          key={b.id}
+                          onClick={() => setSelected(b)}
+                          className={`w-full text-left rounded px-1 py-0.5 flex items-center gap-0.5 overflow-hidden
+                            ${cfg.value === 'done'            ? 'bg-green-700/70' :
+                              cfg.value === 'payment_pending' ? 'bg-amber-700/70' :
+                              cfg.value === 'cancelled'       ? 'bg-slate-700/60' :
+                                                                'bg-indigo-700/70'}`}
+                        >
+                          <span className="text-white/80 text-[9px] font-bold shrink-0 leading-none">
+                            {fmtTime(b.scheduled_at)}
+                          </span>
+                          <span className="text-white text-[9px] truncate leading-none ml-0.5">
+                            {firstName}
+                          </span>
+                        </button>
+                      )
+                    })}
+                    {dayBookings.length > 3 && (
+                      <p className="text-slate-500 text-[9px] text-center leading-none">
+                        +{dayBookings.length - 3}
+                      </p>
+                    )}
                   </div>
                 </div>
               )
             })}
           </div>
-          <CampaignPanel token={token} />
+          <div className="px-4 pt-2">
+            <CampaignPanel token={token} />
+          </div>
         </div>
       )}
 
