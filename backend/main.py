@@ -8,6 +8,7 @@ from database import engine, Base, SessionLocal, DATABASE_URL
 import models
 from routes import auth, users, contacts, companies, deals, activities, dashboard, knocks, search, sms, chats, invites, twilio as twilio_routes
 from routes import timeclock as timeclock_routes
+from routes import phases as phases_routes
 from routes import analytics as analytics_routes
 from routes import availability as availability_routes
 from routes import reminders as reminders_routes
@@ -775,6 +776,7 @@ app.include_router(timeclock_routes.router)
 app.include_router(analytics_routes.router)
 app.include_router(availability_routes.router)
 app.include_router(reminders_routes.router)
+app.include_router(phases_routes.router)
 
 # Start 24h reminder scheduler
 reminders_routes.start_scheduler()

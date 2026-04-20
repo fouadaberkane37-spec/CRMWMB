@@ -85,6 +85,31 @@ class Deal(Base):
     contact = relationship("Contact", back_populates="deals")
     company = relationship("Company", back_populates="deals")
     activities = relationship("Activity", back_populates="deal")
+    phases = relationship("DealPhase", back_populates="deal", cascade="all, delete-orphan", order_by="DealPhase.phase_date")
+
+
+class DealPhase(Base):
+    __tablename__ = "deal_phases"
+    id         = Column(Integer, primary_key=True, index=True)
+    deal_id    = Column(Integer, ForeignKey("deals.id"), nullable=False)
+    title      = Column(String, nullable=False)
+    phase_date = Column(DateTime, nullable=True)
+    status     = Column(String, default="todo")  # todo | done
+    notes      = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    deal        = relationship("Deal", back_populates="phases")
+    assignments = relationship("PhaseAssignment", back_populates="phase", cascade="all, delete-orphan")
+
+
+class PhaseAssignment(Base):
+    __tablename__ = "phase_assignments"
+    id       = Column(Integer, primary_key=True, index=True)
+    phase_id = Column(Integer, ForeignKey("deal_phases.id"), nullable=False)
+    user_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user  = relationship("User", foreign_keys=[user_id])
+    phase = relationship("DealPhase", back_populates="assignments")
 
 
 class Knock(Base):

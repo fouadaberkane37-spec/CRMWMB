@@ -102,8 +102,8 @@ export default function Booking() {
     e.preventDefault()
     setError('')
     if (!form.firstName.trim()) { setError('First name is required'); return }
-    if (!form.date)              { setError('Date is required'); return }
-    if (dayFull)                 { setError(`This day is fully booked (${MAX_PER_DAY}/${MAX_PER_DAY}). Choose another date.`); return }
+    if (form.business === 'window' && !form.date) { setError('Date is required'); return }
+    if (form.business === 'window' && dayFull)    { setError(`This day is fully booked (${MAX_PER_DAY}/${MAX_PER_DAY}). Choose another date.`); return }
     setSaving(true)
     try {
       // 1. Create or find contact
@@ -120,7 +120,7 @@ export default function Booking() {
 
       // 2. Build appointment datetime ISO string
       const timeStr = form.time || '08:00'
-      const apptIso = `${form.date}T${timeStr}:00`
+      const apptIso = form.date ? `${form.date}T${timeStr}:00` : null
 
       // 3. Create deal linked to that contact
       const allServices = form.business === 'landscape' ? SERVICES_LANDSCAPE : SERVICES_WINDOW
@@ -157,11 +157,17 @@ export default function Booking() {
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center px-4 text-center" style={{ minHeight: '60vh' }}>
-        <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4">
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${form.business === 'landscape' ? 'bg-emerald-500/20' : 'bg-emerald-500/20'}`}>
           <CheckCircle size={32} className="text-emerald-400" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-1">Booking Saved!</h2>
-        <p className="text-slate-400 text-sm">Redirecting to calendar…</p>
+        <h2 className="text-xl font-bold text-white mb-1">
+          {form.business === 'landscape' ? 'Project Saved!' : 'Booking Saved!'}
+        </h2>
+        <p className="text-slate-400 text-sm">
+          {form.business === 'landscape'
+            ? 'Go to the Landscape calendar to add steps & assign crew.'
+            : 'Redirecting to calendar…'}
+        </p>
       </div>
     )
   }

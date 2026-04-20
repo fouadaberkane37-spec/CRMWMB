@@ -150,6 +150,24 @@ class Deal(DealBase):
         from_attributes = True
 
 
+# ── DealPhase ─────────────────────────────────────────────────────────────────
+class PhaseCreate(BaseModel):
+    deal_id: int
+    title: str = Field(..., max_length=256)
+    phase_date: Optional[datetime] = None
+    status: str = "todo"
+    notes: Optional[str] = Field(default=None, max_length=2000)
+    tech_ids: List[int] = []
+
+
+class PhaseUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, max_length=256)
+    phase_date: Optional[datetime] = None
+    status: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=2000)
+    tech_ids: Optional[List[int]] = None
+
+
 # ── Activity ──────────────────────────────────────────────────────────────────
 class ActivityBase(BaseModel):
     type: Literal["call", "email", "meeting", "note", "task"] = "note"
