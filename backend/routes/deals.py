@@ -185,6 +185,46 @@ def _send_booking_confirmation(db: Session, deal: models.Deal, contact: models.C
             pass
 
 
+def _send_reschedule_sms(db: Session, deal: models.Deal, contact: models.Contact, sender_id: int):
+    """Send a reschedule notification SMS — best-effort."""
+    dt = deal.expected_close_date
+    try:
+        date_str = dt.strftime("%A, %B %-d")
+        time_str = dt.strftime("%-I:%M %p")
+    except Exception:
+        date_str = str(dt.date())
+        time_str = str(dt.time())[:5]
+
+    safe_name = (contact.first_name or "")[:30].replace("\r", "").replace("\n", "")
+    lines = [f"Hi {safe_name}! Your appointment has been rescheduled 🔄"]
+    lines.append(f"📅 New date: {date_str} at {time_str}")
+    if contact.address:
+        lines.append(f"📍 {contact.address[:80].replace(chr(0x202E), '')}")
+    if deal.title and " — " in deal.title:
+        lines.append(f"🔧 {deal.title.split(' — ', 1)[1][:60]}")
+    lines.append("\nReply anytime if you have questions. See you then!")
+
+    body = "\n".join(lines)
+    if len(body) > 1500:
+        body = body[:1497] + "..."
+
+    try:
+        db.add(models.ChatMessage(contact_id=contact.id, sender_id=sender_id, body=body, direction="outbound"))
+        db.commit()
+    except Exception:
+        pass
+
+    sid = os.getenv("TWILIO_ACCOUNT_SID")
+    token = os.getenv("TWILIO_AUTH_TOKEN")
+    frm = os.getenv("TWILIO_FROM_NUMBER")
+    if sid and token and frm:
+        try:
+            from twilio.rest import Client
+            Client(sid, token).messages.create(body=body, from_=frm, to=contact.phone)
+        except Exception:
+            pass
+
+
 @router.put("/{deal_id}", response_model=schemas.Deal)
 def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     db_deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
@@ -195,10 +235,20 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
     updates = deal.model_dump(exclude_unset=True)
     if "assigned_to" in updates and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can reassign deals")
+
+    old_date = db_deal.expected_close_date
     for k, v in updates.items():
         setattr(db_deal, k, v)
     db.commit()
     db.refresh(db_deal)
+
+    # Send reschedule SMS if date changed and contact has a phone
+    new_date = db_deal.expected_close_date
+    if "expected_close_date" in updates and old_date != new_date and db_deal.contact_id and new_date:
+        contact = db.query(models.Contact).filter(models.Contact.id == db_deal.contact_id).first()
+        if contact and contact.phone:
+            _send_reschedule_sms(db, db_deal, contact, current_user.id)
+
     return _enrich(db_deal, db)
 
 
