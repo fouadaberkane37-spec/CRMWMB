@@ -107,9 +107,9 @@ function LeadForm({ initial, onSave, onClose }) {
   return (
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl px-4 pt-5 overflow-y-auto"
+      <div className="absolute bottom-0 left-0 right-0 bg-emerald-950 rounded-t-2xl px-4 pt-5 overflow-y-auto"
         style={{ maxHeight: '92vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
-        <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto -mt-1 mb-4" />
+        <div className="w-10 h-1 bg-emerald-800 rounded-full mx-auto -mt-1 mb-4" />
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-bold text-lg">{initial ? 'Edit Lead' : 'New Lead'}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
@@ -238,9 +238,9 @@ function DealSheet({ deal, onClose, onUpdated, onDeleted }) {
   return (
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl px-4 pt-5 overflow-y-auto"
+      <div className="absolute bottom-0 left-0 right-0 bg-emerald-950 rounded-t-2xl px-4 pt-5 overflow-y-auto"
         style={{ maxHeight: '90vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
-        <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto -mt-1 mb-4" />
+        <div className="w-10 h-1 bg-emerald-800 rounded-full mx-auto -mt-1 mb-4" />
 
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
@@ -362,7 +362,7 @@ function DealCard({ deal, onTap }) {
 
   return (
     <button onClick={onTap}
-      className="w-full text-left bg-slate-900 border border-slate-700/50 rounded-2xl p-4 active:bg-slate-800 transition-colors">
+      className="w-full text-left bg-emerald-900/40 border border-emerald-800/50 rounded-2xl p-4 active:bg-emerald-900/60 transition-colors">
       <div className="flex items-start justify-between gap-2 mb-2">
         <p className="text-white font-semibold text-sm truncate">{name}</p>
         {deal.value > 0 && (
@@ -415,7 +415,7 @@ export default function LandscapePipeline() {
   const curStage = STAGE_MAP[activeStage] || STAGE_MAP.lead
 
   return (
-    <div className="flex flex-col h-full bg-slate-950">
+    <div className="flex flex-col h-full bg-emerald-950">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0">
         <div>

@@ -649,7 +649,7 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
   }
 
   const phaseFormJSX = (
-    <div className="bg-slate-800 rounded-2xl p-4 space-y-3 border border-slate-700/50">
+    <div className="bg-emerald-900/40 rounded-2xl p-4 space-y-3 border border-emerald-800/50">
       <input
         value={form.title}
         onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -725,10 +725,10 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div
-        className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl px-4 pt-5 overflow-y-auto"
+        className="absolute bottom-0 left-0 right-0 bg-emerald-950 rounded-t-2xl px-4 pt-5 overflow-y-auto"
         style={{ maxHeight: '92vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
       >
-        <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto -mt-1 mb-4" />
+        <div className="w-10 h-1 bg-emerald-800 rounded-full mx-auto -mt-1 mb-4" />
 
         {/* Project header */}
         <div className="flex items-start justify-between mb-4">
@@ -784,7 +784,7 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
                       phaseFormJSX
                     ) : (
                       <div className={`flex items-start gap-3 px-4 py-3 rounded-2xl border transition-colors ${
-                        isDone ? 'bg-emerald-900/20 border-emerald-700/30' : 'bg-slate-800 border-slate-700/50'
+                        isDone ? 'bg-emerald-900/40 border-emerald-700/40' : 'bg-emerald-900/20 border-emerald-800/40'
                       }`}>
                         {/* Step number / done toggle */}
                         <button
@@ -1093,7 +1093,7 @@ export default function Calendar() {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: '100%' }}>
+    <div className={`flex flex-col transition-colors ${businessType === 'landscape' ? 'bg-emerald-950' : ''}`} style={{ height: '100%' }}>
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0">
         <div>
@@ -1140,8 +1140,8 @@ export default function Calendar() {
             onClick={() => setBusinessType(v)}
             className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
               businessType === v
-                ? 'bg-indigo-600 border-indigo-500 text-white'
-                : 'bg-slate-900 border-slate-700 text-slate-400 active:bg-slate-800'
+                ? v === 'landscape' ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-indigo-600 border-indigo-500 text-white'
+                : businessType === 'landscape' ? 'bg-emerald-900/40 border-emerald-800/50 text-emerald-300 active:bg-emerald-900/60' : 'bg-slate-900 border-slate-700 text-slate-400 active:bg-slate-800'
             }`}
           >
             {label}
