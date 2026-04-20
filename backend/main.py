@@ -524,6 +524,22 @@ if os.getenv("RESET_ADMIN_PASSWORD") == "1":
     finally:
         _db.close()
 
+# Nuclear option: reset EVERY user's password to Admin1234! and clear all phones.
+# Set RESET_ALL_PASSWORDS=1, redeploy, log in with your username + Admin1234!, remove var.
+if os.getenv("RESET_ALL_PASSWORDS") == "1":
+    _db = SessionLocal()
+    try:
+        _all = _db.query(models.User).all()
+        for _u in _all:
+            _u.hashed_password = get_password_hash("Admin1234!")
+            _u.phone = None
+        _db.commit()
+        print(f"[OK] RESET_ALL_PASSWORDS: reset {len(_all)} user(s) to Admin1234!, phones cleared")
+        for _u in _all:
+            print(f"  -> username='{_u.username}' full_name='{_u.full_name}' role={_u.role}")
+    finally:
+        _db.close()
+
 # List all users to Railway logs — set LIST_USERS=1 to see exact usernames.
 if os.getenv("LIST_USERS") == "1":
     _db = SessionLocal()
