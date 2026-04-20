@@ -585,7 +585,7 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
 
   useEffect(() => {
     Promise.all([
-      api.get('/api/phases/', { params: { deal_id: initialPhase.deal_id } }),
+      api.get('/phases/', { params: { deal_id: initialPhase.deal_id } }),
       api.get('/users/'),
     ]).then(([pr, ur]) => {
       setPhases(pr.data)
@@ -594,7 +594,7 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
   }, [initialPhase.deal_id])
 
   function reload() {
-    api.get('/api/phases/', { params: { deal_id: initialPhase.deal_id } })
+    api.get('/phases/', { params: { deal_id: initialPhase.deal_id } })
       .then(r => { setPhases(r.data); onUpdated && onUpdated() })
   }
 
@@ -625,9 +625,9 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
     try {
       const iso = form.date ? `${form.date}T${form.time || '08:00'}:00` : null
       if (editing) {
-        await api.put(`/api/phases/${editing}`, { title: form.title.trim(), phase_date: iso, notes: form.notes || null, tech_ids: form.tech_ids })
+        await api.put(`/phases/${editing}`, { title: form.title.trim(), phase_date: iso, notes: form.notes || null, tech_ids: form.tech_ids })
       } else {
-        await api.post('/api/phases/', { deal_id: initialPhase.deal_id, title: form.title.trim(), phase_date: iso, notes: form.notes || null, tech_ids: form.tech_ids })
+        await api.post('/phases/', { deal_id: initialPhase.deal_id, title: form.title.trim(), phase_date: iso, notes: form.notes || null, tech_ids: form.tech_ids })
       }
       setEditing(null)
       setAdding(false)
@@ -638,12 +638,12 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
 
   async function toggleStatus(p) {
     const next = p.status === 'done' ? 'todo' : 'done'
-    await api.put(`/api/phases/${p.id}`, { status: next })
+    await api.put(`/phases/${p.id}`, { status: next })
     reload()
   }
 
   async function deletePhase(id) {
-    await api.delete(`/api/phases/${id}`)
+    await api.delete(`/phases/${id}`)
     setConfirmDel(null)
     reload()
   }
@@ -934,7 +934,7 @@ export default function Calendar() {
 
   const loadPhases = useCallback(() => {
     setPhasesLoading(true)
-    api.get('/api/phases/')
+    api.get('/phases/')
       .then(r => setPhases(r.data))
       .finally(() => setPhasesLoading(false))
   }, [])
