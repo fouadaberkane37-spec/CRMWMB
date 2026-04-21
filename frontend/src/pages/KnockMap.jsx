@@ -583,13 +583,14 @@ export default function KnockMap() {
         <>
           <div className="absolute inset-0 z-30 bg-black/30 md:hidden" onClick={cancel} />
 
-          <div className="absolute z-40 bottom-0 left-0 right-0 rounded-t-3xl md:rounded-3xl md:bottom-6 md:right-6 md:left-auto md:w-88 bg-slate-900 border border-slate-700/60 shadow-2xl">
+          <div className="absolute z-40 bottom-0 left-0 right-0 rounded-t-3xl md:rounded-3xl md:bottom-6 md:right-6 md:left-auto md:w-88 bg-slate-900 border border-slate-700/60 shadow-2xl overflow-y-scroll"
+            style={{ maxHeight: '85vh', paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 1.5rem), 1.5rem)', WebkitOverflowScrolling: 'touch' }}>
             {/* Sheet handle (mobile) */}
             <div className="flex justify-center pt-3 pb-0.5 md:hidden">
               <div className="w-9 h-1 rounded-full bg-slate-600/70" />
             </div>
 
-            <div className="px-5 pt-4 pb-6" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 12px), 24px)' }}>
+            <div className="px-5 pt-4 pb-4">
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2.5">

@@ -107,8 +107,8 @@ function LeadForm({ initial, onSave, onClose }) {
   return (
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="absolute bottom-0 left-0 right-0 bg-[#020805] rounded-t-2xl px-4 pt-5 overflow-y-auto"
-        style={{ maxHeight: '92vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+      <div className="absolute bottom-0 left-0 right-0 bg-[#020805] rounded-t-2xl px-4 pt-5 overflow-y-scroll"
+        style={{ maxHeight: '92vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)', overscrollBehavior: 'contain' }}>
         <div className="w-10 h-1 bg-emerald-900 rounded-full mx-auto -mt-1 mb-4" />
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-bold text-lg">{initial ? 'Edit Lead' : 'New Lead'}</h2>
@@ -238,8 +238,8 @@ function DealSheet({ deal, onClose, onUpdated, onDeleted }) {
   return (
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="absolute bottom-0 left-0 right-0 bg-[#020805] rounded-t-2xl px-4 pt-5 overflow-y-auto"
-        style={{ maxHeight: '90vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+      <div className="absolute bottom-0 left-0 right-0 bg-[#020805] rounded-t-2xl px-4 pt-5 overflow-y-scroll"
+        style={{ maxHeight: '92vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)', overscrollBehavior: 'contain' }}>
         <div className="w-10 h-1 bg-emerald-900 rounded-full mx-auto -mt-1 mb-4" />
 
         {/* Header */}

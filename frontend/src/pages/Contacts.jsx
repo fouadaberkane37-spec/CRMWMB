@@ -541,7 +541,7 @@ export default function Contacts() {
           <div className="absolute inset-0 bg-black/70" onClick={() => setShowTrash(false)} />
           <div
             className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl flex flex-col"
-            style={{ maxHeight: '70vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
+            style={{ maxHeight: '85vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)', overscrollBehavior: 'contain' }}
           >
             {/* Handle */}
             <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mt-3 mb-2 flex-shrink-0" />

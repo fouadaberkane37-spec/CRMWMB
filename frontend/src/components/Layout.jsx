@@ -23,7 +23,7 @@ export default function Layout() {
         </div>
 
         {/* Main scrollable content */}
-        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <main className="relative z-10 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <Outlet />
           {/* Bottom padding so last item clears the nav */}
           <div className="md:hidden" style={{ height: '1rem' }} />
@@ -31,7 +31,7 @@ export default function Layout() {
       </div>
 
       {/* Bottom nav — mobile only (always at bottom, respects home indicator) */}
-      <div className="md:hidden flex-shrink-0 relative z-10">
+      <div className="md:hidden flex-shrink-0">
         <BottomNav />
       </div>
     </div>

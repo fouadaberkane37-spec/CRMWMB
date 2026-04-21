@@ -127,10 +127,11 @@ export default function BottomNav() {
         <div className="fixed inset-0 z-[200]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowMore(false)} />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl px-4 pt-5 slide-up overflow-y-auto"
+            className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-3xl px-4 pt-5 slide-up overflow-y-scroll"
             style={{
-              paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)',
-              maxHeight: 'calc(85vh - env(safe-area-inset-top))',
+              paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)',
+              maxHeight: 'calc(90vh - env(safe-area-inset-top))',
+              overscrollBehavior: 'contain',
             }}
           >
             {/* Handle bar */}
