@@ -33,8 +33,10 @@ body {
 }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
-/* Smooth momentum scrolling on iOS */
-.overflow-y-auto, .overflow-y-scroll {
+/* Smooth momentum scrolling on iOS — applied everywhere EXCEPT <main>
+   to avoid creating a stacking context on the page container that would
+   trap fixed drawers below the bottom nav */
+.overflow-y-auto:not(main), .overflow-y-scroll:not(main) {
   -webkit-overflow-scrolling: touch;
 }
 
