@@ -74,8 +74,8 @@ function AssignSheet({ deal, availTechs, allTechs, onToggle, onClose }) {
   return (
     <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)', maxHeight: '82vh', overflowY: 'auto' }}>
+      <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4 overflow-y-scroll"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)', maxHeight: '85vh', overscrollBehavior: 'contain' }}>
         <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-4" />
 
         <div className="flex items-center justify-between mb-1">
@@ -160,8 +160,8 @@ function StatusSheet({ deal, onUpdate, onClose }) {
   return (
     <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+      <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4 overflow-y-scroll"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)', maxHeight: '85vh', overscrollBehavior: 'contain' }}>
         <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-4" />
         <p className="text-white font-semibold text-base mb-1">Update Status</p>
         <p className="text-slate-500 text-xs mb-4">
