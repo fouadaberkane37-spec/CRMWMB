@@ -30,8 +30,8 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* Bottom nav — mobile only (always at bottom, respects home indicator) */}
-      <div className="md:hidden flex-shrink-0 relative z-10">
+      {/* Bottom nav — mobile only — no z-index so page drawers (z-9999) always cover it */}
+      <div className="md:hidden flex-shrink-0">
         <BottomNav />
       </div>
     </div>
