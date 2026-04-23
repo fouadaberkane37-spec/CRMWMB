@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../api.js'
 import Modal from '../components/Modal.jsx'
 import { useAuth } from '../App.jsx'
@@ -536,7 +537,7 @@ export default function Contacts() {
       )}
 
       {/* Trash drawer — z-[9999] to sit above BottomNav backdrop-blur stacking context */}
-      {showTrash && (
+      {showTrash && createPortal(
         <div className="fixed inset-0" style={{ zIndex: 9999 }}>
           <div className="absolute inset-0 bg-black/70" onClick={() => setShowTrash(false)} />
           <div
@@ -615,8 +616,8 @@ export default function Contacts() {
               ))}
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+      document.body)}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../api.js'
 import { PhoneIncoming, MessageSquare, PhoneCall, UserPlus, X, Loader2, RefreshCw } from 'lucide-react'
 
@@ -37,7 +38,7 @@ function AddContactModal({ lead, onClose, onConverted }) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 flex items-end md:items-center justify-center" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="relative bg-slate-900 border border-slate-700/50 rounded-t-2xl md:rounded-2xl w-full md:max-w-sm p-5"
@@ -84,7 +85,7 @@ function AddContactModal({ lead, onClose, onConverted }) {
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }
 
 export default function NewNumbers() {

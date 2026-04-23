@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
@@ -123,7 +124,7 @@ export default function BottomNav() {
       </nav>
 
       {/* More drawer */}
-      {showMore && (
+      {showMore && createPortal(
         <div className="fixed inset-0 z-[200]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowMore(false)} />
           <div
@@ -182,8 +183,8 @@ export default function BottomNav() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+      document.body)}
     </>
   )
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
@@ -228,7 +229,7 @@ function TechJobModal({ deal, allDeals, onClose, onClockAction }) {
   const totalHrs = Math.floor(totalMs / 3600000)
   const totalMins = Math.floor((totalMs % 3600000) / 60000)
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div
         className="relative bg-slate-900 border border-slate-700/60 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
@@ -424,7 +425,7 @@ function TechJobModal({ deal, allDeals, onClose, onClockAction }) {
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }
 
 // ── Deal chip — draggable ──────────────────────────────────────────────────────
@@ -737,7 +738,7 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
     </div>
   )
 
-  return (
+  return createPortal(
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div
@@ -868,7 +869,7 @@ function LandscapeProjectSheet({ phase: initialPhase, onClose, onUpdated }) {
         )}
       </div>
     </div>
-  )
+  , document.body)
 }
 
 // ── Phase Agenda Card (landscape mode) ────────────────────────────────────────
@@ -1365,7 +1366,7 @@ export default function Calendar() {
       )}
 
       {/* ── Project picker sheet ── */}
-      {projectPicker && (
+      {projectPicker && createPortal(
         <div className="fixed inset-0" style={{ zIndex: 9999 }}>
           <div className="absolute inset-0 bg-black/70" onClick={() => setProjectPicker(false)} />
           <div className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl px-4 pt-5 overflow-y-scroll"
@@ -1427,8 +1428,8 @@ export default function Calendar() {
               </div>
             )}
           </div>
-        </div>
-      )}
+        </div>,
+      document.body)}
 
       {/* ── Schedule sheet for picked project ── */}
       {scheduleTarget && (
@@ -1575,7 +1576,7 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
       </button>
 
       {/* Admin action bottom sheet */}
-      {sheet && isAdmin && (
+      {sheet && isAdmin && createPortal(
         <div className="fixed inset-0" style={{ zIndex: 9999 }}>
           <div className="absolute inset-0 bg-black/70" onClick={() => setSheet(false)} />
           <div
@@ -1711,8 +1712,8 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
               )}
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+      document.body)}
       </>
       )}
 

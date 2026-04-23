@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../api.js'
 import {
   ClipboardList, ChevronLeft, ChevronRight, Loader2,
@@ -71,7 +72,7 @@ function AssignSheet({ deal, availTechs, allTechs, onToggle, onClose }) {
     finally { setPending(null) }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4 overflow-y-scroll"
@@ -146,7 +147,7 @@ function AssignSheet({ deal, availTechs, allTechs, onToggle, onClose }) {
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }
 
 /* ── Status Sheet ── */
@@ -157,7 +158,7 @@ function StatusSheet({ deal, onUpdate, onClose }) {
     try { await onUpdate(deal.id, status); onClose() }
     finally { setSaving(false) }
   }
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4 overflow-y-scroll"
@@ -183,7 +184,7 @@ function StatusSheet({ deal, onUpdate, onClose }) {
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }
 
 /* ── Main Page ── */

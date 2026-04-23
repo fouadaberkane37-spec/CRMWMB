@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 export default function Modal({ title, onClose, children, size = 'md' }) {
@@ -10,7 +11,7 @@ export default function Modal({ title, onClose, children, size = 'md' }) {
 
   const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 flex items-center justify-center p-4"
       style={{
@@ -37,5 +38,5 @@ export default function Modal({ title, onClose, children, size = 'md' }) {
         <div className="overflow-y-auto flex-1 px-6 py-5">{children}</div>
       </div>
     </div>
-  )
+  , document.body)
 }

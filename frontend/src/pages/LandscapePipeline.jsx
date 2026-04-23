@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
@@ -104,7 +105,7 @@ function LeadForm({ initial, onSave, onClose }) {
 
   const INPUT = 'w-full bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-500'
 
-  return (
+  return createPortal(
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="absolute bottom-0 left-0 right-0 bg-[#020805] rounded-t-2xl px-4 pt-5 overflow-y-scroll"
@@ -191,7 +192,7 @@ function LeadForm({ initial, onSave, onClose }) {
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }
 
 // ── Deal Detail Sheet ──────────────────────────────────────────────────────────
@@ -235,7 +236,7 @@ function DealSheet({ deal, onClose, onUpdated, onDeleted }) {
     return <LeadForm initial={deal} onSave={() => { setEditing(false); onUpdated() }} onClose={() => setEditing(false)} />
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="absolute bottom-0 left-0 right-0 bg-[#020805] rounded-t-2xl px-4 pt-5 overflow-y-scroll"
@@ -350,7 +351,7 @@ function DealSheet({ deal, onClose, onUpdated, onDeleted }) {
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }
 
 // ── Deal Card ──────────────────────────────────────────────────────────────────
