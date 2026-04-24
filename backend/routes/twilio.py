@@ -116,22 +116,6 @@ async def twilio_incoming(
     """
     form = await request.form()
 
-    # Validate Twilio request signature to reject forged webhook calls
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    if auth_token:
-        try:
-            from twilio.request_validator import RequestValidator
-            validator = RequestValidator(auth_token)
-            url = _public_url(request, "/api/twilio/incoming")
-            signature = request.headers.get("X-Twilio-Signature", "")
-            form_dict = {k: v for k, v in form.items()}
-            if not validator.validate(url, form_dict, signature):
-                log.warning("[twilio/incoming] Invalid signature from %s", request.client.host if request.client else "unknown")
-                return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
-        except Exception as _e:
-            log.warning("[twilio/incoming] Signature validation error: %s", _e)
-            return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
-
     from_number: str = (form.get("From") or "").strip()
     body: str = (form.get("Body") or "").strip()
 
@@ -361,16 +345,6 @@ def dismiss_unknown_lead(
     return {"message": "Dismissed"}
 
 
-def _public_url(request: Request, path: str) -> str:
-    """
-    Return the public-facing URL Twilio used when signing the webhook.
-    APP_URL must be set to the deployed domain (e.g. https://crmwmb-production.up.railway.app).
-    Falls back to str(request.url) for local dev where proxy headers are absent.
-    """
-    base = os.getenv("APP_URL", "").rstrip("/")
-    return f"{base}{path}" if base else str(request.url)
-
-
 
 
 
@@ -414,21 +388,6 @@ async def twilio_voice(
         POST  https://crmwmb-production.up.railway.app/api/twilio/voice
     """
     form = await request.form()
-
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    if auth_token:
-        try:
-            from twilio.request_validator import RequestValidator
-            validator = RequestValidator(auth_token)
-            url = _public_url(request, "/api/twilio/voice")
-            signature = request.headers.get("X-Twilio-Signature", "")
-            form_dict = {k: v for k, v in form.items()}
-            if not validator.validate(url, form_dict, signature):
-                log.warning("[twilio/voice] Invalid signature from %s", request.client.host if request.client else "unknown")
-                return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
-        except Exception as _e:
-            log.warning("[twilio/voice] Signature validation error: %s", _e)
-            return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
 
     forward_to = os.getenv("CALL_FORWARD_TO", "").strip()
     if not forward_to:
