@@ -122,7 +122,7 @@ async def twilio_incoming(
         try:
             from twilio.request_validator import RequestValidator
             validator = RequestValidator(auth_token)
-            url = str(request.url)
+            url = _public_url(request, "/api/twilio/incoming")
             signature = request.headers.get("X-Twilio-Signature", "")
             form_dict = {k: v for k, v in form.items()}
             if not validator.validate(url, form_dict, signature):
@@ -361,7 +361,17 @@ def dismiss_unknown_lead(
     return {"message": "Dismissed"}
 
 
-_E164_RE = __import__("re").compile(r"^\+?[1-9]\d{6,14}$")
+def _public_url(request: Request, path: str) -> str:
+    """
+    Return the public-facing URL Twilio used when signing the webhook.
+    APP_URL must be set to the deployed domain (e.g. https://crmwmb-production.up.railway.app).
+    Falls back to str(request.url) for local dev where proxy headers are absent.
+    """
+    base = os.getenv("APP_URL", "").rstrip("/")
+    return f"{base}{path}" if base else str(request.url)
+
+
+
 
 
 @router.get("/connect", include_in_schema=False, response_class=PlainTextResponse)
@@ -410,7 +420,7 @@ async def twilio_voice(
         try:
             from twilio.request_validator import RequestValidator
             validator = RequestValidator(auth_token)
-            url = str(request.url)
+            url = _public_url(request, "/api/twilio/voice")
             signature = request.headers.get("X-Twilio-Signature", "")
             form_dict = {k: v for k, v in form.items()}
             if not validator.validate(url, form_dict, signature):
