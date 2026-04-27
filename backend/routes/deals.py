@@ -32,8 +32,8 @@ STAGES = ["lead", "qualified", "proposal", "negotiation", "won", "lost"]
 
 
 def _own_deal(deal, user):
-    """Return True if user owns this deal or is admin."""
-    return user.role == "admin" or deal.assigned_to == user.id or deal.created_by == user.id
+    """All non-technician users can view and update deals (calendar is shared)."""
+    return user.role != "technician"
 
 
 @router.get("/", response_model=List[schemas.Deal])
@@ -52,8 +52,8 @@ def list_deals(
         joinedload(models.Deal.contact),
         joinedload(models.Deal.company),
     )
-    # Admin sees all. Technician sees only deals they are assigned to.
-    # Sales/user sees only deals they created or are the legacy assignee of.
+    # Admin and sales/user roles see all deals.
+    # Technicians see only deals they are assigned to.
     if current_user.role == "technician":
         assigned_via_table = exists().where(
             models.DealTechnician.deal_id == models.Deal.id,
@@ -63,13 +63,6 @@ def list_deals(
             or_(
                 assigned_via_table,
                 models.Deal.assigned_to == current_user.id,
-            )
-        )
-    elif current_user.role != "admin":
-        q = q.filter(
-            or_(
-                models.Deal.assigned_to == current_user.id,
-                models.Deal.created_by == current_user.id,
             )
         )
     if stage:
