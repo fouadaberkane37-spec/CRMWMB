@@ -4,10 +4,13 @@ from sqlalchemy import or_
 from sqlalchemy import exists
 from typing import List, Optional
 import os
+import logging
 from database import get_db
 import models
 import schemas
 from auth import get_current_user
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
 
@@ -107,8 +110,6 @@ def create_deal(deal: schemas.DealCreate, db: Session = Depends(get_db), current
         contact = db.query(models.Contact).filter(models.Contact.id == data["contact_id"]).first()
         if not contact:
             raise HTTPException(status_code=404, detail="Contact not found")
-        if current_user.role != "admin" and contact.created_by != current_user.id:
-            raise HTTPException(status_code=403, detail="Cannot create a deal for a contact you don't own")
     db_deal = models.Deal(**data, created_by=current_user.id)
     db.add(db_deal)
     db.commit()
@@ -180,12 +181,15 @@ def _send_booking_confirmation(db: Session, deal: models.Deal, contact: models.C
     sid   = os.getenv("TWILIO_ACCOUNT_SID")
     token = os.getenv("TWILIO_AUTH_TOKEN")
     frm   = os.getenv("TWILIO_FROM_NUMBER")
-    if sid and token and frm:
-        try:
-            from twilio.rest import Client
-            Client(sid, token).messages.create(body=body, from_=frm, to=contact.phone)
-        except Exception:
-            pass
+    if not (sid and token and frm):
+        log.warning("[booking SMS] Twilio not configured — skipping SMS for deal %s", deal.id)
+        return
+    try:
+        from twilio.rest import Client
+        msg = Client(sid, token).messages.create(body=body, from_=frm, to=contact.phone)
+        log.info("[booking SMS] Sent to %s for deal %s (sid=%s)", contact.phone, deal.id, msg.sid)
+    except Exception as e:
+        log.error("[booking SMS] FAILED for deal %s to %s: %s", deal.id, contact.phone, e)
 
 
 def _send_reschedule_sms(db: Session, deal: models.Deal, contact: models.Contact, sender_id: int):
@@ -238,12 +242,15 @@ def _send_reschedule_sms(db: Session, deal: models.Deal, contact: models.Contact
     sid = os.getenv("TWILIO_ACCOUNT_SID")
     token = os.getenv("TWILIO_AUTH_TOKEN")
     frm = os.getenv("TWILIO_FROM_NUMBER")
-    if sid and token and frm:
-        try:
-            from twilio.rest import Client
-            Client(sid, token).messages.create(body=body, from_=frm, to=contact.phone)
-        except Exception:
-            pass
+    if not (sid and token and frm):
+        log.warning("[reschedule SMS] Twilio not configured — skipping SMS for deal %s", deal.id)
+        return
+    try:
+        from twilio.rest import Client
+        msg = Client(sid, token).messages.create(body=body, from_=frm, to=contact.phone)
+        log.info("[reschedule SMS] Sent to %s for deal %s (sid=%s)", contact.phone, deal.id, msg.sid)
+    except Exception as e:
+        log.error("[reschedule SMS] FAILED for deal %s to %s: %s", deal.id, contact.phone, e)
 
 
 @router.put("/{deal_id}", response_model=schemas.Deal)
