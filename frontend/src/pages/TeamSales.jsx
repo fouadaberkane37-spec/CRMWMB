@@ -51,7 +51,7 @@ export default function TeamSales() {
     const u      = users[Number(uid)] || {}
     const name   = u.full_name || u.username || `User #${uid}`
     const role   = u.role || 'user'
-    const margin = role === 'admin' ? 0.80 : 0.35
+    const margin = 0.35
     const gross  = userDeals.reduce((s, d) => s + (d.value || 0), 0)
     const profit = gross * margin
     return { uid: Number(uid), name, role, margin, deals: userDeals, gross, profit }

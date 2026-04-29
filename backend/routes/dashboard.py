@@ -41,11 +41,10 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
     total_deal_value = active_deals.with_entities(func.sum(models.Deal.value)).scalar() or 0
     won_deals = deals_q.filter(models.Deal.stage == "won").with_entities(func.count(models.Deal.id)).scalar() or 0
 
-    # Blended revenue: 80% for admin-created deals, 35% for everyone else
+    # Profit at 35% margin across all roles
     # Excludes cancelled jobs from revenue/profit
     revenue_deals = (
-        db.query(models.Deal.value, models.User.role)
-        .join(models.User, models.Deal.created_by == models.User.id)
+        db.query(models.Deal.value)
         .filter(models.Deal.job_status != "cancelled")
     )
     if not is_admin:
@@ -56,8 +55,8 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
             )
         )
     revenue_made = sum(
-        (val or 0) * (0.80 if role == "admin" else 0.35)
-        for val, role in revenue_deals.all()
+        (val or 0) * 0.35
+        for (val,) in revenue_deals.all()
     )
 
     # Activities — admin sees all, sales sees their own
