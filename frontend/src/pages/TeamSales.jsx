@@ -53,7 +53,7 @@ export default function TeamSales() {
     const role = u.role || 'user'
     const gross = userDeals.reduce((s, d) => s + (d.value || 0), 0)
     let profit, margin
-    if (role === 'ceo') {
+    if (role === 'ceo' || role === 'admin') {
       profit = userDeals.reduce((s, d) => {
         const m = d.business_type === 'landscape' ? 0.35 : 0.80
         return s + (d.value || 0) * m

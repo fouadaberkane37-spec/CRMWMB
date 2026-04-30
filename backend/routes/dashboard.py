@@ -54,7 +54,7 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
                 models.Deal.created_by == current_user.id,
             )
         )
-    is_ceo = current_user.role == "ceo"
+    is_ceo = current_user.role in ("ceo", "admin")
     revenue_made = sum(
         (val or 0) * (0.35 if btype == "landscape" else 0.80) if is_ceo else (val or 0) * 0.35
         for val, btype in revenue_deals.all()
