@@ -11,7 +11,7 @@ import {
 export default function BottomNav() {
   const [showMore, setShowMore] = useState(false)
   const { user, logout } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role === 'admin' || user?.role === 'ceo'
   const isTech  = user?.role === 'technician'
   const isSales = user?.role === 'sales' || user?.role === 'user'
   const isFouad = !isAdmin && (

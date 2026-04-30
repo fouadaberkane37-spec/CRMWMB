@@ -48,12 +48,21 @@ export default function TeamSales() {
   }
 
   const groups = Object.entries(byUser).map(([uid, userDeals]) => {
-    const u      = users[Number(uid)] || {}
-    const name   = u.full_name || u.username || `User #${uid}`
-    const role   = u.role || 'user'
-    const margin = 0.35
-    const gross  = userDeals.reduce((s, d) => s + (d.value || 0), 0)
-    const profit = gross * margin
+    const u    = users[Number(uid)] || {}
+    const name = u.full_name || u.username || `User #${uid}`
+    const role = u.role || 'user'
+    const gross = userDeals.reduce((s, d) => s + (d.value || 0), 0)
+    let profit, margin
+    if (role === 'ceo') {
+      profit = userDeals.reduce((s, d) => {
+        const m = d.business_type === 'landscape' ? 0.35 : 0.80
+        return s + (d.value || 0) * m
+      }, 0)
+      margin = 'mixed'
+    } else {
+      margin = 0.35
+      profit = gross * margin
+    }
     return { uid: Number(uid), name, role, margin, deals: userDeals, gross, profit }
   }).sort((a, b) => b.gross - a.gross)
 
@@ -129,7 +138,7 @@ export default function TeamSales() {
                       <span className="text-slate-700 text-xs">·</span>
                       <span className="text-slate-500 text-xs">{userDeals.length} jobs</span>
                       <span className="text-slate-700 text-xs">·</span>
-                      <span className="text-slate-500 text-xs">{Math.round(margin * 100)}% margin</span>
+                      <span className="text-slate-500 text-xs">{margin === 'mixed' ? '80/35% margin' : `${Math.round(margin * 100)}% margin`}</span>
                     </div>
                     {/* Progress bar */}
                     <div className="mt-2 h-1 bg-slate-800 rounded-full overflow-hidden">
@@ -175,7 +184,7 @@ export default function TeamSales() {
                       })}
                     {/* Subtotal */}
                     <div className="flex items-center justify-between px-4 py-3 bg-slate-800/30">
-                      <p className="text-slate-400 text-xs">Profit ({Math.round(margin * 100)}% of {fmtMoney(gross)})</p>
+                      <p className="text-slate-400 text-xs">Profit ({margin === 'mixed' ? '80% window / 35% landscape' : `${Math.round(margin * 100)}%`} of {fmtMoney(gross)})</p>
                       <p className="text-emerald-400 font-bold text-sm">{fmtMoney(profit)}</p>
                     </div>
                   </div>

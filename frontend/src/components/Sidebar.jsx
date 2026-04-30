@@ -98,7 +98,7 @@ export default function Sidebar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role === 'admin' || user?.role === 'ceo'
   const isLandscape = pathname === '/landscape'
   const unread = useUnreadCount(isAdmin)
 

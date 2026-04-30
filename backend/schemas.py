@@ -15,7 +15,7 @@ class UserBase(BaseModel):
     email: Optional[str] = Field(default=None, max_length=254)
     phone: Optional[str] = Field(default=None, max_length=32)
     full_name: Optional[str] = Field(default=None, max_length=128)
-    role: Literal["admin", "user", "technician", "sales"] = "user"
+    role: Literal["admin", "user", "technician", "sales", "ceo"] = "user"
 
 
 class UserCreate(UserBase):
@@ -26,7 +26,7 @@ class UserUpdate(BaseModel):
     email: Optional[str] = Field(default=None, max_length=254)
     phone: Optional[str] = Field(default=None, max_length=32)
     full_name: Optional[str] = Field(default=None, max_length=128)
-    role: Optional[Literal["admin", "user", "technician", "sales"]] = None
+    role: Optional[Literal["admin", "user", "technician", "sales", "ceo"]] = None
     is_active: Optional[bool] = None
     password: Optional[str] = Field(default=None, max_length=128)
 
@@ -262,7 +262,7 @@ class ChatConversation(BaseModel):
 class InviteCreate(BaseModel):
     phone: str = Field(..., max_length=32)
     full_name: str = Field(..., max_length=128)
-    role: Literal["admin", "user", "technician", "sales"] = "user"
+    role: Literal["admin", "user", "technician", "sales", "ceo"] = "user"
 
 
 class InviteOut(BaseModel):

@@ -32,10 +32,10 @@ function RequireAuth({ children }) {
   return user ? children : <Navigate to="/login" replace />
 }
 
-// Redirects non-admin users away from admin-only routes
+// Redirects non-admin/non-CEO users away from admin-only routes
 function RequireAdmin({ children }) {
   const { user } = useAuth()
-  return user?.role === 'admin' ? children : <Navigate to="/" replace />
+  return (user?.role === 'admin' || user?.role === 'ceo') ? children : <Navigate to="/" replace />
 }
 
 

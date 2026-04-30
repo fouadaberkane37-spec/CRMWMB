@@ -78,7 +78,7 @@ def list_entries(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    if user_id is not None and current_user.role != "admin":
+    if user_id is not None and current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Only admins can view other users' timeclocks")
 
     q = (
@@ -87,7 +87,7 @@ def list_entries(
     )
 
     # Non-admins always see only their own entries
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         q = q.filter(models.TimeClock.user_id == current_user.id)
     elif user_id is not None:
         q = q.filter(models.TimeClock.user_id == user_id)

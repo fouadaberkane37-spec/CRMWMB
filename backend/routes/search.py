@@ -15,7 +15,7 @@ def global_search(
     current_user=Depends(get_current_user),
 ):
     like = f"%{q}%"
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.role in ("admin", "ceo")
 
     contacts_q = db.query(models.Contact).filter(
         models.Contact.deleted_at.is_(None),

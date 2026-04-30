@@ -55,7 +55,7 @@ def list_deals(
         joinedload(models.Deal.contact),
         joinedload(models.Deal.company),
     )
-    # Admin and sales/user roles see all deals.
+    # Admin and CEO see all deals.
     # Technicians see only deals they are assigned to.
     if current_user.role == "technician":
         assigned_via_table = exists().where(
@@ -103,7 +103,7 @@ def get_deal(deal_id: int, db: Session = Depends(get_db), current_user=Depends(g
 def create_deal(deal: schemas.DealCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     data = deal.model_dump()
     # Non-admins cannot pre-assign deals to other users
-    if data.get("assigned_to") and current_user.role != "admin":
+    if data.get("assigned_to") and current_user.role not in ("admin", "ceo"):
         data["assigned_to"] = None
     # Validate contact_id is accessible to this user
     if data.get("contact_id"):
@@ -261,7 +261,7 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
     if not _own_deal(db_deal, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
     updates = deal.model_dump(exclude_unset=True)
-    if "assigned_to" in updates and current_user.role != "admin":
+    if "assigned_to" in updates and current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Only admins can reassign deals")
 
     old_date = db_deal.expected_close_date
@@ -283,7 +283,7 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
 @router.post("/{deal_id}/techs/{user_id}")
 def toggle_tech(deal_id: int, user_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     """Add or remove a technician from a deal (toggle)."""
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin only")
     existing = db.query(models.DealTechnician).filter(
         models.DealTechnician.deal_id == deal_id,

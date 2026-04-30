@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
 def _own_contact(contact, user):
     """Return True if admin or owner."""
-    return user.role == "admin" or contact.created_by == user.id
+    return user.role in ("admin", "ceo") or contact.created_by == user.id
 
 
 def geocode_address(address: str):
@@ -128,7 +128,7 @@ def list_contacts(
     except Exception:
         pass  # Column missing — return all contacts until migration runs
     # Admin sees all; others see only their own
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         q = q.filter(models.Contact.created_by == current_user.id)
     if search:
         if len(search) > 100:
@@ -321,7 +321,7 @@ def deduplicate_contacts(    db: Session = Depends(get_db),
 @router.get("/export/csv")
 def export_contacts_csv(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     q = db.query(models.Contact).options(joinedload(models.Contact.company))
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         q = q.filter(models.Contact.created_by == current_user.id)
     contacts = q.order_by(models.Contact.created_at.desc()).all()
     out = io.StringIO()

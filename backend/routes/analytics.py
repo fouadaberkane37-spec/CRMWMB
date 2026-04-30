@@ -35,7 +35,7 @@ def sales_analytics(
     current_user=Depends(get_current_user),
 ):
     # Resolve target user — admin can view any user, others see only themselves
-    if user_id and current_user.role == "admin":
+    if user_id and current_user.role in ("admin", "ceo"):
         from fastapi import HTTPException as _HTTPException
         target_user = db.query(models.User).filter(models.User.id == user_id).first()
         if not target_user:

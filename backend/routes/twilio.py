@@ -153,7 +153,7 @@ def call_number_direct(
     import re
     from twilio.rest import Client
 
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin only")
     if not re.match(r"^\+?[1-9]\d{6,14}$", payload.phone.replace(" ", "").replace("-", "")):
         raise HTTPException(status_code=400, detail="Invalid phone number format")
@@ -242,7 +242,7 @@ def test_notify(
     current_user=Depends(get_current_user),
 ):
     """Admin: send a test SMS notification to CALL_FORWARD_TO / NOTIFY_PHONE."""
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin only")
 
     sid       = os.getenv("TWILIO_ACCOUNT_SID")
@@ -279,7 +279,7 @@ def list_unknown_leads(
     current_user=Depends(get_current_user),
 ):
     """All inbound contacts not matched to a CRM contact. Admin only."""
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin only")
     leads = db.query(models.InboundLead).order_by(models.InboundLead.updated_at.desc()).all()
     return [
@@ -309,7 +309,7 @@ def convert_lead_to_contact(
     current_user=Depends(get_current_user),
 ):
     """Convert an unknown inbound lead into a Contact and remove the lead."""
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin only")
     lead = db.query(models.InboundLead).filter(models.InboundLead.id == lead_id).first()
     if not lead:
@@ -335,7 +335,7 @@ def dismiss_unknown_lead(
     current_user=Depends(get_current_user),
 ):
     """Permanently dismiss an unknown lead without converting."""
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin only")
     lead = db.query(models.InboundLead).filter(models.InboundLead.id == lead_id).first()
     if not lead:

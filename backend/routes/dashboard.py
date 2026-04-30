@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 @router.get("/stats", response_model=schemas.DashboardStats)
 def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.role in ("admin", "ceo")
 
     # Contacts — admin sees all, sales sees only their own
     contacts_q = db.query(func.count(models.Contact.id))
@@ -41,10 +41,10 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
     total_deal_value = active_deals.with_entities(func.sum(models.Deal.value)).scalar() or 0
     won_deals = deals_q.filter(models.Deal.stage == "won").with_entities(func.count(models.Deal.id)).scalar() or 0
 
-    # Profit at 35% margin across all roles
-    # Excludes cancelled jobs from revenue/profit
+    # Profit: CEO = 80% window / 35% landscape; everyone else = 35% flat
+    # Excludes cancelled jobs
     revenue_deals = (
-        db.query(models.Deal.value)
+        db.query(models.Deal.value, models.Deal.business_type)
         .filter(models.Deal.job_status != "cancelled")
     )
     if not is_admin:
@@ -54,9 +54,10 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
                 models.Deal.created_by == current_user.id,
             )
         )
+    is_ceo = current_user.role == "ceo"
     revenue_made = sum(
-        (val or 0) * 0.35
-        for (val,) in revenue_deals.all()
+        (val or 0) * (0.35 if btype == "landscape" else 0.80) if is_ceo else (val or 0) * 0.35
+        for val, btype in revenue_deals.all()
     )
 
     # Activities — admin sees all, sales sees their own

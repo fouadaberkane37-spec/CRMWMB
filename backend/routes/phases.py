@@ -64,7 +64,7 @@ def list_phases(
     if current_user.role == "technician":
         q = q.join(models.PhaseAssignment, models.PhaseAssignment.phase_id == models.DealPhase.id)\
              .filter(models.PhaseAssignment.user_id == current_user.id)
-    elif current_user.role != "admin":
+    elif current_user.role not in ("admin", "ceo"):
         q = q.join(models.Deal, models.Deal.id == models.DealPhase.deal_id).filter(
             (models.Deal.created_by == current_user.id) | (models.Deal.assigned_to == current_user.id)
         )
@@ -82,7 +82,7 @@ def create_phase(
     deal = db.query(models.Deal).filter(models.Deal.id == data.deal_id).first()
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
-    if current_user.role != "admin" and deal.created_by != current_user.id:
+    if current_user.role not in ("admin", "ceo") and deal.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     phase = models.DealPhase(
@@ -111,7 +111,7 @@ def update_phase(
     phase = db.query(models.DealPhase).filter(models.DealPhase.id == phase_id).first()
     if not phase:
         raise HTTPException(status_code=404, detail="Phase not found")
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin only")
 
     if data.title is not None:
@@ -140,7 +140,7 @@ def delete_phase(
     phase = db.query(models.DealPhase).filter(models.DealPhase.id == phase_id).first()
     if not phase:
         raise HTTPException(status_code=404, detail="Phase not found")
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin only")
     db.delete(phase)
     db.commit()

@@ -10,20 +10,20 @@ router = APIRouter(prefix="/api/knocks", tags=["knocks"])
 
 
 def _own_knock(knock: models.Knock, user: models.User) -> bool:
-    return user.role == "admin" or knock.created_by == user.id
+    return user.role in ("admin", "ceo") or knock.created_by == user.id
 
 
 @router.get("/", response_model=List[schemas.Knock])
 def list_knocks(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     q = db.query(models.Knock).options(joinedload(models.Knock.contact))
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         q = q.filter(models.Knock.created_by == current_user.id)
     return q.order_by(models.Knock.created_at.desc()).all()
 
 
 @router.post("/", response_model=schemas.Knock)
 def create_knock(data: schemas.KnockCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    if data.contact_id and current_user.role != "admin":
+    if data.contact_id and current_user.role not in ("admin", "ceo"):
         contact = db.query(models.Contact).filter(models.Contact.id == data.contact_id).first()
         if not contact:
             raise HTTPException(status_code=404, detail="Contact not found")
@@ -44,7 +44,7 @@ def update_knock(knock_id: int, data: schemas.KnockUpdate, db: Session = Depends
     if not _own_knock(knock, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
     updates = data.model_dump(exclude_unset=True)
-    if "contact_id" in updates and updates["contact_id"] is not None and current_user.role != "admin":
+    if "contact_id" in updates and updates["contact_id"] is not None and current_user.role not in ("admin", "ceo"):
         contact = db.query(models.Contact).filter(models.Contact.id == updates["contact_id"]).first()
         if not contact:
             raise HTTPException(status_code=404, detail="Contact not found")

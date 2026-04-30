@@ -12,7 +12,7 @@ COMPANY_STAGES = {"lead", "prospect", "customer", "inactive"}
 
 
 def _own_company(co: models.Company, user: models.User) -> bool:
-    return user.role == "admin" or co.created_by == user.id
+    return user.role in ("admin", "ceo") or co.created_by == user.id
 
 
 @router.get("/", response_model=List[schemas.Company])
@@ -26,7 +26,7 @@ def list_companies(
     if search and len(search) > 100:
         raise HTTPException(status_code=400, detail="Search query too long (max 100 characters)")
     q = db.query(models.Company)
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         q = q.filter(models.Company.created_by == current_user.id)
     if search:
         q = q.filter(models.Company.name.ilike(f"%{search}%"))

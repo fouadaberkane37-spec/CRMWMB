@@ -97,7 +97,7 @@ def get_availability(
     Admin: all techs, optionally filtered by user_id and/or week_start.
     """
     q = db.query(models.TechAvailability)
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         q = q.filter(models.TechAvailability.user_id == current_user.id)
     elif user_id:
         q = q.filter(models.TechAvailability.user_id == user_id)
@@ -166,7 +166,7 @@ def get_confirmations(
 ):
     """Get shift confirmations. Tech: own. Admin: all or filtered by user_id."""
     q = db.query(models.ShiftConfirmation)
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         q = q.filter(models.ShiftConfirmation.user_id == current_user.id)
     elif user_id:
         q = q.filter(models.ShiftConfirmation.user_id == user_id)
@@ -192,7 +192,7 @@ def techs_for_date(
     Admin: returns all technicians with their availability and confirmation
     status for a specific date.
     """
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin only")
 
     week_start = _week_monday(date)
