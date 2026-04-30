@@ -273,6 +273,27 @@ def test_notify(
         return {"sent": False, "debug": debug, "error": str(e)}
 
 
+@router.get("/config-check")
+def config_check(current_user=Depends(get_current_user)):
+    """Admin: verify all Twilio env vars are present and show their values (masked)."""
+    if current_user.role not in ("admin", "ceo"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    sid       = os.getenv("TWILIO_ACCOUNT_SID", "")
+    token     = os.getenv("TWILIO_AUTH_TOKEN", "")
+    from_num  = os.getenv("TWILIO_FROM_NUMBER", "")
+    forward   = os.getenv("CALL_FORWARD_TO", "")
+    app_url   = os.getenv("APP_URL", "")
+    return {
+        "TWILIO_ACCOUNT_SID":  f"{sid[:6]}…" if sid   else "MISSING ❌",
+        "TWILIO_AUTH_TOKEN":   "set ✅"       if token  else "MISSING ❌",
+        "TWILIO_FROM_NUMBER":  from_num       or "MISSING ❌",
+        "CALL_FORWARD_TO":     forward        or "MISSING ❌",
+        "APP_URL":             app_url        or "MISSING ❌",
+        "voice_webhook_should_be": f"{app_url}/api/twilio/voice" if app_url else "unknown",
+        "sms_webhook_should_be":   f"{app_url}/api/twilio/incoming" if app_url else "unknown",
+    }
+
+
 @router.get("/unknown-leads")
 def list_unknown_leads(
     db: Session = Depends(get_db),
@@ -390,15 +411,18 @@ async def twilio_voice(
     form = await request.form()
 
     forward_to = os.getenv("CALL_FORWARD_TO", "").strip()
+    from_number: str = (form.get("From") or "").strip()
+    twilio_number: str = (form.get("To") or "").strip()
+
+    log.info("[voice] inbound call From=%s To=%s forward_to=%s", from_number, twilio_number, forward_to or "NOT SET")
+
     if not forward_to:
-        # No forward number configured — play a message and hang up
+        log.error("[voice] CALL_FORWARD_TO is not set — hanging up")
         twiml = (
             '<?xml version="1.0" encoding="UTF-8"?>'
             "<Response><Say>This number is not configured for calls.</Say></Response>"
         )
         return PlainTextResponse(twiml, media_type="application/xml")
-    from_number: str = (form.get("From") or "").strip()
-    twilio_number: str = (form.get("To") or "").strip()
 
     # Try to match caller to a contact
     contact = match_contact_by_phone(db, from_number) if from_number else None
@@ -412,19 +436,23 @@ async def twilio_voice(
     elif from_number:
         upsert_inbound_lead(db, from_number, "📞 Incoming call", source="call")
 
-    # Build caller announcement
+    # Announce caller name if known
     if contact:
         caller_name = f"{contact.first_name} {contact.last_name or ''}".strip()
         announcement = f"<Say>Call from {caller_name}</Say>"
     else:
         announcement = ""
 
-    # Forward the call — callerId shows original caller's number on your phone
+    # Use the Twilio number as callerId — using the raw caller number as callerId
+    # fails unless it is verified in your Twilio account.
+    caller_id = twilio_number or os.getenv("TWILIO_FROM_NUMBER", "")
+
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f"<Response>"
         f"{announcement}"
-        f'<Dial callerId="{from_number or twilio_number}">{forward_to}</Dial>'
+        f'<Dial callerId="{caller_id}" timeout="30">{forward_to}</Dial>'
         f"</Response>"
     )
+    log.info("[voice] responding with Dial to %s callerId=%s", forward_to, caller_id)
     return PlainTextResponse(twiml, media_type="application/xml")
