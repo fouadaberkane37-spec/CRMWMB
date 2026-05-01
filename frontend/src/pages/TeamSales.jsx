@@ -52,18 +52,22 @@ export default function TeamSales() {
     const name = u.full_name || u.username || `User #${uid}`
     const role = u.role || 'user'
     const gross = userDeals.reduce((s, d) => s + (d.value || 0), 0)
-    let profit, margin
+    let profit, margin, windowGross, landscapeGross, windowProfit, landscapeProfit
     if (role === 'ceo' || role === 'admin') {
-      profit = userDeals.reduce((s, d) => {
-        const m = d.business_type === 'landscape' ? 0.35 : 0.80
-        return s + (d.value || 0) * m
-      }, 0)
+      const winDeals  = userDeals.filter(d => d.business_type !== 'landscape')
+      const landDeals = userDeals.filter(d => d.business_type === 'landscape')
+      windowGross    = winDeals.reduce((s, d) => s + (d.value || 0), 0)
+      landscapeGross = landDeals.reduce((s, d) => s + (d.value || 0), 0)
+      windowProfit   = windowGross * 0.80
+      landscapeProfit = landscapeGross * 0.35
+      profit = windowProfit + landscapeProfit
       margin = 'mixed'
     } else {
       margin = 0.35
       profit = gross * margin
+      windowGross = landscapeGross = windowProfit = landscapeProfit = null
     }
-    return { uid: Number(uid), name, role, margin, deals: userDeals, gross, profit }
+    return { uid: Number(uid), name, role, margin, deals: userDeals, gross, profit, windowGross, landscapeGross, windowProfit, landscapeProfit }
   }).sort((a, b) => b.gross - a.gross)
 
   const totalGross  = groups.reduce((s, g) => s + g.gross, 0)
@@ -115,7 +119,7 @@ export default function TeamSales() {
           )}
 
           {/* Per-person cards */}
-          {groups.map(({ uid, name, role, margin, deals: userDeals, gross, profit }) => {
+          {groups.map(({ uid, name, role, margin, deals: userDeals, gross, profit, windowGross, landscapeGross, windowProfit, landscapeProfit }) => {
             const isOpen   = !!expanded[uid]
             const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
             const pct      = totalGross > 0 ? (gross / totalGross) * 100 : 0
@@ -183,10 +187,27 @@ export default function TeamSales() {
                         )
                       })}
                     {/* Subtotal */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-slate-800/30">
-                      <p className="text-slate-400 text-xs">Profit ({margin === 'mixed' ? '80% window / 35% landscape' : `${Math.round(margin * 100)}%`} of {fmtMoney(gross)})</p>
-                      <p className="text-emerald-400 font-bold text-sm">{fmtMoney(profit)}</p>
-                    </div>
+                    {margin === 'mixed' ? (
+                      <div className="bg-slate-800/30 px-4 py-3 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-slate-400 text-xs">Window profit (80% of {fmtMoney(windowGross)})</p>
+                          <p className="text-emerald-400 font-semibold text-sm">{fmtMoney(windowProfit)}</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-slate-400 text-xs">Landscape profit (35% of {fmtMoney(landscapeGross)})</p>
+                          <p className="text-emerald-400 font-semibold text-sm">{fmtMoney(landscapeProfit)}</p>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-slate-700/40 pt-1.5 mt-1">
+                          <p className="text-slate-300 text-xs font-medium">Total profit</p>
+                          <p className="text-emerald-400 font-bold text-sm">{fmtMoney(profit)}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between px-4 py-3 bg-slate-800/30">
+                        <p className="text-slate-400 text-xs">Profit ({Math.round(margin * 100)}% of {fmtMoney(gross)})</p>
+                        <p className="text-emerald-400 font-bold text-sm">{fmtMoney(profit)}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
