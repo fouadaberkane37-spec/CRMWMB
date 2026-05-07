@@ -14,9 +14,10 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
-ALLOWED_ROLES = {"admin", "user", "technician", "sales"}
+ALLOWED_ROLES = {"admin", "user", "technician", "sales", "ceo"}
 MIN_PASSWORD_LENGTH = 8
 _PWD_ALPHABET = string.ascii_letters + string.digits + "!@#$%&"
+APP_URL = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
 
 
 def _validate_password(password: str):
@@ -26,6 +27,27 @@ def _validate_password(password: str):
 
 def _generate_password(length: int = 12) -> str:
     return "".join(secrets.choice(_PWD_ALPHABET) for _ in range(length))
+
+
+def _send_welcome_sms(phone: str, name: str, username: str, password: str) -> bool:
+    sid      = os.getenv("TWILIO_ACCOUNT_SID")
+    token    = os.getenv("TWILIO_AUTH_TOKEN")
+    from_num = os.getenv("TWILIO_FROM_NUMBER")
+    if not (sid and token and from_num):
+        return False
+    try:
+        from twilio.rest import Client
+        body = (
+            f"Hi {name}! Your WMB CRM account is ready.\n"
+            f"Username: {username}\n"
+            f"Password: {password}\n"
+            f"Login at: {APP_URL}"
+        )
+        Client(sid, token).messages.create(body=body, from_=from_num, to=phone)
+        return True
+    except Exception as e:
+        log.error("[welcome SMS] failed to=%s error=%s", phone, e)
+        return False
 
 
 def _send_password_sms(phone: str, name: str, password: str) -> bool:
@@ -76,6 +98,8 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), _=Depen
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    if db_user.phone:
+        _send_welcome_sms(db_user.phone, db_user.full_name or db_user.username, db_user.username, user.password)
     return db_user
 
 

@@ -337,6 +337,11 @@ def delete_deal(deal_id: int, db: Session = Depends(get_db), current_user=Depend
         raise HTTPException(status_code=404, detail="Deal not found")
     if not _own_deal(db_deal, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
+    # Remove FK-constrained child rows before deleting
+    db.query(models.DealTechnician).filter(models.DealTechnician.deal_id == deal_id).delete()
+    db.query(models.ReminderLog).filter(models.ReminderLog.deal_id == deal_id).delete()
+    db.query(models.Activity).filter(models.Activity.deal_id == deal_id).update({"deal_id": None})
+    db.query(models.TimeClock).filter(models.TimeClock.deal_id == deal_id).update({"deal_id": None})
     db.delete(db_deal)
     db.commit()
     return {"message": "Deleted"}
