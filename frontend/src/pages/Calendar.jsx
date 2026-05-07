@@ -436,8 +436,8 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
   const chipAssigned    = deal.assigned_techs?.length || 0
   const chipUnderstaffed = isAdmin && chipAssigned < requiredTechs(deal)
-  const chipBg   = chipUnderstaffed ? 'bg-amber-400'  : s.color
-  const chipText = chipUnderstaffed ? 'text-amber-900' : s.text
+  const chipBg   = s.color
+  const chipText = s.text
 
   const time = deal.expected_close_date
     ? new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -1451,8 +1451,8 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
 
   const assignedCount  = deal.assigned_techs?.length || 0
   const understaffed   = isAdmin && assignedCount < requiredTechs(deal)
-  const cardBg   = understaffed ? 'bg-amber-400'  : s.color
-  const cardText = understaffed ? 'text-amber-900' : s.text
+  const cardBg   = s.color
+  const cardText = s.text
 
   // Reschedule state inside the sheet
   const [newDate, setNewDate] = useState((deal.expected_close_date || '').slice(0, 10))
