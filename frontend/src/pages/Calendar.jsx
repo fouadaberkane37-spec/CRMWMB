@@ -1613,7 +1613,7 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
             {/* Contact section */}
             <div>
               <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Contact</p>
-              <div className="bg-slate-800 rounded-2xl overflow-hidden">
+              <div className="bg-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-700/50">
                 {deal.contact?.phone ? (
                   <a href={`tel:${deal.contact.phone}`} className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-700 transition-colors">
                     <div className="w-9 h-9 rounded-xl bg-green-600/20 flex items-center justify-center shrink-0">
@@ -1632,6 +1632,22 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
                     <p className="text-slate-500 text-sm">No phone on file</p>
                   </div>
                 )}
+                {deal.contact?.address ? (
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(deal.contact.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-700 transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-indigo-600/20 flex items-center justify-center shrink-0">
+                      <MapPin size={16} className="text-indigo-400" />
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs mb-0.5">Address</p>
+                      <p className="text-white text-sm">{deal.contact.address}</p>
+                    </div>
+                  </a>
+                ) : null}
               </div>
             </div>
 
