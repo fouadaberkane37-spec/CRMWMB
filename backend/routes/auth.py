@@ -91,8 +91,10 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     if not user.is_active:
         raise HTTPException(status_code=401, detail="Account is disabled")
 
-    # No phone on file — skip 2FA and issue token directly
-    if not user.phone:
+    # Only admin/ceo accounts require 2FA via SMS
+    needs_2fa = user.role in ("admin", "ceo") and bool(user.phone)
+
+    if not needs_2fa:
         token = create_access_token({"sub": str(user.id)})
         return {"access_token": token, "token_type": "bearer", "otp_required": False}
 
@@ -112,9 +114,11 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
 
     sent = _send_otp_sms(user.phone, otp)
     if not sent:
+        # SMS failed — fall back to direct login so admins aren't locked out
         db.delete(session)
         db.commit()
-        raise HTTPException(status_code=500, detail="Failed to send verification SMS. Contact admin.")
+        token = create_access_token({"sub": str(user.id)})
+        return {"access_token": token, "token_type": "bearer", "otp_required": False}
 
     masked = "***" + user.phone[-4:] if len(user.phone) >= 4 else "***"
     return LoginStep1Response(otp_required=True, session_id=session_id, phone_hint=masked)

@@ -259,9 +259,11 @@ export default function Users() {
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">Role</label>
                 <select value={form.role} onChange={f('role')} className="input">
-                  <option value="user">Sales / User</option>
+                  <option value="user">User</option>
+                  <option value="sales">Sales</option>
                   <option value="technician">Technician</option>
                   <option value="admin">Admin</option>
+                  <option value="ceo">CEO</option>
                 </select>
               </div>
             </div>
@@ -346,9 +348,11 @@ export default function Users() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1">Role</label>
                   <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })} className="input">
-                    <option value="user">Sales / User</option>
+                    <option value="user">User</option>
+                    <option value="sales">Sales</option>
                     <option value="technician">Technician</option>
                     <option value="admin">Admin</option>
+                    <option value="ceo">CEO</option>
                   </select>
                 </div>
                 <p className="text-slate-500 text-xs">
