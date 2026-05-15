@@ -18,7 +18,7 @@ TWIML_EMPTY = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
 def _notify_admin(contact_label: str, message_body: str):
     """Send a notification SMS to the admin's personal number."""
-    notify_to = (os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "")).strip()
+    notify_to = (os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "")).strip() or "+15155597007"
     sid       = os.getenv("TWILIO_ACCOUNT_SID")
     token     = os.getenv("TWILIO_AUTH_TOKEN")
     from_num  = os.getenv("TWILIO_FROM_NUMBER")
@@ -203,7 +203,7 @@ def initiate_call(
     sid        = os.getenv("TWILIO_ACCOUNT_SID")
     token      = os.getenv("TWILIO_AUTH_TOKEN")
     from_num   = os.getenv("TWILIO_FROM_NUMBER")
-    my_phone   = os.getenv("CALL_FORWARD_TO", "").strip()
+    my_phone   = os.getenv("CALL_FORWARD_TO", "").strip() or "+15155597007"
 
     if not sid or not token or not from_num:
         raise HTTPException(status_code=500, detail="Twilio not configured")
@@ -248,7 +248,7 @@ def test_notify(
     sid       = os.getenv("TWILIO_ACCOUNT_SID")
     token     = os.getenv("TWILIO_AUTH_TOKEN")
     from_num  = os.getenv("TWILIO_FROM_NUMBER")
-    notify_to = (os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "")).strip()
+    notify_to = (os.getenv("NOTIFY_PHONE") or os.getenv("CALL_FORWARD_TO", "")).strip() or "+15155597007"
 
     # Return diagnostic info regardless
     debug = {
@@ -410,7 +410,7 @@ async def twilio_voice(
     """
     form = await request.form()
 
-    forward_to = os.getenv("CALL_FORWARD_TO", "").strip()
+    forward_to = os.getenv("CALL_FORWARD_TO", "").strip() or "+15155597007"
     from_number: str = (form.get("From") or "").strip()
     twilio_number: str = (form.get("To") or "").strip()
 
