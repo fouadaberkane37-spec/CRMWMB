@@ -1,4 +1,5 @@
 import logging
+import re
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/twilio", tags=["twilio"])
 
 TWIML_EMPTY = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+_E164_RE = re.compile(r"^\+?[1-9]\d{6,14}$")
 
 
 def _notify_admin(contact_label: str, message_body: str):

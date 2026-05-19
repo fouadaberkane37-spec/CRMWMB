@@ -719,6 +719,11 @@ try:
             _to_delete.add(_dup.id)
 
     if _to_delete:
+        # Clean up FK-constrained child rows first to avoid IntegrityError
+        _db.query(models.DealTechnician).filter(models.DealTechnician.deal_id.in_(_to_delete)).delete(synchronize_session=False)
+        _db.query(models.ReminderLog).filter(models.ReminderLog.deal_id.in_(_to_delete)).delete(synchronize_session=False)
+        _db.query(models.Activity).filter(models.Activity.deal_id.in_(_to_delete)).update({"deal_id": None}, synchronize_session=False)
+        _db.query(models.TimeClock).filter(models.TimeClock.deal_id.in_(_to_delete)).update({"deal_id": None}, synchronize_session=False)
         _db.query(models.Deal).filter(models.Deal.id.in_(_to_delete)).delete(synchronize_session=False)
         _db.commit()
         print(f"[OK] Deal cleanup: removed {len(_to_delete)} bad/duplicate deal(s)")
