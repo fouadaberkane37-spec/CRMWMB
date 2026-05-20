@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
          ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut,
          List, LayoutGrid, Trash2, Pencil, Loader2, Users, UserCheck, Wrench,
-         Plus, Leaf, Check } from 'lucide-react'
+         Plus, Leaf, Check, FileText } from 'lucide-react'
 
 // ── Job status config ──────────────────────────────────────────────────────────
 const JOB_STATUSES = [
@@ -1700,6 +1700,15 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
                 {saving ? 'Saving…' : 'Save New Time'}
               </button>
             </div>
+
+            {/* Invoice */}
+            <button
+              onClick={() => window.open(`/api/invoices/${deal.id}`, '_blank')}
+              className="w-full flex items-center justify-center gap-2 border border-slate-700 text-slate-300 py-2.5 rounded-xl text-sm font-medium"
+            >
+              <FileText size={15} />
+              View Invoice
+            </button>
 
             {/* Delete section */}
             <div className="border-t border-slate-800 pt-3">

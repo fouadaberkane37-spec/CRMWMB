@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import api from '../api.js'
-import { ClipboardList, RefreshCw, Loader2, X, Check, DollarSign, ChevronDown } from 'lucide-react'
+import { ClipboardList, RefreshCw, Loader2, X, Check, DollarSign, FileText } from 'lucide-react'
 
 const WINDOW_SERVICES = [
   { key: 'window-ext', label: 'Windows (Ext)' },
@@ -187,15 +187,24 @@ function EditSheet({ deal, onClose, onSaved }) {
 
           {error && <p className="text-red-400 text-xs text-center">{error}</p>}
 
-          {/* Save */}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-            {saving ? 'Saving…' : 'Save Changes'}
-          </button>
+          {/* Actions */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => window.open(`/api/invoices/${deal.id}`, '_blank')}
+              className="flex-shrink-0 flex items-center justify-center gap-2 border border-slate-600 text-slate-300 py-3.5 px-4 rounded-2xl text-sm font-semibold"
+            >
+              <FileText size={16} />
+              Invoice
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 bg-indigo-600 text-white py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
         </div>
       </div>
     </div>,
