@@ -21,6 +21,7 @@ import TechSchedule from './pages/TechSchedule.jsx'
 import JobAssignment from './pages/JobAssignment.jsx'
 import LandscapePipeline from './pages/LandscapePipeline.jsx'
 import ClientJobs from './pages/ClientJobs.jsx'
+import JobsOverview from './pages/JobsOverview.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="job-assignment" element={<RequireAdmin><JobAssignment /></RequireAdmin>} />
             <Route path="landscape" element={<RequireAdmin><LandscapePipeline /></RequireAdmin>} />
             <Route path="client-jobs" element={<RequireAdmin><ClientJobs /></RequireAdmin>} />
+            <Route path="jobs-overview" element={<RequireAdmin><JobsOverview /></RequireAdmin>} />
           </Route>
         </Routes>
       </BrowserRouter>

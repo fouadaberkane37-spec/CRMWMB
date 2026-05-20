@@ -5,7 +5,7 @@ import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, BookOpen,
   Menu, MapPin, UserCog, LogOut, X, MessageSquare, Globe, CalendarDays,
-  Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase, Leaf, Receipt,
+  Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase, Leaf, Receipt, Activity,
 } from 'lucide-react'
 
 export default function BottomNav() {
@@ -67,6 +67,7 @@ export default function BottomNav() {
         { to: '/chats',        label: 'Messages',       icon: MessageSquare },
         { to: '/team-sales',   label: 'Team Sales',     icon: BarChart2 },
         { to: '/client-jobs',  label: 'Client Jobs',    icon: Receipt },
+        { to: '/jobs-overview', label: 'Jobs Overview',  icon: Activity },
         { to: '/timesheet',    label: 'Timesheet',      icon: ClipboardList },
         { to: '/new-numbers',  label: 'New Numbers',    icon: PhoneIncoming },
         { to: '/users',        label: 'Users',          icon: UserCog },
