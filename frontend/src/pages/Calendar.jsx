@@ -219,6 +219,16 @@ function DetailSheet({ booking, onClose, onUpdate, token }) {
           </div>
         </div>
 
+        {/* Notes */}
+        {booking.notes && (
+          <div className="mb-5">
+            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Notes technicien</p>
+            <div className="bg-amber-900/20 border border-amber-700/30 rounded-2xl px-4 py-4">
+              <p className="text-amber-200 text-sm whitespace-pre-wrap leading-relaxed">{booking.notes}</p>
+            </div>
+          </div>
+        )}
+
         {/* Status */}
         <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-3">Statut</p>
         <div className="grid grid-cols-2 gap-2.5 mb-6">
