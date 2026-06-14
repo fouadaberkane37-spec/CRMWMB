@@ -8,10 +8,11 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)
+    phone = Column(String, nullable=True)
     full_name = Column(String)
     hashed_password = Column(String, nullable=False)
-    role = Column(String, default="sales")  # admin | technician | sales
+    role = Column(String, default="user")  # admin | user | technician | sales
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -42,6 +43,11 @@ class Contact(Base):
     last_name = Column(String)
     email = Column(String, index=True)
     phone = Column(String)
+    address = Column(Text)
+    services = Column(Text)   # comma-separated, e.g. "window-ext,window-int,gutters"
+    price = Column(Float)
+    lat = Column(Float, nullable=True)   # geocoded from address
+    lng = Column(Float, nullable=True)
     title = Column(String)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     status = Column(String, default="lead")  # lead | prospect | customer | inactive
@@ -49,6 +55,7 @@ class Contact(Base):
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     company = relationship("Company", back_populates="contacts")
     deals = relationship("Deal", back_populates="contact")
@@ -66,6 +73,11 @@ class Deal(Base):
     expected_close_date = Column(DateTime, nullable=True)
     notes = Column(Text)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    job_status        = Column(String, default="todo")  # todo | payment_pending | done | cancelled
+    business_type     = Column(String, default="window")  # window | landscape
+    reminder_sent     = Column(Boolean, default=False)   # tech 24h reminder sent
+    reminder_sent_48h = Column(Boolean, default=False)   # tech 48h reminder sent
+    client_reminder_sent = Column(Boolean, default=False)  # client 24h reminder sent
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -73,6 +85,31 @@ class Deal(Base):
     contact = relationship("Contact", back_populates="deals")
     company = relationship("Company", back_populates="deals")
     activities = relationship("Activity", back_populates="deal")
+    phases = relationship("DealPhase", back_populates="deal", cascade="all, delete-orphan", order_by="DealPhase.phase_date")
+
+
+class DealPhase(Base):
+    __tablename__ = "deal_phases"
+    id         = Column(Integer, primary_key=True, index=True)
+    deal_id    = Column(Integer, ForeignKey("deals.id"), nullable=False)
+    title      = Column(String, nullable=False)
+    phase_date = Column(DateTime, nullable=True)
+    status     = Column(String, default="todo")  # todo | done
+    notes      = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    deal        = relationship("Deal", back_populates="phases")
+    assignments = relationship("PhaseAssignment", back_populates="phase", cascade="all, delete-orphan")
+
+
+class PhaseAssignment(Base):
+    __tablename__ = "phase_assignments"
+    id       = Column(Integer, primary_key=True, index=True)
+    phase_id = Column(Integer, ForeignKey("deal_phases.id"), nullable=False)
+    user_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user  = relationship("User", foreign_keys=[user_id])
+    phase = relationship("DealPhase", back_populates="assignments")
 
 
 class Knock(Base):
@@ -89,6 +126,24 @@ class Knock(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     contact = relationship("Contact")
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=False)
+    # NULL for inbound messages from customers (no CRM user involved)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    body = Column(Text, nullable=False)
+    # "outbound" = sent by CRM agent, "inbound" = received from customer via SMS
+    direction = Column(String, default="outbound", nullable=False)
+    # False for inbound messages until an admin opens the conversation
+    is_read = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    contact = relationship("Contact")
+    sender = relationship("User")
 
 
 class Activity(Base):
@@ -110,111 +165,109 @@ class Activity(Base):
     deal = relationship("Deal", back_populates="activities")
 
 
-class ChatMessage(Base):
-    __tablename__ = "chat_messages"
+class Invite(Base):
+    __tablename__ = "invites"
     id = Column(Integer, primary_key=True, index=True)
-    direction = Column(String, nullable=False)  # inbound | outbound
-    from_number = Column(String, nullable=False)
-    to_number = Column(String, nullable=False)
-    body = Column(Text, nullable=False)
-    is_read = Column(Boolean, default=False)
-    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
-    sent_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    contact = relationship("Contact")
-
-
-class Booking(Base):
-    __tablename__ = "bookings"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
-    technician_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    scheduled_at = Column(DateTime, nullable=False)
-    duration_minutes = Column(Integer, default=60)
-    type = Column(String, default="service")  # service | estimate | follow_up | install
-    status = Column(String, default="todo")  # todo | payment_pending | done | cancelled
-    notes = Column(Text)
-    address = Column(String)
+    email = Column(String, nullable=True, index=True)   # kept for legacy; nullable for phone invites
+    phone = Column(String, nullable=True, index=True)
+    full_name = Column(String, nullable=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    role = Column(String, default="user")
     created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+
+    inviter = relationship("User", foreign_keys=[created_by])
+
+
+class InboundLead(Base):
+    """Unknown callers/texters — not yet in Contacts."""
+    __tablename__ = "inbound_leads"
+    id         = Column(Integer, primary_key=True, index=True)
+    phone      = Column(String, nullable=False, unique=True)
+    last_body  = Column(Text)
+    source     = Column(String, default="sms")
+    count      = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    contact = relationship("Contact")
-    technician = relationship("User", foreign_keys=[technician_id])
 
-
-class JobAssignment(Base):
-    __tablename__ = "job_assignments"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    description = Column(Text)
-    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
-    assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
-    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=True)
-    status = Column(String, default="scheduled")  # scheduled | confirmed | in_progress | completed | cancelled
-    priority = Column(String, default="normal")  # low | normal | high | urgent
-    scheduled_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    value = Column(Float, nullable=True)
-    address = Column(String, nullable=True)
-    notes = Column(Text)
-    created_by = Column(Integer, ForeignKey("users.id"))
+class TechAvailability(Base):
+    """Technician's declared availability for a given week."""
+    __tablename__ = "tech_availability"
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    week_start = Column(String, nullable=False)   # YYYY-MM-DD — Monday of the week
+    mon        = Column(Boolean, default=False)
+    tue        = Column(Boolean, default=False)
+    wed        = Column(Boolean, default=False)
+    thu        = Column(Boolean, default=False)
+    fri        = Column(Boolean, default=False)
+    sat        = Column(Boolean, default=False)
+    sun        = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    contact = relationship("Contact")
-    assignee = relationship("User", foreign_keys=[assigned_to])
-    booking = relationship("Booking")
-    technicians = relationship("JobTechnician", back_populates="job", cascade="all, delete-orphan")
+    user = relationship("User", foreign_keys=[user_id])
 
 
-class JobTechnician(Base):
-    __tablename__ = "job_technicians"
-    id = Column(Integer, primary_key=True, index=True)
-    job_id = Column(Integer, ForeignKey("job_assignments.id", ondelete="CASCADE"), nullable=False)
-    technician_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+class ShiftConfirmation(Base):
+    """A technician explicitly confirms they will be on-site on a specific date."""
+    __tablename__ = "shift_confirmations"
+    id           = Column(Integer, primary_key=True, index=True)
+    user_id      = Column(Integer, ForeignKey("users.id"), nullable=False)
+    shift_date   = Column(String, nullable=False)   # YYYY-MM-DD
+    confirmed_at = Column(DateTime, default=datetime.utcnow)
 
-    job = relationship("JobAssignment", back_populates="technicians")
-    technician = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
 
 
-class TechnicianShift(Base):
-    __tablename__ = "technician_shifts"
+class ReminderLog(Base):
+    """Audit log for every reminder SMS attempted."""
+    __tablename__ = "reminder_logs"
+    id             = Column(Integer, primary_key=True, index=True)
+    deal_id        = Column(Integer, ForeignKey("deals.id"), nullable=False)
+    user_id        = Column(Integer, ForeignKey("users.id"), nullable=False)
+    phone_number   = Column(String, nullable=True)
+    status         = Column(String, default="sent")   # sent | failed | no_phone
+    error          = Column(Text, nullable=True)
+    sent_at        = Column(DateTime, default=datetime.utcnow)
+
+    deal = relationship("Deal", foreign_keys=[deal_id])
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class DealTechnician(Base):
+    """Many-to-many: multiple technicians assigned to a single deal."""
+    __tablename__ = "deal_technicians"
+    id      = Column(Integer, primary_key=True, index=True)
+    deal_id = Column(Integer, ForeignKey("deals.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class TimeClock(Base):
+    __tablename__ = "timeclocks"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    date = Column(String, nullable=False)  # YYYY-MM-DD
-    status = Column(String, default="available")  # confirmed | available
+    deal_id = Column(Integer, ForeignKey("deals.id"), nullable=True)
+    clock_type = Column(String, nullable=False)  # "in" | "out"
+    clocked_at = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text, nullable=True)
 
-    user = relationship("User")
-
-
-class AppointmentReminder(Base):
-    __tablename__ = "appointment_reminders"
-    id = Column(Integer, primary_key=True, index=True)
-    job_id = Column(Integer, ForeignKey("job_assignments.id", ondelete="SET NULL"), nullable=True)
-    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
-    reminder_type = Column(String, nullable=False)  # 7day | 48h | 24h
-    phone_number = Column(String, nullable=False)
-    message_body = Column(Text)
-    status = Column(String, default="sent")  # sent | failed | skipped
-    sent_at = Column(DateTime, default=datetime.utcnow)
-
-    contact = relationship("Contact")
-    job = relationship("JobAssignment")
+    user = relationship("User", foreign_keys=[user_id])
+    deal = relationship("Deal", foreign_keys=[deal_id])
 
 
-class TimeEntry(Base):
-    __tablename__ = "time_entries"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    clock_in = Column(DateTime, nullable=False)
-    clock_out = Column(DateTime, nullable=True)
-    notes = Column(Text)
-    job_id = Column(Integer, ForeignKey("job_assignments.id"), nullable=True)
+class OTPSession(Base):
+    """Database-backed OTP sessions — works across multiple workers."""
+    __tablename__ = "otp_sessions"
+    id         = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, unique=True, nullable=False, index=True)
+    username   = Column(String, nullable=False)
+    otp        = Column(String, nullable=False)
+    attempts   = Column(Integer, default=0)
+    expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-
-    user = relationship("User")
-    job = relationship("JobAssignment")

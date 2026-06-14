@@ -1,514 +1,556 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '../App.jsx'
-import { Plus, ChevronLeft, ChevronRight, X, Check, Clock, MapPin, DollarSign, Bell } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import api from '../api.js'
+import {
+  ClipboardList, ChevronLeft, ChevronRight, Loader2,
+  Users, User, CheckCircle2, Circle, AlertCircle, XCircle, RefreshCw,
+  MapPin, DollarSign, Clock, Bell, BellOff, AlertTriangle, UserCheck, UserX,
+} from 'lucide-react'
 
-const API = '/api'
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
-const STATUS_STYLES = {
-  scheduled:   'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30',
-  confirmed:   'bg-green-500/20 text-green-300 border border-green-500/30',
-  in_progress: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
-  completed:   'bg-slate-600/30 text-slate-400 border border-slate-600/30',
-  cancelled:   'bg-red-500/10 text-red-400 border border-red-500/20',
+// Rule: gutters or window-int (interior) → 2 techs; window-ext only → 1 tech
+function requiredTechs(deal) {
+  const raw = (deal.contact?.services || deal.title || '').toLowerCase()
+  const tags = raw.split(/[,\s—–-]+/).map(s => s.trim()).filter(Boolean)
+  const needs2 = tags.some(t =>
+    t.includes('gutter') || t.includes('int') || t.includes('interior')
+  )
+  // Also need 2 if multiple distinct services are booked
+  const hasExt      = tags.some(t => t.includes('ext') || t.includes('exterior') || t.includes('window'))
+  const hasPressure = tags.some(t => t.includes('pressure') || t.includes('wash'))
+  const multiService = (hasExt ? 1 : 0) + (hasPressure ? 1 : 0) + (needs2 ? 1 : 0) >= 2
+  if (needs2 || multiService) return 2
+  return 1
 }
 
-function toDateStr(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+function weekMonday(date) {
+  const d = new Date(date)
+  d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1))
+  return d.toLocaleDateString('en-CA')
+}
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + n)
+  return d.toLocaleDateString('en-CA')
+}
+function fmtShort(dateStr) {
+  const [y, m, day] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, day).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+}
+function fmtFull(dateStr) {
+  const [y, m, day] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, day).toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' })
+}
+function initials(t) {
+  return (t?.full_name || t?.username || '?')[0].toUpperCase()
 }
 
-function startOfWeek(d) {
-  const copy = new Date(d)
-  copy.setDate(copy.getDate() - copy.getDay())
-  copy.setHours(0, 0, 0, 0)
-  return copy
-}
-
-function addDays(d, n) {
-  const copy = new Date(d)
-  copy.setDate(copy.getDate() + n)
-  return copy
-}
-
-function fmtWeekRange(monday) {
-  const sun = addDays(monday, 6)
-  const mStr = `${MONTH_SHORT[monday.getMonth()]} ${monday.getDate()}`
-  const sStr = `${MONTH_SHORT[sun.getMonth()]} ${sun.getDate()}`
-  return `${mStr} — ${sStr}`
-}
-
-function fmtTime(dt) {
-  if (!dt) return ''
-  return new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-// ── Technician avatar ─────────────────────────────────────────────────────────
-const AVATAR_COLORS = [
-  'bg-green-600','bg-blue-600','bg-purple-600','bg-orange-500','bg-teal-600','bg-rose-600',
+const STATUS_OPTIONS = [
+  { value: 'todo',            label: 'Scheduled', color: 'bg-indigo-600',  icon: Circle },
+  { value: 'payment_pending', label: 'Pending $', color: 'bg-amber-500',   icon: AlertCircle },
+  { value: 'done',            label: 'Done',      color: 'bg-emerald-600', icon: CheckCircle2 },
+  { value: 'cancelled',       label: 'Cancelled', color: 'bg-red-600',     icon: XCircle },
 ]
-function avatarColor(id) { return AVATAR_COLORS[id % AVATAR_COLORS.length] }
-function initials(name) {
-  const parts = (name || '').split(' ')
-  return parts.map(p => p[0]).join('').slice(0, 2).toUpperCase() || '?'
-}
+function statusMeta(s) { return STATUS_OPTIONS.find(o => o.value === s) || STATUS_OPTIONS[0] }
 
-// ── New Job form modal ────────────────────────────────────────────────────────
-function JobForm({ onClose, onSave, contacts, defaultDate }) {
-  const [form, setForm] = useState({
-    title: '', contact_id: '', status: 'scheduled', priority: 'normal',
-    scheduled_at: defaultDate ? `${defaultDate}T09:00` : '',
-    value: '', address: '', notes: '',
+/* ── Multi-select Assign Sheet ── */
+function AssignSheet({ deal, availTechs, allTechs, onToggle, onClose }) {
+  const [pending, setPending] = useState(null) // techId being toggled
+
+  const assignedIds = new Set((deal.assigned_techs || []).map(t => t.id))
+
+  const sorted = [...allTechs].sort((a, b) => {
+    const score = t => availTechs.find(x => x.id === t.id)?.confirmed ? 2
+                     : availTechs.find(x => x.id === t.id)?.available ? 1 : 0
+    return score(b) - score(a)
   })
 
-  async function handleSave() {
-    if (!form.title.trim()) return
-    await onSave({
-      ...form,
-      contact_id: form.contact_id || null,
-      value: form.value ? parseFloat(form.value) : null,
-      scheduled_at: form.scheduled_at || null,
-    })
-    onClose()
+  async function toggle(techId) {
+    setPending(techId)
+    try { await onToggle(deal.id, techId) }
+    finally { setPending(null) }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-slate-900 rounded-t-2xl md:rounded-2xl w-full md:max-w-lg p-5 max-h-[92vh] overflow-y-auto">
-        <h2 className="text-white font-semibold text-lg mb-4">New Job</h2>
-        <div className="space-y-3">
-          <input className="w-full bg-slate-800 text-white rounded-xl px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-            placeholder="Job title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-          <select className="w-full bg-slate-800 text-white rounded-xl px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-            value={form.contact_id} onChange={e => setForm(f => ({ ...f, contact_id: e.target.value }))}>
-            <option value="">No contact</option>
-            {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
-          </select>
-          <input type="datetime-local"
-            className="w-full bg-slate-800 text-white rounded-xl px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-            value={form.scheduled_at} onChange={e => setForm(f => ({ ...f, scheduled_at: e.target.value }))} />
-          <div className="grid grid-cols-2 gap-3">
-            <select className="bg-slate-800 text-white rounded-xl px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-              value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-              {['scheduled','confirmed','in_progress','completed','cancelled'].map(s =>
-                <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-            </select>
-            <input type="number" placeholder="Value ($)"
-              className="bg-slate-800 text-white rounded-xl px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-              value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
-          </div>
-          <input className="w-full bg-slate-800 text-white rounded-xl px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-            placeholder="Address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
-          <textarea rows={2} className="w-full bg-slate-800 text-white rounded-xl px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500 resize-none"
-            placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+      <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4 overflow-y-scroll"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)', maxHeight: '85vh', overscrollBehavior: 'contain' }}>
+        <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-4" />
+
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-white font-semibold text-base">Assign Technicians</p>
+          <button onClick={onClose} className="text-xs text-indigo-400 font-semibold px-3 py-1 bg-indigo-900/30 rounded-xl">Done</button>
         </div>
-        <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 bg-slate-800 text-slate-300 py-2.5 rounded-xl text-sm font-medium">Cancel</button>
-          <button onClick={handleSave} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">Save</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Assign Technicians drawer ─────────────────────────────────────────────────
-function AssignDrawer({ job, techs, shifts, onAssign, onUnassign, onClose }) {
-  const assignedIds = new Set(job.technicians.map(jt => jt.technician_id))
-  const shiftMap = {}
-  shifts.forEach(s => { shiftMap[s.user_id] = s.status })
-
-  function techLabel(techId) {
-    const s = shiftMap[techId]
-    if (s === 'confirmed') return { text: 'Confirmed for this day', color: 'text-green-400', dot: 'bg-green-500' }
-    if (s === 'available') return { text: 'Available this day', color: 'text-blue-400', dot: 'bg-blue-500' }
-    return { text: 'No availability set', color: 'text-slate-500', dot: 'bg-slate-600' }
-  }
-
-  const contactName = job.contact
-    ? `${job.contact.first_name} ${job.contact.last_name || ''}`.trim()
-    : job.title
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:hidden">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-slate-900 rounded-t-2xl w-full flex flex-col"
-        style={{ maxHeight: '82vh' }}>
-
-        {/* Fixed header — never scrolls */}
-        <div className="px-4 pt-5 shrink-0">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-white font-bold text-lg">Assign Technicians</span>
-            <button onClick={onClose}
-              className="bg-indigo-600 text-white text-sm font-semibold px-4 py-1.5 rounded-lg">
-              Done
-            </button>
-          </div>
-          <p className="text-slate-400 text-sm mb-3">
-            {contactName} · {assignedIds.size} assigned
-          </p>
-          <div className="flex gap-5 mb-3 flex-wrap">
-            <span className="flex items-center gap-1.5 text-xs text-slate-300">
-              <span className="w-2 h-2 rounded-full bg-green-500" /> Shift confirmed
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-slate-300">
-              <span className="w-2 h-2 rounded-full bg-blue-500" /> Available
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-slate-300">
-              <span className="w-2 h-2 rounded-full bg-slate-500" /> No availability set
-            </span>
-          </div>
+        <p className="text-slate-500 text-xs mb-3">
+          {deal.contact ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim() : deal.title}
+          {' · '}{assignedIds.size} assigned
+        </p>
+        {/* Legend */}
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <span className="flex items-center gap-1.5 text-xs text-emerald-400"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Shift confirmed</span>
+          <span className="flex items-center gap-1.5 text-xs text-indigo-400"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />Available</span>
+          <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="w-2 h-2 rounded-full bg-slate-600 inline-block" />No availability set</span>
         </div>
 
-        {/* Scrollable tech list */}
-        <div className="overflow-y-auto flex-1 px-4 space-y-2"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}>
-          {techs.map(tech => {
-            const assigned = assignedIds.has(tech.id)
-            const { text, color, dot } = techLabel(tech.id)
-            const name = tech.full_name || tech.username
+        <div className="space-y-2">
+          {sorted.map(tech => {
+            const info     = availTechs.find(t => t.id === tech.id) || {}
+            const isConf   = info.confirmed
+            const isAvail  = info.available
+            const isOn     = assignedIds.has(tech.id)
+            const spinning = pending === tech.id
+
             return (
               <button
                 key={tech.id}
-                onClick={() => assigned ? onUnassign(job.id, tech.id) : onAssign(job.id, tech.id)}
-                className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-colors text-left ${
-                  assigned
-                    ? 'bg-green-900/30 border border-green-700/40'
-                    : 'bg-slate-800/60 border border-slate-700/40'
+                onClick={() => toggle(tech.id)}
+                disabled={!!pending}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all ${
+                  isOn
+                    ? isConf  ? 'bg-emerald-600/20 border-emerald-500/40'
+                    : isAvail ? 'bg-indigo-600/20 border-indigo-500/40'
+                    :           'bg-slate-700/60 border-slate-600/50'
+                    : 'bg-slate-800 border-slate-700/40 active:bg-slate-700'
                 }`}
               >
-                <div className={`w-11 h-11 rounded-full ${avatarColor(tech.id)} flex items-center justify-center text-white font-bold text-base shrink-0`}>
-                  {initials(name)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold text-sm">{name}</p>
-                  <p className={`text-xs ${color}`}>{text}</p>
-                </div>
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                  assigned ? 'border-green-500 bg-green-500' : 'border-slate-600 bg-transparent'
+                {/* Avatar */}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                  isConf  ? 'bg-emerald-600 text-white'
+                  : isAvail ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-700 text-slate-300'
                 }`}>
-                  {assigned && <Check size={13} className="text-white" strokeWidth={3} />}
+                  {initials(tech)}
                 </div>
+
+                {/* Info */}
+                <div className="flex-1 text-left min-w-0">
+                  <p className={`text-sm font-semibold ${isOn ? 'text-white' : 'text-slate-200'}`}>
+                    {tech.full_name || tech.username}
+                  </p>
+                  <p className={`text-xs ${isConf ? 'text-emerald-400' : isAvail ? 'text-indigo-400' : 'text-slate-600'}`}>
+                    {isConf ? '✓ Confirmed for this day' : isAvail ? 'Available this day' : 'Not declared available'}
+                  </p>
+                </div>
+
+                {/* Toggle indicator */}
+                {spinning
+                  ? <Loader2 size={18} className="animate-spin text-slate-400 flex-shrink-0" />
+                  : isOn
+                    ? <CheckCircle2 size={20} className={`flex-shrink-0 ${isConf ? 'text-emerald-400' : 'text-indigo-400'}`} />
+                    : <Circle size={20} className="flex-shrink-0 text-slate-700" />
+                }
               </button>
             )
           })}
-          {techs.length === 0 && (
-            <p className="text-slate-500 text-sm text-center py-8">No technicians found</p>
-          )}
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }
 
-const REMINDER_LABEL = { '7day': '7d', '48h': '48h', '24h': '24h' }
+/* ── Status Sheet ── */
+function StatusSheet({ deal, onUpdate, onClose }) {
+  const [saving, setSaving] = useState(false)
+  async function pick(status) {
+    setSaving(true)
+    try { await onUpdate(deal.id, status); onClose() }
+    finally { setSaving(false) }
+  }
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex flex-col justify-end">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-slate-900 rounded-t-3xl px-4 pt-4 overflow-y-scroll"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)', maxHeight: '85vh', overscrollBehavior: 'contain' }}>
+        <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-4" />
+        <p className="text-white font-semibold text-base mb-1">Update Status</p>
+        <p className="text-slate-500 text-xs mb-4">
+          {deal.contact ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim() : deal.title}
+        </p>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          {STATUS_OPTIONS.map(opt => {
+            const Icon = opt.icon
+            const isCurrent = deal.job_status === opt.value
+            return (
+              <button key={opt.value} onClick={() => pick(opt.value)} disabled={saving}
+                className={`flex items-center gap-2.5 px-4 py-3.5 rounded-2xl text-sm font-semibold transition-colors ${
+                  isCurrent ? opt.color + ' text-white shadow-lg' : 'bg-slate-800 text-slate-300 active:bg-slate-700'
+                }`}>
+                <Icon size={15} />{opt.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  , document.body)
+}
 
-// ── Job card ──────────────────────────────────────────────────────────────────
-function JobCard({ job, techs, remindersSent, onOpenAssign, onStatusChange }) {
-  const assignedIds = new Set(job.technicians.map(jt => jt.technician_id))
-  const contactName = job.contact
-    ? `${job.contact.first_name} ${job.contact.last_name || ''}`.trim()
-    : job.title
-  const sentTypes = remindersSent || []
+/* ── Main Page ── */
+export default function JobAssignment() {
+  const todayMonday = weekMonday(new Date())
+  const [weekStart, setWeekStart]     = useState(todayMonday)
+  const [deals, setDeals]             = useState([])
+  const [techs, setTechs]             = useState([])
+  const [availMap, setAvailMap]       = useState({})
+  const [loading, setLoading]         = useState(true)
+  const [expandedDay, setExpandedDay] = useState(null)
+  const [assignSheet, setAssignSheet] = useState(null)
+  const [statusSheet, setStatusSheet] = useState(null)
+  const [techPhones, setTechPhones]   = useState({}) // userId → bool (has phone)
+  const [sendingReminder, setSendingReminder] = useState(null) // dealId being reminded
+
+  const weekDates     = DAY_KEYS.map((_, i) => addDays(weekStart, i))
+  const weekEnd       = addDays(weekStart, 6)
+  const isCurrentWeek = weekStart === todayMonday
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [dealsRes, usersRes, availRes, confRes] = await Promise.all([
+        api.get('/deals/', { params: { limit: 2000 } }),
+        api.get('/users/'),
+        api.get('/availability/', { params: { week_start: weekStart } }),
+        api.get('/availability/confirmations'),
+      ])
+      const techUsers = usersRes.data.filter(u => u.role === 'technician' && u.is_active)
+      setTechs(techUsers)
+      const phones = {}
+      techUsers.forEach(t => { phones[t.id] = !!(t.phone) })
+      setTechPhones(phones)
+      setDeals(dealsRes.data.filter(d => d.expected_close_date && d.job_status !== 'cancelled'))
+
+      const confSet    = new Set(confRes.data.map(c => `${c.user_id}:${c.shift_date}`))
+      const availByUser = {}
+      for (const row of availRes.data) availByUser[row.user_id] = row
+
+      const map = {}
+      for (let i = 0; i < 7; i++) {
+        const dateStr = addDays(weekStart, i)
+        const dayKey  = DAY_KEYS[i]
+        map[dateStr]  = techUsers.map(t => ({
+          id:        t.id,
+          username:  t.username,
+          full_name: t.full_name,
+          available: !!(availByUser[t.id]?.[dayKey]),
+          confirmed: confSet.has(`${t.id}:${dateStr}`),
+        }))
+      }
+      setAvailMap(map)
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
+  }, [weekStart])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const today = new Date().toLocaleDateString('en-CA')
+    setExpandedDay(weekDates.includes(today) ? today : weekDates[0])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStart])
+
+  async function handleToggle(dealId, techId) {
+    await api.post(`/deals/${dealId}/techs/${techId}`)
+    // Refresh just the assigned_techs for this deal
+    const res = await api.get(`/deals/${dealId}`)
+    setDeals(prev => prev.map(d => d.id === dealId ? { ...d, assigned_techs: res.data.assigned_techs } : d))
+    // Keep sheet open with updated deal
+    setAssignSheet(prev => prev?.id === dealId ? { ...prev, assigned_techs: res.data.assigned_techs } : prev)
+  }
+
+  async function handleStatusUpdate(dealId, status) {
+    await api.put(`/deals/${dealId}`, { job_status: status })
+    if (status === 'cancelled') setDeals(prev => prev.filter(d => d.id !== dealId))
+    else setDeals(prev => prev.map(d => d.id === dealId ? { ...d, job_status: status } : d))
+  }
+
+  async function sendReminder(dealId) {
+    setSendingReminder(dealId)
+    try {
+      const res = await api.post(`/reminders/test/${dealId}`)
+      const results = res.data.results || []
+      if (!results.length) { alert(res.data.message || 'No technicians assigned.'); return }
+      // Group by hours
+      const by48 = results.filter(r => r.hours === 48)
+      const by24 = results.filter(r => r.hours === 24)
+      const fmt = (arr) => {
+        const sent    = arr.filter(r => r.status === 'sent').map(r => r.tech)
+        const failed  = arr.filter(r => r.status === 'failed').map(r => r.tech)
+        const noPhone = arr.filter(r => r.status === 'no_phone').map(r => r.tech)
+        let s = ''
+        if (sent.length)    s += `✅ ${sent.join(', ')}\n`
+        if (noPhone.length) s += `⚠️ No phone: ${noPhone.join(', ')}\n`
+        if (failed.length)  s += `❌ Failed: ${failed.join(', ')}\n`
+        return s
+      }
+      let msg = ''
+      if (by48.length) msg += `48h reminder:\n${fmt(by48)}\n`
+      if (by24.length) msg += `24h reminder:\n${fmt(by24)}`
+      alert(msg.trim())
+    } catch (e) {
+      alert('Error: ' + (e.response?.data?.detail || e.message))
+    } finally {
+      setSendingReminder(null)
+    }
+  }
+
+  const dealsByDate = {}
+  for (const d of deals) {
+    const key = d.expected_close_date?.slice(0, 10)
+    if (!key) continue
+    if (!dealsByDate[key]) dealsByDate[key] = []
+    dealsByDate[key].push(d)
+  }
 
   return (
-    <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50 mb-3">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-semibold text-base">{contactName}</p>
-          {job.address && (
-            <p className="text-slate-400 text-sm flex items-center gap-1 mt-0.5">
-              <MapPin size={12} className="shrink-0" /> {job.address}
-            </p>
-          )}
-          <div className="flex items-center gap-3 mt-1 text-slate-400 text-sm">
-            {job.scheduled_at && (
-              <span className="flex items-center gap-1"><Clock size={12} />{fmtTime(job.scheduled_at)}</span>
-            )}
-            {job.value != null && (
-              <span className="flex items-center gap-1"><DollarSign size={12} />{job.value}</span>
-            )}
-          </div>
+    <div className="flex-1 overflow-y-auto bg-slate-950">
+      {/* Header */}
+      <div className="px-4 pt-6 pb-3">
+        <div className="flex items-center gap-2.5 mb-0.5">
+          <ClipboardList size={20} className="text-indigo-400" />
+          <h1 className="text-white text-xl font-bold tracking-tight">Job Assignment</h1>
         </div>
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <select
-            value={job.status}
-            onChange={e => { e.stopPropagation(); onStatusChange(job.id, e.target.value) }}
-            onClick={e => e.stopPropagation()}
-            className={`text-xs font-medium rounded-xl px-3 py-1.5 border-0 focus:outline-none ${STATUS_STYLES[job.status] || 'bg-slate-700 text-slate-300'}`}
-            style={{ background: 'transparent' }}
-          >
-            {['scheduled','confirmed','in_progress','completed','cancelled'].map(s =>
-              <option key={s} value={s} className="bg-slate-800 text-white">{s.replace('_',' ')}</option>)}
-          </select>
-          {/* Reminder badges */}
-          {sentTypes.length > 0 && (
-            <div className="flex gap-1">
-              {['7day','48h','24h'].map(t => (
-                <span key={t}
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 ${
-                    sentTypes.includes(t)
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : 'bg-slate-700/50 text-slate-600 border border-slate-700'
-                  }`}>
-                  <Bell size={8} />{REMINDER_LABEL[t]}
-                </span>
-              ))}
-            </div>
-          )}
+        <p className="text-slate-500 text-xs ml-8">Assign technicians · manage status</p>
+      </div>
+
+      {/* Week navigator */}
+      <div className="px-4 mb-3">
+        <div className="flex items-center justify-between bg-slate-900 rounded-2xl px-4 py-3 border border-slate-800">
+          <button onClick={() => setWeekStart(addDays(weekStart, -7))}
+            className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-800 text-slate-400 active:bg-slate-700">
+            <ChevronLeft size={16} />
+          </button>
+          <div className="text-center">
+            <p className="text-white font-semibold text-sm">
+              {isCurrentWeek ? 'This Week' : 'Week of ' + fmtShort(weekStart)}
+            </p>
+            <p className="text-slate-500 text-xs">{fmtShort(weekStart)} — {fmtShort(weekEnd)}</p>
+          </div>
+          <button onClick={() => setWeekStart(addDays(weekStart, 7))}
+            className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-800 text-slate-400 active:bg-slate-700">
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 
-      {/* Assigned techs row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {techs
-            .filter(t => assignedIds.has(t.id))
-            .map(t => {
-              const name = t.full_name || t.username
+      {loading ? (
+        <div className="flex items-center justify-center py-24">
+          <Loader2 size={28} className="text-indigo-400 animate-spin" />
+        </div>
+      ) : (
+        <div className="px-4 pb-10">
+
+          {/* Day strip */}
+          <div className="grid grid-cols-7 gap-1 mb-4">
+            {weekDates.map((dateStr, i) => {
+              const count      = (dealsByDate[dateStr] || []).length
+              const today      = new Date().toLocaleDateString('en-CA')
+              const isToday    = dateStr === today
+              const isExpanded = expandedDay === dateStr
               return (
-                <span key={t.id}
-                  className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full ${avatarColor(t.id)} bg-opacity-80 text-white font-medium`}>
-                  {initials(name)} {name.split(' ')[0]} ✓
-                </span>
+                <button key={dateStr}
+                  onClick={() => setExpandedDay(isExpanded ? null : dateStr)}
+                  className={`flex flex-col items-center gap-1 py-3 rounded-2xl text-xs font-semibold transition-all ${
+                    isExpanded ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40'
+                    : isToday  ? 'bg-slate-800 text-indigo-300 border border-indigo-500/30'
+                    :            'bg-slate-900 text-slate-500 border border-slate-800'
+                  }`}>
+                  <span>{['Mo','Tu','We','Th','Fr','Sa','Su'][i]}</span>
+                  {count > 0
+                    ? <span className={`text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center ${
+                        isExpanded ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-300'
+                      }`}>{count}</span>
+                    : <span className="text-[9px] opacity-30">·</span>
+                  }
+                </button>
               )
             })}
-          {assignedIds.size === 0 && (
-            <span className="text-slate-500 text-xs">No technicians assigned</span>
-          )}
-        </div>
-        <button
-          onClick={() => onOpenAssign(job)}
-          className="text-xs text-indigo-400 font-medium px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors shrink-0 ml-2"
-        >
-          Assign
-        </button>
-      </div>
-    </div>
-  )
-}
+          </div>
 
-// ── Main page ─────────────────────────────────────────────────────────────────
-export default function JobAssignment() {
-  const { token } = useAuth()
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const t = new Date(); t.setHours(0,0,0,0); return t
-  })
-  const [jobs, setJobs] = useState([])
-  const [techs, setTechs] = useState([])
-  const [shifts, setShifts] = useState([])
-  const [reminderMap, setReminderMap] = useState({})  // jobId → [types sent]
-  const [loading, setLoading] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [contacts, setContacts] = useState([])
-  const [assignTarget, setAssignTarget] = useState(null)
+          {/* Expanded day */}
+          {weekDates.map((dateStr, i) => {
+            if (expandedDay !== dateStr) return null
+            const jobs      = dealsByDate[dateStr] || []
+            const availTechs = availMap[dateStr] || []
+            const today     = new Date().toLocaleDateString('en-CA')
+            const isToday   = dateStr === today
 
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-  const dateStr = toDateStr(selectedDate)
-
-  const loadJobs = useCallback(async () => {
-    setLoading(true)
-    const res = await fetch(`${API}/jobs/by-date/${dateStr}`, { headers })
-    setJobs(await res.json())
-    setLoading(false)
-  }, [dateStr])
-
-  const loadShifts = useCallback(async () => {
-    const res = await fetch(`${API}/jobs/shifts/${dateStr}`, { headers })
-    setShifts(await res.json())
-  }, [dateStr])
-
-  const loadReminders = useCallback(async () => {
-    const res = await fetch(`${API}/reminders/by-date/${dateStr}`, { headers })
-    setReminderMap(await res.json())
-  }, [dateStr])
-
-  useEffect(() => {
-    async function init() {
-      const [cRes, uRes] = await Promise.all([
-        fetch(`${API}/contacts/?limit=500`, { headers }),
-        fetch(`${API}/users/`, { headers }),
-      ])
-      setContacts(await cRes.json())
-      setTechs((await uRes.json()).filter(u => u.role === 'technician' || u.role === 'admin'))
-    }
-    init()
-  }, [])
-
-  useEffect(() => {
-    loadJobs()
-    loadShifts()
-    loadReminders()
-  }, [dateStr])
-
-  // Re-sync selected week when selectedDate changes
-  useEffect(() => {
-    setWeekStart(startOfWeek(selectedDate))
-  }, [selectedDate])
-
-  async function handleCreate(data) {
-    await fetch(`${API}/jobs/`, { method: 'POST', headers, body: JSON.stringify(data) })
-    loadJobs()
-  }
-
-  async function handleStatusChange(jobId, status) {
-    await fetch(`${API}/jobs/${jobId}/status?status=${status}`, { method: 'PATCH', headers })
-    loadJobs()
-  }
-
-  async function handleAssign(jobId, techId) {
-    const res = await fetch(`${API}/jobs/${jobId}/technicians/${techId}`, { method: 'POST', headers })
-    const updated = await res.json()
-    setJobs(prev => prev.map(j => j.id === jobId ? updated : j))
-    setAssignTarget(updated)
-  }
-
-  async function handleUnassign(jobId, techId) {
-    const res = await fetch(`${API}/jobs/${jobId}/technicians/${techId}`, { method: 'DELETE', headers })
-    const updated = await res.json()
-    setJobs(prev => prev.map(j => j.id === jobId ? updated : j))
-    setAssignTarget(updated)
-  }
-
-  const today = new Date(); today.setHours(0,0,0,0)
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-
-  // Job count per day in week (only for loaded week's selected day; for other days show 0 without fetching)
-  const dayJobCount = {}
-  jobs.forEach(j => {
-    if (j.scheduled_at) {
-      const d = toDateStr(new Date(j.scheduled_at))
-      dayJobCount[d] = (dayJobCount[d] || 0) + 1
-    }
-  })
-
-  // All techs assigned to any job today (for the header badges)
-  const todayAssignedIds = new Set()
-  jobs.forEach(j => j.technicians.forEach(jt => todayAssignedIds.add(jt.technician_id)))
-
-  const isToday = toDateStr(selectedDate) === toDateStr(today)
-  const dayLabel = isToday
-    ? 'Today'
-    : selectedDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
-
-  return (
-    <div className="flex flex-col h-full bg-slate-950">
-      {/* ── Week navigation ── */}
-      <div className="px-4 pt-4 pb-2 border-b border-slate-800">
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={() => setWeekStart(w => addDays(w, -7))}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
-            <ChevronLeft size={20} />
-          </button>
-          <span className="text-slate-300 text-sm font-medium">{fmtWeekRange(weekStart)}</span>
-          <button onClick={() => setWeekStart(w => addDays(w, 7))}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
-            <ChevronRight size={20} />
-          </button>
-        </div>
-
-        {/* Day selector row */}
-        <div className="grid grid-cols-7 gap-1">
-          {weekDays.map(d => {
-            const ds = toDateStr(d)
-            const isSelected = ds === dateStr
-            const isDayToday = ds === toDateStr(today)
-            const count = isSelected ? jobs.length : 0
             return (
-              <button key={ds} onClick={() => setSelectedDate(d)}
-                className={`flex flex-col items-center py-2 rounded-2xl transition-colors ${
-                  isSelected ? 'bg-indigo-600' : 'hover:bg-slate-800'
-                }`}>
-                <span className={`text-xs font-medium mb-1 ${isSelected ? 'text-indigo-200' : 'text-slate-500'}`}>
-                  {DAY_LABELS[d.getDay()]}
-                </span>
-                <span className={`text-base font-bold ${
-                  isSelected ? 'text-white' : isDayToday ? 'text-indigo-400' : 'text-slate-300'
-                }`}>
-                  {d.getDate()}
-                </span>
-                {isSelected && count > 0 && (
-                  <span className="mt-1 text-[10px] text-indigo-200 font-medium">{count}</span>
+              <div key={dateStr}>
+                {/* Day header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm font-bold ${isToday ? 'text-indigo-300' : 'text-white'}`}>
+                      {fmtFull(dateStr)}
+                    </p>
+                    {isToday && <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full font-semibold">Today</span>}
+                  </div>
+                  <p className="text-slate-500 text-xs">{jobs.length} job{jobs.length !== 1 ? 's' : ''}</p>
+                </div>
+
+                {/* Available techs pills */}
+                {availTechs.some(t => t.available || t.confirmed) && (
+                  <div className="flex gap-1.5 flex-wrap mb-3">
+                    {availTechs.filter(t => t.available || t.confirmed).map(t => (
+                      <div key={t.id} className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                        t.confirmed ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/40'
+                                    : 'bg-indigo-900/40 text-indigo-300 border border-indigo-700/40'
+                      }`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold ${
+                          t.confirmed ? 'bg-emerald-600' : 'bg-indigo-600'
+                        }`}>{initials(t)}</div>
+                        {t.full_name?.split(' ')[0] || t.username}
+                        {t.confirmed && ' ✓'}
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </button>
+
+                {jobs.length === 0 ? (
+                  <div className="text-center py-12 text-slate-700">
+                    <ClipboardList size={32} className="mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No jobs this day</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {jobs.map(deal => {
+                      const client    = deal.contact
+                        ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim()
+                        : deal.title
+                      const time      = deal.expected_close_date?.slice(11, 16) || ''
+                      const sm        = statusMeta(deal.job_status)
+                      const StatusIcon = sm.icon
+                      const assigned  = deal.assigned_techs || []
+                      const required  = requiredTechs(deal)
+                      const staffed   = assigned.length >= required
+                      const missing   = Math.max(0, required - assigned.length)
+
+                      return (
+                        <div key={deal.id} className={`bg-slate-900 border rounded-2xl overflow-hidden ${
+                          staffed ? 'border-slate-800' : 'border-red-700/40'
+                        }`}>
+                          {/* Job info row */}
+                          <div className="px-4 pt-3 pb-2">
+                            <div className="flex items-start gap-2 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white text-sm font-semibold truncate">{client}</p>
+                                {deal.contact?.address && (
+                                  <p className="text-slate-500 text-xs truncate flex items-center gap-1 mt-0.5">
+                                    <MapPin size={9} />{deal.contact.address}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                  {time && <span className="text-slate-400 text-xs flex items-center gap-1"><Clock size={9}/>{time}</span>}
+                                  {deal.value > 0 && <span className="text-slate-400 text-xs flex items-center gap-0.5"><DollarSign size={9}/>{deal.value.toFixed(0)}</span>}
+                                </div>
+                                {/* Staffing requirement row */}
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  {/* Min requirement pill */}
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-semibold text-slate-400">
+                                    {required === 1 ? <User size={9} /> : <Users size={9} />}
+                                    {required} tech min
+                                  </span>
+                                  {/* Staffing status */}
+                                  {staffed ? (
+                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-900/30 border border-emerald-700/40 text-[10px] font-semibold text-emerald-400">
+                                      <UserCheck size={9} /> Staffed
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-900/30 border border-red-700/40 text-[10px] font-semibold text-red-400">
+                                      <UserX size={9} /> Need {missing} more
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                <button onClick={() => setStatusSheet(deal)}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${sm.color} text-white`}>
+                                  <StatusIcon size={11} />{sm.label}
+                                </button>
+                                <button
+                                  onClick={() => sendReminder(deal.id)}
+                                  disabled={sendingReminder === deal.id}
+                                  className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-lg transition-colors text-slate-400 bg-slate-800 border border-slate-700/50 active:bg-slate-700">
+                                  {sendingReminder === deal.id
+                                    ? <Loader2 size={9} className="animate-spin" />
+                                    : <Bell size={9} />
+                                  }
+                                  <span className={deal.reminder_sent_48h ? 'text-emerald-400' : 'text-slate-500'}>48h</span>
+                                  <span className="text-slate-600">/</span>
+                                  <span className={deal.reminder_sent ? 'text-emerald-400' : 'text-slate-500'}>24h</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Missing phone warning */}
+                            {assigned.length > 0 && assigned.some(t => !techPhones[t.id]) && (
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 mb-1 bg-amber-900/20 border border-amber-700/30 rounded-xl">
+                                <AlertTriangle size={11} className="text-amber-400 flex-shrink-0" />
+                                <p className="text-amber-400 text-xs">
+                                  {assigned.filter(t => !techPhones[t.id]).map(t => t.full_name?.split(' ')[0] || t.username).join(', ')} — no phone number on file
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Assigned techs row */}
+                            <button onClick={() => setAssignSheet(deal)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700/50 active:bg-slate-700 transition-colors">
+                              <Users size={13} className="text-slate-500 flex-shrink-0" />
+                              {assigned.length === 0 ? (
+                                <span className="text-slate-500 text-xs flex-1 text-left">Tap to assign technicians</span>
+                              ) : (
+                                <div className="flex items-center gap-1.5 flex-1 min-w-0 flex-wrap">
+                                  {assigned.map(t => {
+                                    const info = availTechs.find(x => x.id === t.id) || {}
+                                    return (
+                                      <span key={t.id} className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                        info.confirmed ? 'bg-emerald-600/25 text-emerald-300'
+                                        : info.available ? 'bg-indigo-600/25 text-indigo-300'
+                                        : 'bg-slate-700 text-slate-300'
+                                      }`}>
+                                        <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold ${
+                                          info.confirmed ? 'bg-emerald-600' : info.available ? 'bg-indigo-600' : 'bg-slate-600'
+                                        }`}>{initials(t)}</span>
+                                        {t.full_name?.split(' ')[0] || t.username}
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                              <span className="text-slate-600 text-xs flex-shrink-0">Edit</span>
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })}
+
+          <button onClick={load} className="w-full flex items-center justify-center gap-2 py-4 text-slate-600 text-xs mt-2">
+            <RefreshCw size={12} /> Refresh
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* ── Day header ── */}
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-white font-semibold text-base">
-              {selectedDate.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
-            </span>
-            {isToday && (
-              <span className="bg-indigo-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Today</span>
-            )}
-            <span className="text-slate-400 text-sm">{jobs.length} job{jobs.length !== 1 ? 's' : ''}</span>
-          </div>
-          {/* Active tech badges */}
-          {todayAssignedIds.size > 0 && (
-            <div className="flex gap-2 flex-wrap mt-2">
-              {techs.filter(t => todayAssignedIds.has(t.id)).map(t => (
-                <span key={t.id}
-                  className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full ${avatarColor(t.id)} text-white font-medium`}>
-                  {initials(t.full_name || t.username)} {(t.full_name || t.username).split(' ')[0]} ✓
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-sm font-medium transition-colors">
-          <Plus size={16} /> New
-        </button>
-      </div>
-
-      {/* ── Job list ── */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {loading ? (
-          <div className="text-slate-400 text-center py-12">Loading...</div>
-        ) : jobs.length === 0 ? (
-          <div className="text-center py-16 text-slate-600">
-            <p className="text-lg mb-1">No jobs</p>
-            <p className="text-sm">Tap + New to add one</p>
-          </div>
-        ) : (
-          jobs.map(job => (
-            <JobCard
-              key={job.id}
-              job={job}
-              techs={techs}
-              remindersSent={reminderMap[job.id] || []}
-              onOpenAssign={j => setAssignTarget(j)}
-              onStatusChange={handleStatusChange}
-            />
-          ))
-        )}
-      </div>
-
-      {/* ── New Job form ── */}
-      {showForm && (
-        <JobForm
-          onClose={() => setShowForm(false)}
-          onSave={handleCreate}
-          contacts={contacts}
-          defaultDate={dateStr}
+      {assignSheet && (
+        <AssignSheet
+          deal={assignSheet}
+          availTechs={availMap[assignSheet.expected_close_date?.slice(0, 10)] || []}
+          allTechs={techs}
+          onToggle={handleToggle}
+          onClose={() => setAssignSheet(null)}
         />
       )}
 
-      {/* ── Assign Technicians drawer ── */}
-      {assignTarget && (
-        <AssignDrawer
-          job={assignTarget}
-          techs={techs}
-          shifts={shifts}
-          onAssign={handleAssign}
-          onUnassign={handleUnassign}
-          onClose={() => setAssignTarget(null)}
+      {statusSheet && (
+        <StatusSheet
+          deal={statusSheet}
+          onUpdate={handleStatusUpdate}
+          onClose={() => setStatusSheet(null)}
         />
       )}
     </div>

@@ -9,9 +9,18 @@ from database import get_db
 import models
 import os
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-this-in-production-use-a-long-random-string")
+_SECRET_KEY_DEFAULT = "dev-only-insecure-key-change-in-production"
+SECRET_KEY = os.getenv("SECRET_KEY", _SECRET_KEY_DEFAULT)
+if SECRET_KEY == _SECRET_KEY_DEFAULT:
+    import sys
+    if os.getenv("ENV", "").lower() == "production":
+        print("FATAL: SECRET_KEY env var is required in production", file=sys.stderr)
+        sys.exit(1)
+    else:
+        print("WARNING: Using insecure default SECRET_KEY. Set SECRET_KEY env var for production.", file=sys.stderr)
+
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 hours
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -43,19 +52,20 @@ def get_current_user(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        sub: str = payload.get("sub")
+        if sub is None:
             raise credentials_exception
-    except JWTError:
+        user_id = int(sub)
+    except (JWTError, ValueError, TypeError):
         raise credentials_exception
 
-    user = db.query(models.User).filter(models.User.username == username).first()
+    user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None or not user.is_active:
         raise credentials_exception
     return user
 
 
 def require_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
-    if current_user.role != "admin":
+    if current_user.role not in ("admin", "ceo"):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user

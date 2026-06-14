@@ -1,141 +1,180 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import desc, func
 from typing import List
+import os
 from database import get_db
 import models
 import schemas
-from auth import get_current_user
-import os
+from auth import get_current_user, require_admin
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
 
-OWN_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "+10000000000")
-
 
 @router.get("/unread-count")
-def unread_count(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    count = db.query(func.count(models.ChatMessage.id)).filter(
-        models.ChatMessage.direction == "inbound",
-        models.ChatMessage.is_read == False,
-    ).scalar()
+def unread_count(
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Total number of unread inbound messages across all contacts."""
+    count = (
+        db.query(func.count(models.ChatMessage.id))
+        .filter(
+            models.ChatMessage.direction == "inbound",
+            models.ChatMessage.is_read == False,  # noqa: E712
+        )
+        .scalar()
+    ) or 0
     return {"unread": count}
 
 
-@router.get("/conversations", response_model=List[schemas.ConversationSummary])
-def list_conversations(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    # Get latest message per phone number
-    subq = (
-        db.query(
-            func.max(models.ChatMessage.id).label("max_id"),
-        )
-        .group_by(
-            func.coalesce(
-                models.ChatMessage.from_number,
-                models.ChatMessage.to_number,
-            )
-        )
-        .subquery()
+@router.get("/", response_model=List[schemas.ChatConversation])
+def list_conversations(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    """Return the most recent message per contact, sorted newest first."""
+    msgs = (
+        db.query(models.ChatMessage)
+        .order_by(desc(models.ChatMessage.created_at))
+        .all()
     )
 
-    # Use a raw aggregation approach for SQLite compatibility
-    rows = db.query(models.ChatMessage).options(joinedload(models.ChatMessage.contact)).all()
+    seen: dict[int, models.ChatMessage] = {}
+    for m in msgs:
+        if m.contact_id not in seen:
+            seen[m.contact_id] = m
 
-    # Group by conversation partner (the non-own-number side)
-    convos: dict = {}
-    for msg in rows:
-        partner = msg.from_number if msg.direction == "inbound" else msg.to_number
-        if partner not in convos:
-            convos[partner] = {
-                "phone_number": partner,
-                "last_message": msg.body,
-                "last_message_at": msg.created_at,
-                "unread_count": 0,
-                "contact_id": msg.contact_id,
-                "contact_name": None,
-            }
-            if msg.contact:
-                convos[partner]["contact_name"] = f"{msg.contact.first_name} {msg.contact.last_name or ''}".strip()
-        else:
-            if msg.created_at > convos[partner]["last_message_at"]:
-                convos[partner]["last_message"] = msg.body
-                convos[partner]["last_message_at"] = msg.created_at
-        if msg.direction == "inbound" and not msg.is_read:
-            convos[partner]["unread_count"] += 1
+    # Count unread inbound messages per contact
+    unread_rows = (
+        db.query(models.ChatMessage.contact_id, func.count(models.ChatMessage.id))
+        .filter(
+            models.ChatMessage.direction == "inbound",
+            models.ChatMessage.is_read == False,  # noqa: E712
+        )
+        .group_by(models.ChatMessage.contact_id)
+        .all()
+    )
+    unread_map = {cid: cnt for cid, cnt in unread_rows}
 
-    result = sorted(convos.values(), key=lambda x: x["last_message_at"], reverse=True)
+    result = []
+    for contact_id, last in seen.items():
+        contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+        if not contact:
+            continue
+        result.append(schemas.ChatConversation(
+            contact_id=contact.id,
+            contact_name=f"{contact.first_name} {contact.last_name or ''}".strip(),
+            last_message=last.body,
+            last_at=last.created_at,
+            unread=unread_map.get(contact_id, 0),
+        ))
     return result
 
 
-@router.get("/{phone_number}", response_model=List[schemas.ChatMessageOut])
-def get_conversation(
-    phone_number: str,
+@router.post("/{contact_id}/read")
+def mark_read(
+    contact_id: int,
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_admin),
 ):
+    """Mark all inbound messages for a contact as read."""
+    db.query(models.ChatMessage).filter(
+        models.ChatMessage.contact_id == contact_id,
+        models.ChatMessage.direction == "inbound",
+        models.ChatMessage.is_read == False,  # noqa: E712
+    ).update({"is_read": True}, synchronize_session=False)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/{contact_id}", response_model=List[schemas.ChatMessageOut])
+def get_messages(
+    contact_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    if not db.query(models.Contact).filter(models.Contact.id == contact_id).first():
+        raise HTTPException(status_code=404, detail="Contact not found")
+
     msgs = (
         db.query(models.ChatMessage)
-        .options(joinedload(models.ChatMessage.contact))
-        .filter(
-            (models.ChatMessage.from_number == phone_number) |
-            (models.ChatMessage.to_number == phone_number)
-        )
+        .filter(models.ChatMessage.contact_id == contact_id)
         .order_by(models.ChatMessage.created_at.asc())
         .all()
     )
-    # Mark inbound messages as read
-    for msg in msgs:
-        if msg.direction == "inbound" and not msg.is_read:
-            msg.is_read = True
-    db.commit()
-    return msgs
+
+    result = []
+    for m in msgs:
+        if m.sender_id:
+            sender = db.query(models.User).filter(models.User.id == m.sender_id).first()
+            sender_name = (sender.full_name or sender.username) if sender else "Unknown"
+        else:
+            contact = db.query(models.Contact).filter(models.Contact.id == m.contact_id).first()
+            sender_name = f"{contact.first_name} {contact.last_name or ''}".strip() if contact else "Customer"
+        result.append(schemas.ChatMessageOut(
+            id=m.id,
+            contact_id=m.contact_id,
+            sender_id=m.sender_id,
+            sender_name=sender_name,
+            body=m.body,
+            direction=m.direction,
+            created_at=m.created_at,
+        ))
+    return result
 
 
-@router.post("/{phone_number}/send", response_model=schemas.ChatMessageOut)
+@router.post("/{contact_id}", response_model=schemas.ChatMessageOut)
 def send_message(
-    phone_number: str,
-    payload: schemas.ChatSend,
+    contact_id: int,
+    payload: schemas.ChatMessageCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
+    contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    if contact.deleted_at is not None:
+        raise HTTPException(status_code=410, detail="Contact has been deleted")
+
+    body = payload.body.strip()
+    if not body:
+        raise HTTPException(status_code=422, detail="Message body is empty")
+
     msg = models.ChatMessage(
+        contact_id=contact_id,
+        sender_id=current_user.id,
+        body=body,
         direction="outbound",
-        from_number=OWN_NUMBER,
-        to_number=phone_number,
-        body=payload.body,
         is_read=True,
-        contact_id=payload.contact_id,
-        sent_by=current_user.id,
     )
     db.add(msg)
     db.commit()
     db.refresh(msg)
-    return msg
 
+    if contact.phone:
+        _try_send_twilio(contact.phone, body)
 
-@router.post("/webhook/inbound")
-async def inbound_sms(request: Request, db: Session = Depends(get_db)):
-    """Twilio webhook for inbound SMS."""
-    form = await request.form()
-    from_number = form.get("From", "")
-    to_number = form.get("To", OWN_NUMBER)
-    body = form.get("Body", "")
-
-    if not from_number or not body:
-        raise HTTPException(status_code=400, detail="Missing From or Body")
-
-    # Try to find existing contact by phone
-    contact = db.query(models.Contact).filter(models.Contact.phone == from_number).first()
-
-    msg = models.ChatMessage(
-        direction="inbound",
-        from_number=from_number,
-        to_number=to_number,
-        body=body,
-        is_read=False,
-        contact_id=contact.id if contact else None,
+    return schemas.ChatMessageOut(
+        id=msg.id,
+        contact_id=msg.contact_id,
+        sender_id=msg.sender_id,
+        sender_name=current_user.full_name or current_user.username,
+        body=msg.body,
+        direction=msg.direction,
+        created_at=msg.created_at,
     )
-    db.add(msg)
-    db.commit()
-    # Return empty TwiML response
-    return {"status": "received"}
+
+
+def _try_send_twilio(to_phone: str, body: str):
+    """Best-effort Twilio SMS delivery. Silently skips if not configured."""
+    sid = os.getenv("TWILIO_ACCOUNT_SID")
+    token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = os.getenv("TWILIO_FROM_NUMBER")
+    if not (sid and token and from_number):
+        return
+    try:
+        from twilio.rest import Client
+        Client(sid, token).messages.create(body=body, from_=from_number, to=to_phone)
+    except Exception:
+        pass  # SMS failure must never prevent the chat message from being saved

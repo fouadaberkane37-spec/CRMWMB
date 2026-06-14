@@ -1,192 +1,368 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import api from '../api.js'
 import { useAuth } from '../App.jsx'
-import { CalendarDays, Plus, Clock, User, MapPin, X, ChevronDown } from 'lucide-react'
+import { CalendarDays, User, MapPin, Phone, Wrench, DollarSign, Clock, CheckCircle, ChevronDown, Loader2 } from 'lucide-react'
 
-const API = '/api'
-const STATUSES = ['todo', 'payment_pending', 'done', 'cancelled']
-const TYPES = ['service', 'estimate', 'follow_up', 'install']
-const STATUS_COLORS = {
-  todo:            'bg-indigo-500/20 text-indigo-300',
-  payment_pending: 'bg-amber-500/20 text-amber-300',
-  done:            'bg-green-500/20 text-green-300',
-  cancelled:       'bg-slate-500/20 text-slate-400',
+const SERVICES_WINDOW = [
+  { value: 'window-ext',        label: 'Windows — Exterior' },
+  { value: 'window-int',        label: 'Windows — Interior' },
+  { value: 'window-both',       label: 'Windows — Int + Ext' },
+  { value: 'gutters',           label: 'Gutter Cleaning' },
+  { value: 'pressure-washing',  label: 'Pressure Washing' },
+  { value: 'roof',              label: 'Roof Cleaning' },
+  { value: 'screens',           label: 'Screen Cleaning' },
+  { value: 'solar',             label: 'Solar Panels' },
+]
+
+const SERVICES_LANDSCAPE = [
+  { value: 'pavers-pressure', label: 'Pavers Pressure Washing' },
+  { value: 'pavers-relevel',  label: 'Pavers Relevel' },
+  { value: 'pavers-install',  label: 'Pavers Install' },
+]
+
+function Field({ label, icon: Icon, children }) {
+  return (
+    <div>
+      <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-300 mb-2">
+        {Icon && <Icon size={14} className="text-slate-500" />}
+        {label}
+      </label>
+      {children}
+    </div>
+  )
 }
 
-function formatDateTime(dt) {
-  if (!dt) return '—'
-  return new Date(dt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
+const INPUT = "w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+const INPUT_CENTER = INPUT + " text-center"
+
+const MAX_PER_DAY = 3
 
 export default function Booking() {
-  const { token, user } = useAuth()
-  const [bookings, setBookings] = useState([])
-  const [contacts, setContacts] = useState([])
-  const [techs, setTechs] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editItem, setEditItem] = useState(null)
-  const [filterStatus, setFilterStatus] = useState('')
+  const { user } = useAuth()
+  const navigate  = useNavigate()
+
   const [form, setForm] = useState({
-    title: '', contact_id: '', technician_id: '', scheduled_at: '',
-    duration_minutes: 60, type: 'service', status: 'todo', notes: '', address: '',
+    business:  'window',
+    firstName: '',
+    lastName:  '',
+    phone:     '',
+    address:   '',
+    services:  [],
+    price:     '',
+    date:      '',
+    time:      '',
+    notes:     '',
   })
+  const [saving, setSaving]         = useState(false)
+  const [success, setSuccess]       = useState(false)
+  const [error, setError]           = useState('')
+  const [dayCount, setDayCount]     = useState(null)   // bookings on selected date
+  const [checking, setChecking]     = useState(false)
 
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+  function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
+  function setBusiness(val) { setForm(f => ({ ...f, business: val, services: [] })) }
 
-  async function load() {
-    setLoading(true)
-    const [bRes, cRes, uRes] = await Promise.all([
-      fetch(`${API}/bookings/${filterStatus ? `?status=${filterStatus}` : ''}`, { headers }),
-      fetch(`${API}/contacts/?limit=500`, { headers }),
-      fetch(`${API}/users/`, { headers }),
-    ])
-    setBookings(await bRes.json())
-    setContacts(await cRes.json())
-    setTechs((await uRes.json()).filter(u => u.role === 'technician' || u.role === 'admin'))
-    setLoading(false)
+  function toggleService(val) {
+    setForm(f => ({
+      ...f,
+      services: f.services.includes(val)
+        ? f.services.filter(s => s !== val)
+        : [...f.services, val],
+    }))
   }
 
-  useEffect(() => { load() }, [filterStatus])
-
-  function openNew() {
-    setEditItem(null)
-    setForm({ title: '', contact_id: '', technician_id: '', scheduled_at: '', duration_minutes: 60, type: 'service', status: 'scheduled', notes: '', address: '' })
-    setShowForm(true)
+  async function handleDateChange(dateStr) {
+    set('date', dateStr)
+    if (!dateStr) { setDayCount(null); return }
+    setChecking(true)
+    try {
+      const { data } = await api.get('/deals/', { params: { limit: 1000, business_type: form.business } })
+      const count = data.filter(d => {
+        if (!d.expected_close_date) return false
+        return d.expected_close_date.slice(0, 10) === dateStr
+      }).length
+      setDayCount(count)
+    } catch {
+      setDayCount(null)
+    } finally {
+      setChecking(false)
+    }
   }
 
-  function openEdit(b) {
-    setEditItem(b)
-    const dt = b.scheduled_at ? new Date(b.scheduled_at).toISOString().slice(0, 16) : ''
-    setForm({
-      title: b.title, contact_id: b.contact_id || '', technician_id: b.technician_id || '',
-      scheduled_at: dt, duration_minutes: b.duration_minutes, type: b.type,
-      status: b.status, notes: b.notes || '', address: b.address || '',
-    })
-    setShowForm(true)
+  const dayFull = dayCount !== null && dayCount >= MAX_PER_DAY
+  const slotsLeft = dayCount !== null ? Math.max(0, MAX_PER_DAY - dayCount) : null
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    if (!form.firstName.trim()) { setError('First name is required'); return }
+    if (form.business === 'window' && !form.date) { setError('Date is required'); return }
+    if (form.business === 'window' && dayFull)    { setError(`This day is fully booked (${MAX_PER_DAY}/${MAX_PER_DAY}). Choose another date.`); return }
+    setSaving(true)
+    try {
+      // 1. Create or find contact
+      const contactPayload = {
+        first_name: form.firstName.trim(),
+        last_name:  form.lastName.trim() || null,
+        phone:      form.phone.trim() || null,
+        address:    form.address.trim() || null,
+        services:   form.services.join(',') || null,
+        price:      form.price !== '' ? parseFloat(form.price) : null,
+        status:     'prospect',
+      }
+      const { data: contact } = await api.post('/contacts/', contactPayload)
+
+      // 2. Build appointment datetime ISO string
+      const timeStr = form.time || '08:00'
+      const apptIso = form.date ? `${form.date}T${timeStr}:00` : null
+
+      // 3. Create deal linked to that contact
+      const allServices = form.business === 'landscape' ? SERVICES_LANDSCAPE : SERVICES_WINDOW
+      const serviceLabel = form.services.length > 0
+        ? form.services.map(s => allServices.find(x => x.value === s)?.label || s).join(', ')
+        : 'Appointment'
+      const dealPayload = {
+        title:               `${form.firstName} ${form.lastName}`.trim() + ` — ${serviceLabel}`,
+        value:               form.price !== '' ? parseFloat(form.price) : 0,
+        stage:               'qualified',
+        contact_id:          contact.id,
+        expected_close_date: apptIso,
+        notes:               form.notes.trim() || null,
+        assigned_to:         user?.id,
+        job_status:          'todo',
+        business_type:       form.business,
+      }
+      await api.post('/deals/', dealPayload)
+
+      // 3. Trigger geocoding for address
+      if (form.address.trim()) {
+        api.post(`/contacts/${contact.id}/geocode`).catch(() => {})
+      }
+
+      setSuccess(true)
+      setTimeout(() => navigate('/calendar'), 1800)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to save booking')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  async function save() {
-    const payload = { ...form, contact_id: form.contact_id || null, technician_id: form.technician_id || null }
-    const url = editItem ? `${API}/bookings/${editItem.id}` : `${API}/bookings/`
-    const method = editItem ? 'PUT' : 'POST'
-    await fetch(url, { method, headers, body: JSON.stringify(payload) })
-    setShowForm(false)
-    load()
-  }
-
-  async function remove(id) {
-    if (!confirm('Delete this booking?')) return
-    await fetch(`${API}/bookings/${id}`, { method: 'DELETE', headers })
-    load()
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center px-4 text-center" style={{ minHeight: '60vh' }}>
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${form.business === 'landscape' ? 'bg-emerald-500/20' : 'bg-emerald-500/20'}`}>
+          <CheckCircle size={32} className="text-emerald-400" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-1">
+          {form.business === 'landscape' ? 'Project Saved!' : 'Booking Saved!'}
+        </h2>
+        <p className="text-slate-400 text-sm">
+          {form.business === 'landscape'
+            ? 'Go to the Landscape calendar to add steps & assign crew.'
+            : 'Redirecting to calendar…'}
+        </p>
+      </div>
+    )
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-white">Booking</h1>
-          <p className="text-slate-400 text-sm">{bookings.length} appointment{bookings.length !== 1 ? 's' : ''}</p>
-        </div>
-        <button onClick={openNew} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-          <Plus size={16} /> New Booking
-        </button>
+    <div className="px-4 pt-6 pb-4 md:px-8 md:pt-8 max-w-lg mx-auto w-full">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-slate-100">New Booking</h1>
+        <p className="text-slate-500 text-xs mt-0.5">Schedule an appointment for a client</p>
       </div>
 
-      {/* Status filter */}
-      <div className="flex gap-2 flex-wrap mb-4">
-        {['', ...STATUSES].map(s => (
-          <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterStatus === s ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-          >
-            {s || 'All'}
-          </button>
-        ))}
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-5">
 
-      {loading ? (
-        <div className="text-slate-400 text-center py-12">Loading...</div>
-      ) : bookings.length === 0 ? (
-        <div className="text-center py-16 text-slate-500">
-          <CalendarDays size={40} className="mx-auto mb-3 opacity-30" />
-          <p>No bookings yet</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {bookings.map(b => (
-            <div key={b.id} onClick={() => openEdit(b)}
-              className="bg-slate-900 rounded-xl p-4 border border-slate-800 cursor-pointer hover:border-slate-700 transition-colors">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-white font-medium">{b.title}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[b.status] || 'bg-slate-700 text-slate-300'}`}>
-                      {b.status.replace('_', ' ')}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{b.type}</span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-                    <span className="flex items-center gap-1"><Clock size={12} />{formatDateTime(b.scheduled_at)} · {b.duration_minutes}m</span>
-                    {b.contact && <span className="flex items-center gap-1"><User size={12} />{b.contact.first_name} {b.contact.last_name}</span>}
-                    {b.technician && <span className="flex items-center gap-1"><User size={12} />{b.technician.full_name || b.technician.username}</span>}
-                    {b.address && <span className="flex items-center gap-1"><MapPin size={12} />{b.address}</span>}
-                  </div>
-                </div>
-                <button onClick={e => { e.stopPropagation(); remove(b.id) }} className="text-slate-600 hover:text-red-400 p-1 shrink-0">
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
+        {/* Business selector */}
+        <div className="flex gap-2">
+          {[{ v: 'window', label: 'Window Cleaning' }, { v: 'landscape', label: 'Landscape' }].map(({ v, label }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setBusiness(v)}
+              className={`flex-1 py-3 rounded-2xl text-sm font-semibold border transition-all ${
+                form.business === v
+                  ? 'bg-indigo-600 border-indigo-500 text-white'
+                  : 'bg-slate-900 border-slate-700 text-slate-400 active:bg-slate-800'
+              }`}
+            >
+              {label}
+            </button>
           ))}
         </div>
-      )}
 
-      {/* Form modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowForm(false)} />
-          <div className="relative bg-slate-900 rounded-t-2xl md:rounded-2xl w-full md:max-w-lg p-5 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-white font-semibold text-lg mb-4">{editItem ? 'Edit Booking' : 'New Booking'}</h2>
-            <div className="space-y-3">
-              <input className="w-full bg-slate-800 text-white rounded-lg px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-                placeholder="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-              <input type="datetime-local" className="w-full bg-slate-800 text-white rounded-lg px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-                value={form.scheduled_at} onChange={e => setForm(f => ({ ...f, scheduled_at: e.target.value }))} />
-              <div className="grid grid-cols-2 gap-3">
-                <select className="bg-slate-800 text-white rounded-lg px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                  {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <select className="bg-slate-800 text-white rounded-lg px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-                  value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                  {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                </select>
-              </div>
-              <input type="number" className="w-full bg-slate-800 text-white rounded-lg px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-                placeholder="Duration (minutes)" value={form.duration_minutes} onChange={e => setForm(f => ({ ...f, duration_minutes: parseInt(e.target.value) || 60 }))} />
-              <select className="w-full bg-slate-800 text-white rounded-lg px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-                value={form.contact_id} onChange={e => setForm(f => ({ ...f, contact_id: e.target.value }))}>
-                <option value="">No contact</option>
-                {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
-              </select>
-              <select className="w-full bg-slate-800 text-white rounded-lg px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-                value={form.technician_id} onChange={e => setForm(f => ({ ...f, technician_id: e.target.value }))}>
-                <option value="">No technician</option>
-                {techs.map(t => <option key={t.id} value={t.id}>{t.full_name || t.username}</option>)}
-              </select>
-              <input className="w-full bg-slate-800 text-white rounded-lg px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500"
-                placeholder="Address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
-              <textarea className="w-full bg-slate-800 text-white rounded-lg px-3 py-2.5 text-sm border border-slate-700 focus:outline-none focus:border-indigo-500 resize-none"
-                rows={3} placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowForm(false)} className="flex-1 bg-slate-800 text-slate-300 py-2.5 rounded-lg text-sm font-medium">Cancel</button>
-              <button onClick={save} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">Save</button>
-            </div>
+        {/* Customer Name */}
+        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+            <User size={12} /> Customer
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="First Name *">
+              <input
+                value={form.firstName}
+                onChange={e => set('firstName', e.target.value)}
+                placeholder="Jean"
+                className={INPUT}
+                style={{ height: '48px' }}
+                required
+              />
+            </Field>
+            <Field label="Last Name">
+              <input
+                value={form.lastName}
+                onChange={e => set('lastName', e.target.value)}
+                placeholder="Tremblay"
+                className={INPUT}
+                style={{ height: '48px' }}
+              />
+            </Field>
+          </div>
+          <Field label="Phone Number" icon={Phone}>
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={e => set('phone', e.target.value)}
+              placeholder="450-555-1234"
+              className={INPUT}
+              style={{ height: '48px' }}
+            />
+          </Field>
+          <Field label="Service Address" icon={MapPin}>
+            <input
+              value={form.address}
+              onChange={e => set('address', e.target.value)}
+              placeholder="123 Rue des Érables, Saint-Jérôme"
+              className={INPUT}
+              style={{ height: '48px' }}
+            />
+          </Field>
+        </div>
+
+        {/* Date & Time */}
+        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4 overflow-hidden">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+            <CalendarDays size={12} /> Date & Time
+          </h2>
+          <div>
+            <Field label="Date *">
+              <input
+                type="date"
+                value={form.date}
+                onChange={e => handleDateChange(e.target.value)}
+                className={`${INPUT_CENTER} ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
+                style={{ colorScheme: 'dark', height: '48px' }}
+                required
+              />
+            </Field>
+            {checking && (
+              <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
+                <Loader2 size={11} className="animate-spin" /> Checking…
+              </p>
+            )}
+            {!checking && slotsLeft !== null && (
+              <p className={`mt-1.5 text-xs font-semibold flex items-center gap-1 ${
+                slotsLeft === 0 ? 'text-red-400' : slotsLeft === 1 ? 'text-amber-400' : 'text-emerald-400'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                  slotsLeft === 0 ? 'bg-red-400' : slotsLeft === 1 ? 'bg-amber-400' : 'bg-emerald-400'
+                }`} />
+                {slotsLeft === 0
+                  ? 'Fully booked'
+                  : `${slotsLeft} slot${slotsLeft > 1 ? 's' : ''} left`}
+              </p>
+            )}
+          </div>
+          <Field label="Time" icon={Clock}>
+            <input
+              type="time"
+              value={form.time}
+              onChange={e => set('time', e.target.value)}
+              className={INPUT_CENTER}
+              style={{ colorScheme: 'dark', height: '48px' }}
+            />
+          </Field>
+        </div>
+
+        {/* Services */}
+        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-3">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+            <Wrench size={12} /> Services
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            {(form.business === 'landscape' ? SERVICES_LANDSCAPE : SERVICES_WINDOW).map(s => {
+              const active = form.services.includes(s.value)
+              return (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => toggleService(s.value)}
+                  className={`text-left px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                    active
+                      ? 'bg-indigo-600 border-indigo-500 text-white'
+                      : 'bg-slate-800 border-slate-700 text-slate-400 active:bg-slate-700'
+                  }`}
+                  style={{ minHeight: '44px' }}
+                >
+                  {s.label}
+                </button>
+              )
+            })}
           </div>
         </div>
-      )}
+
+        {/* Price & Notes */}
+        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+            <DollarSign size={12} /> Pricing & Notes
+          </h2>
+          <Field label="Quoted Price ($)" icon={DollarSign}>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price}
+              onChange={e => set('price', e.target.value)}
+              placeholder="0.00"
+              className={INPUT}
+              style={{ height: '48px' }}
+            />
+          </Field>
+          <Field label="Notes">
+            <textarea
+              value={form.notes}
+              onChange={e => set('notes', e.target.value)}
+              placeholder="Special instructions, access codes, customer preferences…"
+              rows={3}
+              className={INPUT + ' py-3 resize-none'}
+            />
+          </Field>
+        </div>
+
+        {error && (
+          <div className="bg-red-900/30 border border-red-800/50 text-red-400 rounded-xl px-4 py-3 text-sm" role="alert">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={saving || dayFull}
+          className={`w-full font-bold rounded-2xl text-base transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
+            dayFull
+              ? 'bg-red-900/40 border border-red-700/50 text-red-400 cursor-not-allowed'
+              : 'bg-indigo-600 active:bg-indigo-700 text-white'
+          }`}
+          style={{ height: '56px' }}
+        >
+          {saving ? <Loader2 size={20} className="animate-spin" /> : <CalendarDays size={20} />}
+          {saving ? 'Saving…' : dayFull ? `Day fully booked (${MAX_PER_DAY}/${MAX_PER_DAY})` : 'Book Appointment'}
+        </button>
+
+      </form>
     </div>
   )
 }

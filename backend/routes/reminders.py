@@ -1,245 +1,345 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
-from typing import List, Optional
-from datetime import datetime, timedelta
-from database import get_db
-import models
-import schemas
-from auth import get_current_user
-import os
+"""
+24-hour job reminder system.
 
+Scheduler runs every hour. For each deal whose expected_close_date falls
+between now+23h and now+25h (i.e. roughly 24 hours away) that hasn't already
+been reminded, it sends a French-language SMS to every assigned technician
+who has a phone number on file.
+"""
+
+import os
+import logging
+from datetime import datetime, timedelta
+from typing import List
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from database import SessionLocal, get_db
+import models
+from auth import require_admin, get_current_user
+
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/reminders", tags=["reminders"])
 
-OWN_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "+10000000000")
 
-REMINDER_WINDOWS = {
-    "7day": (7 * 24 * 60 - 30, 7 * 24 * 60 + 23 * 60),  # 6d23.5h → 7d23h from now
-    "48h":  (47 * 60 + 30, 49 * 60),
-    "24h":  (23 * 60 + 30, 25 * 60),
-}
+# ── SMS helper ────────────────────────────────────────────────────────────────
 
-TEMPLATES = {
-    "7day": "Hi {name}, just a heads-up — you have an appointment in 7 days on {date} at {time}{address_part}. See you soon!",
-    "48h":  "Hi {name}, reminder: your appointment is in 2 days on {date} at {time}{address_part}. See you then!",
-    "24h":  "Hi {name}, your appointment is tomorrow at {time}{address_part}. We look forward to seeing you!",
-}
+def _send_sms(to: str, body: str) -> tuple[bool, str]:
+    """Send via Twilio. Returns (success, error_or_empty)."""
+    sid      = os.getenv("TWILIO_ACCOUNT_SID")
+    token    = os.getenv("TWILIO_AUTH_TOKEN")
+    from_num = os.getenv("TWILIO_FROM_NUMBER")
+    if not (sid and token and from_num):
+        return False, "Twilio not configured"
+    try:
+        from twilio.rest import Client
+        Client(sid, token).messages.create(body=body, from_=from_num, to=to)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
 
 
-def _build_message(reminder_type: str, name: str, scheduled_at: datetime, address: str | None) -> str:
-    date_str = scheduled_at.strftime("%A, %b %-d")
-    time_str = scheduled_at.strftime("%-I:%M %p")
-    address_part = f" at {address}" if address else ""
-    return TEMPLATES[reminder_type].format(
-        name=name, date=date_str, time=time_str, address_part=address_part
+def _build_message(deal: models.Deal, hours: int = 24) -> str:
+    time_str = deal.expected_close_date.strftime("%H:%M") if deal.expected_close_date else "?"
+    contact  = deal.contact
+    raw_name = f"{contact.first_name} {contact.last_name or ''}".strip() if contact else (deal.title or "")
+    name     = raw_name[:50].replace("\r", "").replace("\n", " ")
+    raw_addr = contact.address if (contact and contact.address) else "adresse inconnue"
+    address  = raw_addr[:80].replace("\r", "").replace("\n", " ")
+    service  = (deal.title or "service")[:80].replace("\r", "").replace("\n", " ")
+    when     = "demain" if hours == 24 else "après-demain"
+    return (
+        f"Rappel Groupe WMB: Vous avez un rendez-vous {when} à {time_str} — "
+        f"{service} chez {name}, {address}. "
+        f"Contactez le bureau si besoin."
     )
 
 
-def _already_sent(db: Session, job_id: int, reminder_type: str) -> bool:
-    return db.query(models.AppointmentReminder).filter(
-        models.AppointmentReminder.job_id == job_id,
-        models.AppointmentReminder.reminder_type == reminder_type,
-        models.AppointmentReminder.status == "sent",
-    ).first() is not None
+def _send_reminders_for_window(db, window_lo, window_hi, hours: int):
+    """Send reminders for deals whose close date falls in [window_lo, window_hi].
+    hours=24 updates reminder_sent; hours=48 updates reminder_sent_48h."""
+    sent_field = "reminder_sent" if hours == 24 else "reminder_sent_48h"
+    filter_col = models.Deal.reminder_sent if hours == 24 else models.Deal.reminder_sent_48h
 
-
-def _run_campaign(
-    db: Session,
-    reminder_type: str,
-    target_date: datetime | None = None,
-) -> schemas.CampaignResult:
-    """
-    Find all jobs that fall inside the reminder window for reminder_type
-    (or exactly on target_date if provided) and send SMS.
-    """
-    now = datetime.utcnow()
-    details = []
-    sent = skipped = failed = 0
-
-    if target_date:
-        # Treat target_date as the appointment date — send regardless of window
-        start = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0)
-        end = datetime(target_date.year, target_date.month, target_date.day, 23, 59, 59)
-    else:
-        min_min, max_min = REMINDER_WINDOWS[reminder_type]
-        start = now + timedelta(minutes=min_min)
-        end = now + timedelta(minutes=max_min)
-
-    jobs = (
-        db.query(models.JobAssignment)
-        .options(joinedload(models.JobAssignment.contact))
+    deals = (
+        db.query(models.Deal)
         .filter(
-            models.JobAssignment.scheduled_at >= start,
-            models.JobAssignment.scheduled_at <= end,
-            models.JobAssignment.status.notin_(["cancelled", "completed"]),
+            models.Deal.expected_close_date >= window_lo,
+            models.Deal.expected_close_date <= window_hi,
+            filter_col == False,                   # noqa: E712
+            models.Deal.job_status != "cancelled",
         )
         .all()
     )
 
-    for job in jobs:
-        contact = job.contact
-        if not contact or not contact.phone:
-            # Log skipped — no phone
-            r = models.AppointmentReminder(
-                job_id=job.id,
-                contact_id=contact.id if contact else None,
-                reminder_type=reminder_type,
-                phone_number="",
-                message_body=None,
-                status="skipped",
-            )
-            db.add(r)
-            skipped += 1
+    if not deals:
+        return 0
+
+    log.info(f"[reminders] {len(deals)} deal(s) in {hours}h window")
+
+    for deal in deals:
+        if deal.contact_id and not deal.contact:
+            deal.contact = db.query(models.Contact).filter(
+                models.Contact.id == deal.contact_id
+            ).first()
+
+        rows  = db.query(models.DealTechnician).filter(models.DealTechnician.deal_id == deal.id).all()
+        techs = [r.user for r in rows if r.user]
+        if deal.assigned_to:
+            legacy = db.query(models.User).filter(models.User.id == deal.assigned_to).first()
+            if legacy and legacy.id not in {t.id for t in techs}:
+                techs.append(legacy)
+
+        any_sent = False
+        for tech in techs:
+            phone = (tech.phone or "").strip()
+            if not phone:
+                db.add(models.ReminderLog(
+                    deal_id=deal.id, user_id=tech.id,
+                    phone_number=None, status="no_phone",
+                ))
+                continue
+
+            msg            = _build_message(deal, hours=hours)
+            success, error = _send_sms(phone, msg)
+            db.add(models.ReminderLog(
+                deal_id=deal.id, user_id=tech.id,
+                phone_number=phone,
+                status="sent" if success else "failed",
+                error=error or None,
+            ))
+            if success:
+                any_sent = True
+                log.info(f"[reminders/{hours}h] Sent to {tech.username} for deal {deal.id}")
+            else:
+                log.warning(f"[reminders/{hours}h] Failed for {tech.username}: {error}")
+
+        if any_sent or not techs:
+            setattr(deal, sent_field, True)
+
+    return len(deals)
+
+
+# ── Client reminder ───────────────────────────────────────────────────────────
+
+def _build_client_message(deal: models.Deal) -> str:
+    dt      = deal.expected_close_date
+    contact = deal.contact
+    name    = contact.first_name if contact else "there"
+    try:
+        date_str = dt.strftime("%A, %B %-d")
+        time_str = dt.strftime("%-I:%M %p")
+    except Exception:
+        date_str = str(dt.date())
+        time_str = str(dt.time())[:5]
+
+    lines = [f"Hi {name}! Just a reminder — your appointment is tomorrow 📅"]
+    lines.append(f"🗓 {date_str} at {time_str}")
+    if contact and contact.address:
+        lines.append(f"📍 {contact.address}")
+    if deal.title and " — " in deal.title:
+        lines.append(f"🔧 {deal.title.split(' — ', 1)[1]}")
+    elif deal.title:
+        lines.append(f"🔧 {deal.title}")
+    lines.append("\nSee you soon! Reply if you have any questions.")
+    return "\n".join(lines)
+
+
+def _send_client_reminders(db, window_lo, window_hi):
+    """Send 24h reminder SMS to the client (contact) for each upcoming deal."""
+    deals = (
+        db.query(models.Deal)
+        .filter(
+            models.Deal.expected_close_date >= window_lo,
+            models.Deal.expected_close_date <= window_hi,
+            models.Deal.client_reminder_sent == False,   # noqa: E712
+            models.Deal.job_status != "cancelled",
+        )
+        .all()
+    )
+
+    if not deals:
+        return
+
+    log.info(f"[reminders/client] {len(deals)} deal(s) needing client reminder")
+
+    for deal in deals:
+        if deal.contact_id and not deal.contact:
+            deal.contact = db.query(models.Contact).filter(
+                models.Contact.id == deal.contact_id
+            ).first()
+
+        contact = deal.contact
+        if not contact or not (contact.phone or "").strip():
+            deal.client_reminder_sent = True   # no phone — skip silently
+            log.info(f"[reminders/client] deal={deal.id} skipped — no client phone")
             continue
 
-        if _already_sent(db, job.id, reminder_type):
-            skipped += 1
-            continue
+        body = _build_client_message(deal)
+        success, error = _send_sms(contact.phone.strip(), body)
 
-        name = f"{contact.first_name}"
-        address = job.address or (contact.notes and None)  # keep address from job
-        body = _build_message(reminder_type, name, job.scheduled_at, job.address)
+        if success:
+            # Save to chat thread so it appears in Chats tab
+            try:
+                db.add(models.ChatMessage(
+                    contact_id=contact.id,
+                    sender_id=None,
+                    body=body,
+                    direction="outbound",
+                ))
+            except Exception:
+                pass
+            deal.client_reminder_sent = True
+            log.info(f"[reminders/client] Sent to {contact.first_name} ({contact.phone}) for deal {deal.id}")
+        else:
+            log.warning(f"[reminders/client] Failed for deal {deal.id}: {error}")
 
-        # Create outbound SMS chat message
-        sms = models.ChatMessage(
-            direction="outbound",
-            from_number=OWN_NUMBER,
-            to_number=contact.phone,
-            body=body,
-            is_read=True,
-            contact_id=contact.id,
-        )
-        db.add(sms)
 
-        reminder = models.AppointmentReminder(
-            job_id=job.id,
-            contact_id=contact.id,
-            reminder_type=reminder_type,
-            phone_number=contact.phone,
-            message_body=body,
-            status="sent",
-        )
-        db.add(reminder)
-        db.flush()
-        db.refresh(reminder)
-        details.append(schemas.ReminderOut.model_validate(reminder))
-        sent += 1
+# ── Core reminder job ─────────────────────────────────────────────────────────
+
+def run_reminders():
+    """Query upcoming deals and fire reminders. Called by scheduler every hour."""
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+
+        # Tech 24h window: 23–25h from now
+        _send_reminders_for_window(db, now + timedelta(hours=23), now + timedelta(hours=25), hours=24)
+
+        # Tech 48h window: 47–49h from now
+        _send_reminders_for_window(db, now + timedelta(hours=47), now + timedelta(hours=49), hours=48)
+
+        # Client 24h reminder
+        _send_client_reminders(db, now + timedelta(hours=23), now + timedelta(hours=25))
+
+        db.commit()
+        log.info("[reminders] Done")
+
+    except Exception as e:
+        db.rollback()
+        log.error(f"[reminders] Error: {e}")
+    finally:
+        db.close()
+
+
+# ── Scheduler startup ─────────────────────────────────────────────────────────
+
+def _cleanup_otp_sessions():
+    """Purge expired OTPSession rows to keep the table small."""
+    try:
+        from database import SessionLocal as _SL
+        import models as _m
+        db = _SL()
+        deleted = db.query(_m.OTPSession).filter(_m.OTPSession.expires_at < datetime.utcnow()).delete()
+        db.commit()
+        if deleted:
+            log.info(f"[otp-cleanup] Removed {deleted} expired OTP sessions")
+    except Exception as e:
+        log.warning(f"[otp-cleanup] Failed: {e}")
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
+
+def start_scheduler():
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        scheduler = BackgroundScheduler(timezone="UTC")
+        scheduler.add_job(run_reminders, "interval", hours=1, id="job_reminders",
+                          next_run_time=datetime.utcnow() + timedelta(minutes=2))
+        scheduler.add_job(_cleanup_otp_sessions, "interval", hours=6, id="job_otp_cleanup",
+                          next_run_time=datetime.utcnow() + timedelta(minutes=5))
+        scheduler.start()
+        log.info("[reminders] Scheduler started — runs every hour")
+        return scheduler
+    except Exception as e:
+        log.error(f"[reminders] Failed to start scheduler: {e}")
+        return None
+
+
+# ── Admin API endpoints ───────────────────────────────────────────────────────
+
+@router.post("/trigger")
+def trigger_reminders(_=Depends(require_admin)):
+    """Admin: manually fire the reminder job right now."""
+    run_reminders()
+    return {"ok": True, "message": "Reminder job completed"}
+
+
+@router.post("/test/{deal_id}")
+def test_reminder(deal_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
+    """Admin: send reminder SMS for a specific deal right now, bypassing the 24h window."""
+    deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
+    if not deal:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    # Load contact
+    if deal.contact_id and not deal.contact:
+        deal.contact = db.query(models.Contact).filter(models.Contact.id == deal.contact_id).first()
+
+    # Collect assigned techs
+    rows = db.query(models.DealTechnician).filter(models.DealTechnician.deal_id == deal.id).all()
+    techs = [r.user for r in rows if r.user]
+    if deal.assigned_to:
+        legacy = db.query(models.User).filter(models.User.id == deal.assigned_to).first()
+        if legacy and legacy.id not in {t.id for t in techs}:
+            techs.append(legacy)
+
+    if not techs:
+        return {"ok": False, "message": "No technicians assigned to this deal", "results": []}
+
+    results = []
+    for hours in [48, 24]:
+        for tech in techs:
+            phone = (tech.phone or "").strip()
+            if not phone:
+                if hours == 24:  # log no_phone once
+                    results.append({"hours": hours, "tech": tech.full_name or tech.username, "phone": None, "status": "no_phone"})
+                continue
+            msg = _build_message(deal, hours=hours)
+            success, error = _send_sms(phone, msg)
+            masked_phone = ("***" + phone[-4:]) if len(phone) >= 4 else "***"
+            results.append({
+                "hours":   hours,
+                "tech":    tech.full_name or tech.username,
+                "phone":   masked_phone,
+                "status":  "sent" if success else "failed",
+                "error":   error or None,
+                "message": msg,
+            })
+            log.info(f"[reminders/test/{hours}h] deal={deal_id} tech={tech.username} -> {'OK' if success else error}")
 
     db.commit()
+    return {"ok": True, "deal_id": deal_id, "results": results}
 
-    return schemas.CampaignResult(sent=sent, skipped=skipped, failed=failed, details=details)
 
-
-@router.post("/run", response_model=schemas.CampaignResult)
-def run_campaign(
-    reminder_type: str = Query(..., description="7day | 48h | 24h"),
-    target_date: Optional[str] = Query(None, description="YYYY-MM-DD — override window, send for this specific date"),
+@router.get("/logs")
+def get_reminder_logs(
+    deal_id: int = None,
+    limit: int = Query(default=100, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_admin),
 ):
-    if reminder_type not in REMINDER_WINDOWS:
-        raise HTTPException(status_code=400, detail=f"reminder_type must be one of {list(REMINDER_WINDOWS)}")
-
-    td = None
-    if target_date:
-        try:
-            td = datetime.strptime(target_date, "%Y-%m-%d")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="target_date must be YYYY-MM-DD")
-
-    return _run_campaign(db, reminder_type, target_date=td)
-
-
-@router.get("/pending")
-def preview_pending(
-    reminder_type: str = Query(...),
-    db: Session = Depends(get_db),
-    _=Depends(get_current_user),
-):
-    """Preview which jobs would receive reminders without sending."""
-    now = datetime.utcnow()
-    if reminder_type not in REMINDER_WINDOWS:
-        raise HTTPException(status_code=400, detail=f"reminder_type must be one of {list(REMINDER_WINDOWS)}")
-    min_min, max_min = REMINDER_WINDOWS[reminder_type]
-    start = now + timedelta(minutes=min_min)
-    end = now + timedelta(minutes=max_min)
-
-    jobs = (
-        db.query(models.JobAssignment)
-        .options(joinedload(models.JobAssignment.contact))
-        .filter(
-            models.JobAssignment.scheduled_at >= start,
-            models.JobAssignment.scheduled_at <= end,
-            models.JobAssignment.status.notin_(["cancelled", "completed"]),
-        )
-        .all()
-    )
+    """Admin: fetch reminder logs, optionally filtered by deal."""
+    q = db.query(models.ReminderLog).order_by(models.ReminderLog.sent_at.desc())
+    if deal_id:
+        q = q.filter(models.ReminderLog.deal_id == deal_id)
+    rows = q.offset(offset).limit(limit).all()
     return [
         {
-            "job_id": j.id,
-            "title": j.title,
-            "scheduled_at": j.scheduled_at,
-            "contact": f"{j.contact.first_name} {j.contact.last_name or ''}" if j.contact else None,
-            "phone": j.contact.phone if j.contact else None,
-            "already_sent": _already_sent(db, j.id, reminder_type),
+            "id":           r.id,
+            "deal_id":      r.deal_id,
+            "user_id":      r.user_id,
+            "tech_name":    r.user.full_name or r.user.username if r.user else None,
+            "phone_number": r.phone_number,
+            "status":       r.status,
+            "error":        r.error,
+            "sent_at":      r.sent_at.isoformat(),
         }
-        for j in jobs
+        for r in rows
     ]
-
-
-@router.get("/", response_model=List[schemas.ReminderOut])
-def list_reminders(
-    reminder_type: Optional[str] = None,
-    job_id: Optional[int] = None,
-    skip: int = 0,
-    limit: int = 200,
-    db: Session = Depends(get_db),
-    _=Depends(get_current_user),
-):
-    q = db.query(models.AppointmentReminder).options(
-        joinedload(models.AppointmentReminder.contact)
-    )
-    if reminder_type:
-        q = q.filter(models.AppointmentReminder.reminder_type == reminder_type)
-    if job_id:
-        q = q.filter(models.AppointmentReminder.job_id == job_id)
-    return q.order_by(models.AppointmentReminder.sent_at.desc()).offset(skip).limit(limit).all()
-
-
-@router.get("/by-job/{job_id}", response_model=List[schemas.ReminderOut])
-def reminders_for_job(job_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return (
-        db.query(models.AppointmentReminder)
-        .filter(
-            models.AppointmentReminder.job_id == job_id,
-            models.AppointmentReminder.status == "sent",
-        )
-        .all()
-    )
-
-
-@router.get("/by-date/{date_str}")
-def reminders_by_date(date_str: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    """Return sent reminders grouped by job_id for all jobs scheduled on date_str (YYYY-MM-DD)."""
-    try:
-        d = datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
-    start = datetime(d.year, d.month, d.day, 0, 0, 0)
-    end = datetime(d.year, d.month, d.day, 23, 59, 59)
-    jobs = db.query(models.JobAssignment.id).filter(
-        models.JobAssignment.scheduled_at >= start,
-        models.JobAssignment.scheduled_at <= end,
-    ).all()
-    job_ids = [j.id for j in jobs]
-    if not job_ids:
-        return {}
-    rows = db.query(models.AppointmentReminder).filter(
-        models.AppointmentReminder.job_id.in_(job_ids),
-        models.AppointmentReminder.status == "sent",
-    ).all()
-    result: dict = {}
-    for r in rows:
-        result.setdefault(r.job_id, [])
-        result[r.job_id].append(r.reminder_type)
-    return result
