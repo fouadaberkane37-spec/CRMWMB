@@ -13,7 +13,7 @@ import TeamMap from './pages/TeamMap.jsx'
 import Booking from './pages/Booking.jsx'
 import Calendar from './pages/Calendar.jsx'
 import Chats from './pages/Chats.jsx'
-import WeekSchedule from './pages/WeekSchedule.jsx'
+import JobAssignment from './pages/JobAssignment.jsx'
 import TechSchedule from './pages/TechSchedule.jsx'
 import ClockInOut from './pages/ClockInOut.jsx'
 import Timesheet from './pages/Timesheet.jsx'
@@ -69,8 +69,7 @@ export default function App() {
             <Route path="booking" element={<Booking />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="chats" element={<Chats />} />
-            <Route path="jobs" element={<Navigate to="/schedule" replace />} />
-            <Route path="schedule" element={<WeekSchedule />} />
+            <Route path="jobs" element={<JobAssignment />} />
             <Route path="tech-schedule" element={<TechSchedule />} />
             <Route path="clock-in" element={<ClockInOut />} />
             <Route path="timesheet" element={<Timesheet />} />

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App.jsx'
 import {
-  LayoutDashboard, CalendarDays, CalendarRange, MessageSquare, Menu, X, LogOut,
+  LayoutDashboard, CalendarDays, Briefcase, MessageSquare, Menu, X, LogOut,
   Users, Building2, TrendingUp, MapPin, Map, CalendarCheck, Clock, Timer,
   BarChart3, UserPlus, Activity, UserCog,
 } from 'lucide-react'
@@ -11,7 +11,7 @@ import {
 const ADMIN_PRIMARY = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/booking', label: 'Booking', icon: CalendarDays },
-  { to: '/schedule', label: 'Horaire', icon: CalendarRange },
+  { to: '/jobs', label: 'Jobs', icon: Briefcase },
   { to: '/chats', label: 'Messages', icon: MessageSquare, badge: true },
 ]
 
