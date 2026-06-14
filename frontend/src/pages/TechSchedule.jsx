@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import api from '../api.js'
-import { CalendarDays, CheckCircle2, Circle, ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react'
+import { useAuth } from '../App.jsx'
+import { CalendarDays, CheckCircle2, Circle, ChevronLeft, ChevronRight, Loader2, RefreshCw, Lock } from 'lucide-react'
 
 const DAY_KEYS  = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -27,23 +28,34 @@ function fmtShort(dateStr) {
 }
 
 export default function TechSchedule() {
+  const { user } = useAuth()
   const todayMonday = weekMonday(new Date())
   const [weekStart, setWeekStart] = useState(todayMonday)
   const [days, setDays]           = useState({ mon:false, tue:false, wed:false, thu:false, fri:false, sat:false, sun:false })
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
-  const [confirmations, setConfirmations] = useState({}) // date → bool
+  const [confirmations, setConfirmations] = useState({}) // date → bool (my claims)
+  const [claims, setClaims]       = useState({})          // date → { user_id, full_name } (all techs)
   const [confirming, setConfirming]       = useState(null)
+  const [claimError, setClaimError]       = useState('')
   const [myDeals, setMyDeals]             = useState([])
   const [loading, setLoading]             = useState(true)
+
+  const refreshDeals = useCallback(async () => {
+    try {
+      const { data } = await api.get('/deals/', { params: { limit: 1000 } })
+      setMyDeals(data.filter(d => d.expected_close_date && d.job_status !== 'cancelled'))
+    } catch {}
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [availRes, confRes, dealsRes] = await Promise.all([
+      const [availRes, confRes, dealsRes, claimsRes] = await Promise.all([
         api.get('/availability/', { params: { week_start: weekStart } }),
         api.get('/availability/confirmations'),
         api.get('/deals/', { params: { limit: 1000 } }),
+        api.get('/availability/day-claims', { params: { week_start: weekStart } }),
       ])
       // Availability for this week
       const myAvail = availRes.data.find(a => a.week_start === weekStart)
@@ -57,6 +69,10 @@ export default function TechSchedule() {
       const confMap = {}
       for (const c of confRes.data) confMap[c.shift_date] = true
       setConfirmations(confMap)
+      // Day claims across all techs: date → owner
+      const claimMap = {}
+      for (const c of claimsRes.data) claimMap[c.shift_date] = c
+      setClaims(claimMap)
       // Deals assigned to me
       setMyDeals(dealsRes.data.filter(d => d.expected_close_date && d.job_status !== 'cancelled'))
     } catch {}
@@ -75,15 +91,25 @@ export default function TechSchedule() {
   }
 
   async function toggleConfirm(dateStr) {
+    setClaimError('')
     setConfirming(dateStr)
     try {
       if (confirmations[dateStr]) {
+        // Release the day → frees it and unassigns my auto-assigned jobs
         await api.delete(`/availability/confirm/${dateStr}`)
         setConfirmations(prev => { const n = { ...prev }; delete n[dateStr]; return n })
+        setClaims(prev => { const n = { ...prev }; delete n[dateStr]; return n })
+        await refreshDeals()
       } else {
+        // Claim the day → locks it to me and auto-assigns that day's jobs
         await api.post('/availability/confirm', { shift_date: dateStr })
         setConfirmations(prev => ({ ...prev, [dateStr]: true }))
+        setClaims(prev => ({ ...prev, [dateStr]: { user_id: user?.id, full_name: user?.full_name || 'You' } }))
+        await refreshDeals()
       }
+    } catch (e) {
+      setClaimError(e.response?.data?.detail || 'Could not update your claim. Try again.')
+      setTimeout(() => setClaimError(''), 4000)
     } finally { setConfirming(null) }
   }
 
@@ -113,7 +139,7 @@ export default function TechSchedule() {
           <CalendarDays size={20} className="text-indigo-400" />
           <h1 className="text-white text-xl font-bold tracking-tight">My Schedule</h1>
         </div>
-        <p className="text-slate-500 text-xs ml-8">Set your availability & confirm shifts</p>
+        <p className="text-slate-500 text-xs ml-8">Set availability & claim your days — claimed days are yours alone</p>
       </div>
 
       {/* Week navigator */}
@@ -151,27 +177,42 @@ export default function TechSchedule() {
                 const dateStr = weekDates[i]
                 const today = new Date().toLocaleDateString('en-CA')
                 const isPast = dateStr < today
+                const claim  = claims[dateStr]
+                const lockedByOther = claim && claim.user_id !== user?.id
+                const disabled = isPast || lockedByOther
                 return (
                   <button
                     key={key}
-                    onClick={() => !isPast && setDays(d => ({ ...d, [key]: !d[key] }))}
-                    disabled={isPast}
+                    onClick={() => !disabled && setDays(d => ({ ...d, [key]: !d[key] }))}
+                    disabled={disabled}
+                    title={lockedByOther ? `Claimed by ${claim.full_name || claim.username || 'another tech'}` : undefined}
                     className={`flex flex-col items-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
-                      days[key]
-                        ? 'bg-indigo-600 text-white'
-                        : isPast
-                          ? 'bg-slate-800/40 text-slate-700'
-                          : 'bg-slate-800 text-slate-400'
+                      lockedByOther
+                        ? 'bg-slate-800/40 text-slate-600 border border-slate-700/50'
+                        : days[key]
+                          ? 'bg-indigo-600 text-white'
+                          : isPast
+                            ? 'bg-slate-800/40 text-slate-700'
+                            : 'bg-slate-800 text-slate-400'
                     }`}
                   >
                     <span>{DAY_LABELS[i]}</span>
-                    <span className={`text-[9px] font-normal ${days[key] ? 'text-indigo-200' : isPast ? 'text-slate-700' : 'text-slate-600'}`}>
-                      {isPast ? 'Past' : fmtShort(dateStr).split(' ')[1]}
-                    </span>
+                    {lockedByOther ? (
+                      <Lock size={9} className="text-slate-600" />
+                    ) : (
+                      <span className={`text-[9px] font-normal ${days[key] ? 'text-indigo-200' : isPast ? 'text-slate-700' : 'text-slate-600'}`}>
+                        {isPast ? 'Past' : fmtShort(dateStr).split(' ')[1]}
+                      </span>
+                    )}
                   </button>
                 )
               })}
             </div>
+            {claimError && (
+              <p className="mt-3 text-xs text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">
+                {claimError}
+              </p>
+            )}
 
             <button
               onClick={submitAvailability}
@@ -221,19 +262,20 @@ export default function TechSchedule() {
                       <button
                         onClick={() => toggleConfirm(dateStr)}
                         disabled={confirming === dateStr}
+                        title={isConf ? 'Tap to release this day' : 'Claim this day — its jobs become yours'}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
                           isConf
                             ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                            : 'bg-indigo-600 text-white'
                         }`}
                       >
                         {confirming === dateStr
                           ? <Loader2 size={13} className="animate-spin" />
                           : isConf
                             ? <CheckCircle2 size={13} />
-                            : <Circle size={13} />
+                            : <Lock size={13} />
                         }
-                        {isConf ? 'Confirmed' : 'Confirm'}
+                        {isConf ? 'Claimed' : 'Claim Day'}
                       </button>
                     </div>
 

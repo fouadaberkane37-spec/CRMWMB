@@ -121,6 +121,18 @@ def create_deal(deal: schemas.DealCreate, db: Session = Depends(get_db), current
         if contact and contact.phone:
             _send_booking_confirmation(db, db_deal, contact, current_user.id)
 
+    # If a technician has already claimed this appointment's day, auto-assign
+    # them so the new booking lands on their calendar.
+    if db_deal.expected_close_date:
+        try:
+            from routes.availability import day_owner, assign_tech_to_day
+            date_str = db_deal.expected_close_date.strftime("%Y-%m-%d")
+            owner = day_owner(db, date_str)
+            if owner:
+                assign_tech_to_day(db, owner.user_id, date_str)
+        except Exception as e:
+            log.warning("Auto-assign claimed-day tech failed for deal %s: %s", db_deal.id, e)
+
     return db_deal
 
 
@@ -154,8 +166,8 @@ def _send_booking_confirmation(db: Session, deal: models.Deal, contact: models.C
         fr_lines.append(f"🔧 {svc}")
     if deal.value and deal.value > 0:
         fr_lines.append(f"💰 Estimation: ${deal.value:.2f}")
-    if deal.notes:
-        fr_lines.append(f"📝 {deal.notes[:200]}")
+    # Note: internal notes are intentionally NOT sent to the client. They are
+    # for the technician and live on the deal / calendar (Special Instructions).
     fr_lines.append("Répondez en tout temps si vous avez des questions. À bientôt!")
 
     en_lines = [f"\nHi {safe_name}! Your appointment is confirmed ✅"]
@@ -276,6 +288,16 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
         contact = db.query(models.Contact).filter(models.Contact.id == db_deal.contact_id).first()
         if contact and contact.phone:
             _send_reschedule_sms(db, db_deal, contact, current_user.id)
+
+    # If rescheduled onto a day a technician has already claimed, auto-assign them.
+    if "expected_close_date" in updates and old_date != new_date and new_date:
+        try:
+            from routes.availability import day_owner, assign_tech_to_day
+            owner = day_owner(db, new_date.strftime("%Y-%m-%d"))
+            if owner:
+                assign_tech_to_day(db, owner.user_id, new_date.strftime("%Y-%m-%d"))
+        except Exception as e:
+            log.warning("Auto-assign claimed-day tech failed on reschedule for deal %s: %s", db_deal.id, e)
 
     return _enrich(db_deal, db)
 

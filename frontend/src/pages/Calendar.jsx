@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import api from '../api.js'
+import api, { openInvoice } from '../api.js'
 import { useAuth } from '../App.jsx'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
@@ -1703,7 +1703,7 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
 
             {/* Invoice */}
             <button
-              onClick={() => window.open(`/api/invoices/${deal.id}`, '_blank')}
+              onClick={() => openInvoice(deal.id)}
               className="w-full flex items-center justify-center gap-2 border border-slate-700 text-slate-300 py-2.5 rounded-xl text-sm font-medium"
             >
               <FileText size={15} />

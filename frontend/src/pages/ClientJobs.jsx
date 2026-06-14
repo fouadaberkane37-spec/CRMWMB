@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import api from '../api.js'
+import api, { openInvoice } from '../api.js'
 import { ClipboardList, RefreshCw, Loader2, X, Check, DollarSign, FileText } from 'lucide-react'
 
 const WINDOW_SERVICES = [
@@ -190,7 +190,7 @@ function EditSheet({ deal, onClose, onSaved }) {
           {/* Actions */}
           <div className="flex gap-2">
             <button
-              onClick={() => window.open(`/api/invoices/${deal.id}`, '_blank')}
+              onClick={() => openInvoice(deal.id)}
               className="flex-shrink-0 flex items-center justify-center gap-2 border border-slate-600 text-slate-300 py-3.5 px-4 rounded-2xl text-sm font-semibold"
             >
               <FileText size={16} />
