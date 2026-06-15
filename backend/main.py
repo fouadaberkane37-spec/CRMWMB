@@ -13,6 +13,7 @@ from routes import analytics as analytics_routes
 from routes import availability as availability_routes
 from routes import reminders as reminders_routes
 from routes import invoices as invoices_routes
+from routes import hours as hours_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
@@ -784,6 +785,7 @@ app.include_router(availability_routes.router)
 app.include_router(reminders_routes.router)
 app.include_router(phases_routes.router)
 app.include_router(invoices_routes.router)
+app.include_router(hours_routes.router)
 
 # Start 24h reminder scheduler
 reminders_routes.start_scheduler()

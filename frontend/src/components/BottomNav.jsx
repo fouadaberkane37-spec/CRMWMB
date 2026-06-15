@@ -27,7 +27,7 @@ export default function BottomNav() {
     ? [
         { to: '/calendar',      label: 'Calendar', icon: CalendarDays },
         { to: '/tech-schedule', label: 'Schedule', icon: ClipboardList },
-        { to: '/clock',         label: 'Clock',    icon: Timer },
+        { to: '/clock',         label: 'Hours',    icon: Timer },
       ]
     : isAdmin
     ? [

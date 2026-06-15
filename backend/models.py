@@ -271,3 +271,17 @@ class OTPSession(Base):
     attempts   = Column(Integer, default=0)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class DailyHoursLog(Base):
+    """Tech's self-reported hours for a calendar day. One row per user per date."""
+    __tablename__ = "daily_hours_logs"
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    log_date   = Column(String, nullable=False)   # YYYY-MM-DD
+    hours      = Column(Float, nullable=False)
+    notes      = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
