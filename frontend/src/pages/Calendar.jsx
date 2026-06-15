@@ -26,38 +26,6 @@ function fmt(date) { return date.toLocaleDateString('en-CA') }
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
 function getFirstDayOfWeek(year, month) { return new Date(year, month, 1).getDay() }
 
-// ── Status dropdown ────────────────────────────────────────────────────────────
-function StatusMenu({ deal, onUpdate, onClose }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    function h(e) { if (ref.current && !ref.current.contains(e.target)) onClose() }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [onClose])
-
-  return (
-    <div ref={ref}
-      className="absolute z-50 top-full left-0 mt-1 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
-      onClick={e => e.stopPropagation()}
-    >
-      <div className="px-3 py-2 border-b border-slate-700/60">
-        <p className="text-xs font-semibold text-slate-400 truncate">{deal.title}</p>
-        <p className="text-xs text-slate-500">${deal.value.toFixed(0)}</p>
-      </div>
-      {JOB_STATUSES.map(s => (
-        <button key={s.key}
-          onClick={() => { onUpdate(deal.id, s.key); onClose() }}
-          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-slate-800 ${deal.job_status === s.key ? 'text-white' : 'text-slate-400'}`}
-        >
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
-          {s.label}
-          {deal.job_status === s.key && <span className="ml-auto text-indigo-400 text-xs">✓</span>}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 // ── Reschedule popup ───────────────────────────────────────────────────────────
 function ReschedulePopup({ deal, onSave, onClose }) {
   const ref = useRef(null)
@@ -428,9 +396,238 @@ function TechJobModal({ deal, allDeals, onClose, onClockAction }) {
   , document.body)
 }
 
+// ── Full appointment detail sheet (admin) ──────────────────────────────────────
+// Shared by the agenda list (mobile) and the month grid (desktop) so clicking an
+// appointment shows the same full detail panel everywhere. Renders as a bottom
+// sheet on mobile and a centered modal on desktop.
+function DealDetailSheet({ deal, onUpdate, onReschedule, onDelete, onClose }) {
+  const [newDate, setNewDate]       = useState((deal.expected_close_date || '').slice(0, 10))
+  const [newTime, setNewTime]       = useState((deal.expected_close_date || '').slice(11, 16) || '09:00')
+  const [saving, setSaving]         = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [deleting, setDeleting]     = useState(false)
+
+  const name = deal.contact
+    ? `${deal.contact.first_name} ${deal.contact.last_name || ''}`.trim()
+    : deal.title
+  const time = deal.expected_close_date
+    ? new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : ''
+
+  async function handleReschedule() {
+    if (!newDate) return
+    setSaving(true)
+    try {
+      const iso = `${newDate}T${newTime || '09:00'}:00`
+      await api.put(`/deals/${deal.id}`, { ...deal, expected_close_date: iso, contact_id: deal.contact_id })
+      onReschedule(deal.id, iso)
+      onClose()
+    } finally { setSaving(false) }
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await api.delete(`/deals/${deal.id}`)
+      onDelete(deal.id)
+      onClose()
+    } catch { setDeleting(false) }
+  }
+
+  return createPortal(
+    <div className="fixed inset-0" style={{ zIndex: 9999 }}>
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div
+        className="absolute bottom-0 left-0 right-0 md:bottom-auto md:top-1/2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-md md:w-full md:rounded-2xl bg-slate-900 rounded-t-2xl px-4 pt-5 space-y-4 overflow-y-scroll"
+        style={{ maxHeight: '92vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)', overscrollBehavior: 'contain' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Handle (mobile) + header */}
+        <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto -mt-1 mb-1 md:hidden" />
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white font-bold text-base truncate">{name}</p>
+            <p className="text-slate-400 text-xs">{time} {deal.value > 0 ? `· $${deal.value.toFixed(0)}` : ''}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Service section */}
+        {deal.contact?.services && (
+          <div>
+            <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Service</p>
+            <div className="bg-slate-800 rounded-2xl px-4 py-3 flex flex-wrap gap-2">
+              {deal.contact.services.split(',').map(s => s.trim()).filter(Boolean).map(svc => (
+                <span key={svc} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-600/30 text-indigo-300 text-sm font-medium">
+                  <Wrench size={13} className="shrink-0" />
+                  {SERVICE_LABELS[svc] || svc}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Notes / Special instructions */}
+        {deal.notes && (
+          <div>
+            <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Special Instructions</p>
+            <div className="bg-slate-800/60 rounded-2xl px-4 py-3 border border-slate-700/40">
+              <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{deal.notes}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Assigned techs */}
+        {deal.assigned_techs?.length > 0 && (
+          <div>
+            <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Assigned</p>
+            <div className="flex flex-wrap gap-1.5">
+              {deal.assigned_techs.map(t => (
+                <span key={t.id} className="flex items-center gap-1.5 text-xs px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-full text-slate-300">
+                  <UserCheck size={12} className="text-indigo-400" />
+                  {t.full_name || t.username}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Contact section */}
+        <div>
+          <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Contact</p>
+          <div className="bg-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-700/50">
+            {deal.contact?.phone ? (
+              <a href={`tel:${deal.contact.phone}`} className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-700 transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-green-600/20 flex items-center justify-center shrink-0">
+                  <Phone size={16} className="text-green-400" />
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs mb-0.5">Phone</p>
+                  <p className="text-white font-semibold text-base">{deal.contact.phone}</p>
+                </div>
+              </a>
+            ) : (
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
+                  <Phone size={16} className="text-slate-500" />
+                </div>
+                <p className="text-slate-500 text-sm">No phone on file</p>
+              </div>
+            )}
+            {deal.contact?.address ? (
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(deal.contact.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-700 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-xl bg-indigo-600/20 flex items-center justify-center shrink-0">
+                  <MapPin size={16} className="text-indigo-400" />
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs mb-0.5">Address</p>
+                  <p className="text-white text-sm">{deal.contact.address}</p>
+                </div>
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Status section */}
+        <div>
+          <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Status</p>
+          <div className="grid grid-cols-2 gap-2">
+            {JOB_STATUSES.map(st => (
+              <button
+                key={st.key}
+                onClick={() => { onUpdate(deal.id, st.key); onClose() }}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-opacity ${
+                  deal.job_status === st.key
+                    ? `${st.color} ${st.text} ring-2 ring-white/30`
+                    : 'bg-slate-800 text-slate-300'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${st.dot}`} />
+                {st.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Reschedule section */}
+        <div>
+          <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Reschedule</p>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={newDate}
+              onChange={e => setNewDate(e.target.value)}
+              className="flex-1 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ colorScheme: 'dark' }}
+            />
+            <input
+              type="time"
+              value={newTime}
+              onChange={e => setNewTime(e.target.value)}
+              className="w-28 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{ colorScheme: 'dark' }}
+            />
+          </div>
+          <button
+            onClick={handleReschedule}
+            disabled={saving || !newDate}
+            className="w-full mt-2 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <CalendarDays size={15} />
+            {saving ? 'Saving…' : 'Save New Time'}
+          </button>
+        </div>
+
+        {/* Invoice */}
+        <button
+          onClick={() => openInvoice(deal.id)}
+          className="w-full flex items-center justify-center gap-2 border border-slate-700 text-slate-300 py-2.5 rounded-xl text-sm font-medium"
+        >
+          <FileText size={15} />
+          View Invoice
+        </button>
+
+        {/* Delete section */}
+        <div className="border-t border-slate-800 pt-3">
+          {confirmDel ? (
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmDel(false)} className="flex-1 border border-slate-700 text-slate-400 py-2.5 rounded-xl text-sm">
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Trash2 size={15} />
+                {deleting ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDel(true)}
+              className="w-full flex items-center justify-center gap-2 text-red-400 py-2.5 rounded-xl text-sm font-medium bg-red-500/10"
+            >
+              <Trash2 size={15} />
+              Delete Appointment
+            </button>
+          )}
+        </div>
+      </div>
+    </div>,
+  document.body)
+}
+
 // ── Deal chip — draggable ──────────────────────────────────────────────────────
-function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragEnd, isDragging, isAdmin, isTech }) {
-  const [open, setOpen]           = useState(false)
+function DealChip({ deal, allDeals, onUpdate, onReschedule, onDelete, onDragStart, onDragEnd, isDragging, isAdmin, isTech }) {
+  const [detail, setDetail]       = useState(false)
   const [reschedule, setReschedule] = useState(false)
   const [techModal, setTechModal] = useState(false)
   const s = STATUS_MAP[deal.job_status] || STATUS_MAP.todo
@@ -471,7 +668,7 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
             if (isTech) { setTechModal(true); return }
             if (!isAdmin) return
             setReschedule(false)
-            setOpen(v => !v)
+            setDetail(true)
           }}
           className={`w-full text-left px-1.5 py-1 rounded-md text-xs font-medium leading-tight ${chipBg} ${chipText} ${!isAdmin && !isTech ? 'cursor-default' : ''}`}
           title={isAdmin ? `${clientName}${chipUnderstaffed ? ' — ⚠ Understaffed' : ''}` : clientName}
@@ -486,7 +683,7 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
         {/* Reschedule icon — admin only */}
         {isAdmin && (
           <button
-            onClick={e => { e.stopPropagation(); setOpen(false); setReschedule(v => !v) }}
+            onClick={e => { e.stopPropagation(); setReschedule(v => !v) }}
             className="absolute right-0.5 top-0.5 hidden group-hover:flex items-center justify-center w-4 h-4 rounded bg-black/30 hover:bg-black/50 text-white/80"
             title="Reschedule"
           >
@@ -494,9 +691,18 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
           </button>
         )}
 
-        {open && isAdmin && <StatusMenu deal={deal} onUpdate={onUpdate} onClose={() => setOpen(false)} />}
         {reschedule && isAdmin && <ReschedulePopup deal={deal} onSave={onReschedule} onClose={() => setReschedule(false)} />}
       </div>
+
+      {detail && isAdmin && (
+        <DealDetailSheet
+          deal={deal}
+          onUpdate={onUpdate}
+          onReschedule={onReschedule}
+          onDelete={onDelete || (() => {})}
+          onClose={() => setDetail(false)}
+        />
+      )}
 
       {techModal && (
         <TechJobModal
@@ -510,7 +716,7 @@ function DealChip({ deal, allDeals, onUpdate, onReschedule, onDragStart, onDragE
 }
 
 // ── Day cell — drop target ─────────────────────────────────────────────────────
-function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, isDragOver, onDragOver, onDragLeave, onDrop, onUpdate, onReschedule, onDragStart, onDragEnd, draggingDealId, isAdmin, isTech, landscapePhases = [], isLandscape = false }) {
+function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, isDragOver, onDragOver, onDragLeave, onDrop, onUpdate, onReschedule, onDelete, onDragStart, onDragEnd, draggingDealId, isAdmin, isTech, landscapePhases = [], isLandscape = false }) {
   return (
     <div
       className={`border-b border-r p-1.5 flex flex-col gap-1 transition-colors ${
@@ -552,6 +758,7 @@ function DayCell({ dayNum, dateStr, isValid, isToday, isPast, deals, allDeals, i
           allDeals={allDeals}
           onUpdate={onUpdate}
           onReschedule={onReschedule}
+          onDelete={onDelete}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
           isDragging={draggingDealId === deal.id}
@@ -1343,6 +1550,7 @@ export default function Calendar() {
                       }}
                       onUpdate={updateStatus}
                       onReschedule={rescheduleLocal}
+                      onDelete={deleteDealLocal}
                       onDragStart={id => setDraggingDealId(id)}
                       onDragEnd={() => { setDraggingDealId(null); setDragOverDate(undefined) }}
                       isAdmin={isAdmin}
@@ -1454,37 +1662,7 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
   const cardBg   = s.color
   const cardText = s.text
 
-  // Reschedule state inside the sheet
-  const [newDate, setNewDate] = useState((deal.expected_close_date || '').slice(0, 10))
-  const [newTime, setNewTime] = useState((deal.expected_close_date || '').slice(11, 16) || '09:00')
-  const [saving, setSaving]   = useState(false)
-  const [confirmDel, setConfirmDel] = useState(false)
-  const [deleting, setDeleting]     = useState(false)
-
-  async function handleReschedule() {
-    if (!newDate) return
-    setSaving(true)
-    try {
-      const iso = `${newDate}T${newTime || '09:00'}:00`
-      await api.put(`/deals/${deal.id}`, { ...deal, expected_close_date: iso, contact_id: deal.contact_id })
-      onReschedule(deal.id, iso)
-      setSheet(false)
-    } finally { setSaving(false) }
-  }
-
-  async function handleDelete() {
-    setDeleting(true)
-    try {
-      await api.delete(`/deals/${deal.id}`)
-      onDelete(deal.id)
-      setSheet(false)
-    } catch { setDeleting(false) }
-  }
-
   function openSheet() {
-    setNewDate((deal.expected_close_date || '').slice(0, 10))
-    setNewTime((deal.expected_close_date || '').slice(11, 16) || '09:00')
-    setConfirmDel(false)
     setSheet(true)
   }
 
@@ -1575,170 +1753,16 @@ function AgendaCard({ deal, allDeals, name, time, s, isAdmin, isTech, onUpdate, 
         )}
       </button>
 
-      {/* Admin action bottom sheet */}
-      {sheet && isAdmin && createPortal(
-        <div className="fixed inset-0" style={{ zIndex: 9999 }}>
-          <div className="absolute inset-0 bg-black/70" onClick={() => setSheet(false)} />
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-slate-900 rounded-t-2xl px-4 pt-5 space-y-4 overflow-y-scroll"
-            style={{ maxHeight: '92vh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 2.5rem)', overscrollBehavior: 'contain' }}
-          >
-            {/* Handle + header */}
-            <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto -mt-1 mb-1" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white font-bold text-base truncate">{name}</p>
-                <p className="text-slate-400 text-xs">{time} {deal.value > 0 ? `· $${deal.value.toFixed(0)}` : ''}</p>
-              </div>
-              <button onClick={() => setSheet(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Service section */}
-            {deal.contact?.services && (
-              <div>
-                <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Service</p>
-                <div className="bg-slate-800 rounded-2xl px-4 py-3 flex flex-wrap gap-2">
-                  {deal.contact.services.split(',').map(s => s.trim()).filter(Boolean).map(svc => (
-                    <span key={svc} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-600/30 text-indigo-300 text-sm font-medium">
-                      <Wrench size={13} className="shrink-0" />
-                      {SERVICE_LABELS[svc] || svc}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Contact section */}
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Contact</p>
-              <div className="bg-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-700/50">
-                {deal.contact?.phone ? (
-                  <a href={`tel:${deal.contact.phone}`} className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-700 transition-colors">
-                    <div className="w-9 h-9 rounded-xl bg-green-600/20 flex items-center justify-center shrink-0">
-                      <Phone size={16} className="text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-xs mb-0.5">Phone</p>
-                      <p className="text-white font-semibold text-base">{deal.contact.phone}</p>
-                    </div>
-                  </a>
-                ) : (
-                  <div className="flex items-center gap-3 px-4 py-3.5">
-                    <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
-                      <Phone size={16} className="text-slate-500" />
-                    </div>
-                    <p className="text-slate-500 text-sm">No phone on file</p>
-                  </div>
-                )}
-                {deal.contact?.address ? (
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(deal.contact.address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-700 transition-colors"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600/20 flex items-center justify-center shrink-0">
-                      <MapPin size={16} className="text-indigo-400" />
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-xs mb-0.5">Address</p>
-                      <p className="text-white text-sm">{deal.contact.address}</p>
-                    </div>
-                  </a>
-                ) : null}
-              </div>
-            </div>
-
-            {/* Status section */}
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Status</p>
-              <div className="grid grid-cols-2 gap-2">
-                {JOB_STATUSES.map(st => (
-                  <button
-                    key={st.key}
-                    onClick={() => { onUpdate(deal.id, st.key); setSheet(false) }}
-                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-opacity ${
-                      deal.job_status === st.key
-                        ? `${st.color} ${st.text} ring-2 ring-white/30`
-                        : 'bg-slate-800 text-slate-300'
-                    }`}
-                  >
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${st.dot}`} />
-                    {st.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Reschedule section */}
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">Reschedule</p>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={newDate}
-                  onChange={e => setNewDate(e.target.value)}
-                  className="flex-1 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  style={{ colorScheme: 'dark' }}
-                />
-                <input
-                  type="time"
-                  value={newTime}
-                  onChange={e => setNewTime(e.target.value)}
-                  className="w-28 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  style={{ colorScheme: 'dark' }}
-                />
-              </div>
-              <button
-                onClick={handleReschedule}
-                disabled={saving || !newDate}
-                className="w-full mt-2 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <CalendarDays size={15} />
-                {saving ? 'Saving…' : 'Save New Time'}
-              </button>
-            </div>
-
-            {/* Invoice */}
-            <button
-              onClick={() => openInvoice(deal.id)}
-              className="w-full flex items-center justify-center gap-2 border border-slate-700 text-slate-300 py-2.5 rounded-xl text-sm font-medium"
-            >
-              <FileText size={15} />
-              View Invoice
-            </button>
-
-            {/* Delete section */}
-            <div className="border-t border-slate-800 pt-3">
-              {confirmDel ? (
-                <div className="flex gap-2">
-                  <button onClick={() => setConfirmDel(false)} className="flex-1 border border-slate-700 text-slate-400 py-2.5 rounded-xl text-sm">
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Trash2 size={15} />
-                    {deleting ? 'Deleting…' : 'Yes, Delete'}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirmDel(true)}
-                  className="w-full flex items-center justify-center gap-2 text-red-400 py-2.5 rounded-xl text-sm font-medium bg-red-500/10"
-                >
-                  <Trash2 size={15} />
-                  Delete Appointment
-                </button>
-              )}
-            </div>
-          </div>
-        </div>,
-      document.body)}
+      {/* Admin detail sheet (shared with the desktop grid) */}
+      {sheet && isAdmin && (
+        <DealDetailSheet
+          deal={deal}
+          onUpdate={onUpdate}
+          onReschedule={onReschedule}
+          onDelete={onDelete}
+          onClose={() => setSheet(false)}
+        />
+      )}
       </>
       )}
 
