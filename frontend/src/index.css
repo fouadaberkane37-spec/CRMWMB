@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 body {
   margin: 0;
@@ -12,11 +12,46 @@ body {
   color: #e2e8f0;
   /* Prevent overscroll bounce on iOS */
   overscroll-behavior: none;
+  /* Prevent text size adjustment when rotating on iOS */
+  -webkit-text-size-adjust: 100%;
 }
 
-/* iOS safe-area: keep content above the home indicator */
+/* Full viewport — no padding here, Layout handles safe areas */
 #root {
-  padding-top: env(safe-area-inset-top);
+  height: 100dvh;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  #root { height: 100vh; }
+}
+
+/* Hide horizontal scrollbar on stats pills */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Smooth momentum scrolling on iOS — applied everywhere EXCEPT <main>
+   to avoid creating a stacking context on the page container that would
+   trap fixed drawers below the bottom nav */
+.overflow-y-auto:not(main), .overflow-y-scroll:not(main) {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Force date inputs to respect container width on iOS Safari */
+/* Note: time inputs intentionally excluded — removing -webkit-appearance makes them blank on iOS */
+input[type="date"],
+input[type="datetime-local"] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  display: block !important;
+  line-height: 48px !important;
 }
 
 @layer components {
@@ -26,4 +61,46 @@ body {
   select.input option {
     background-color: #1e293b;
   }
+}
+
+/* User location pulsing dot animation (used in KnockMap) */
+@keyframes location-pulse {
+  0%   { transform: scale(0.6); opacity: 0.8; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+.location-pulse-ring {
+  animation: location-pulse 1.8s ease-out infinite;
+}
+
+/* Leaflet popup — dark theme */
+.leaflet-popup-content-wrapper {
+  background: #1e293b !important;
+  border: 1px solid rgba(148,163,184,0.15) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55) !important;
+  color: #e2e8f0 !important;
+}
+.leaflet-popup-tip {
+  background: #1e293b !important;
+  box-shadow: none !important;
+}
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}
+.leaflet-popup-close-button:hover {
+  color: #e2e8f0 !important;
+}
+
+/* BottomNav more-drawer slide-up animation */
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.slide-up {
+  animation: slide-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Native select dark styling on non-WebKit browsers */
+select {
+  color-scheme: dark;
 }

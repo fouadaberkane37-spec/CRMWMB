@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 export default function Modal({ title, onClose, children, size = 'md' }) {
@@ -10,13 +11,21 @@ export default function Modal({ title, onClose, children, size = 'md' }) {
 
   const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{
+        zIndex: 9999,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        // Push modal up so it's not hidden behind the bottom nav
+        paddingBottom: 'calc(env(safe-area-inset-bottom) + 72px)',
+      }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className={`bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl w-full ${widths[size]} max-h-[90vh] flex flex-col`}>
+      <div
+        className={`bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl w-full ${widths[size]} flex flex-col`}
+        style={{ maxHeight: 'calc(100vh - env(safe-area-inset-bottom) - 96px)' }}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50">
           <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
           <button
@@ -29,5 +38,5 @@ export default function Modal({ title, onClose, children, size = 'md' }) {
         <div className="overflow-y-auto flex-1 px-6 py-5">{children}</div>
       </div>
     </div>
-  )
+  , document.body)
 }

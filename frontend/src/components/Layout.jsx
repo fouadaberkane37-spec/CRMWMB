@@ -5,17 +5,35 @@ import BottomNav from './BottomNav.jsx'
 
 export default function Layout() {
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden">
-      {/* Sidebar — desktop only */}
-      <div className="hidden md:flex">
-        <Sidebar />
+    <div
+      className="flex flex-col md:flex-row bg-slate-950"
+      style={{ height: '100%' }}
+    >
+      {/* Top safe area (notch / Dynamic Island) — mobile only */}
+      <div
+        className="md:hidden flex-shrink-0 bg-slate-950"
+        style={{ height: 'env(safe-area-inset-top)' }}
+      />
+
+      {/* Horizontal row: sidebar (desktop) + content */}
+      <div className="flex flex-1 min-h-0 md:flex-row">
+        {/* Sidebar — desktop only */}
+        <div className="hidden md:flex flex-shrink-0">
+          <Sidebar />
+        </div>
+
+        {/* Main scrollable content */}
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          <Outlet />
+          {/* Bottom padding so last item clears the nav */}
+          <div className="md:hidden" style={{ height: '1rem' }} />
+        </main>
       </div>
-      {/* Main content — extra bottom padding on mobile for bottom nav */}
-      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
-        <Outlet />
-      </main>
-      {/* Bottom nav — mobile only */}
-      <BottomNav />
+
+      {/* Bottom nav — mobile only — no z-index so page drawers (z-9999) always cover it */}
+      <div className="md:hidden flex-shrink-0">
+        <BottomNav />
+      </div>
     </div>
   )
 }
