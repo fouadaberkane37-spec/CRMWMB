@@ -537,12 +537,18 @@ def invoice_image_bytes(deal: models.Deal) -> bytes:
     """High-resolution PNG of the regular invoice page, sized to 8.5x11in @ 300dpi
     (2550x3300px) — used as the actual MMS attachment, since most carriers (notably in
     Canada) don't reliably deliver non-image file attachments over MMS, and as a
-    print-ready image for clients who want a paper copy."""
+    print-ready image for clients who want a paper copy.
+
+    wkhtmltoimage's width/height options set the PRE-zoom viewport; the final raster
+    size is viewport * zoom. So we pass IMAGE_WIDTH/IMAGE_ZOOM here, not IMAGE_WIDTH
+    itself — otherwise the output balloons to (IMAGE_WIDTH*ZOOM) x (IMAGE_HEIGHT*ZOOM),
+    which is a multi-megapixel, multi-megabyte file too large for MMS carriers to
+    deliver."""
     import imgkit
     html = _invoice_html_image(deal)
     options = {
         "quiet": "", "format": "png",
-        "width": str(IMAGE_WIDTH), "height": str(IMAGE_HEIGHT),
+        "width": str(IMAGE_WIDTH // IMAGE_ZOOM), "height": str(IMAGE_HEIGHT // IMAGE_ZOOM),
         "disable-smart-width": "",
     }
     return imgkit.from_string(html, False, options=options)
