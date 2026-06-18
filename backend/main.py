@@ -322,6 +322,7 @@ _deal_migrations = [
     ("business_type",  "ALTER TABLE deals ADD COLUMN{if_not_exists} business_type VARCHAR DEFAULT 'window'"),
     ("marked_done_at",       "ALTER TABLE deals ADD COLUMN{if_not_exists} marked_done_at " + ("DATETIME" if _is_sqlite else "TIMESTAMP")),
     ("review_request_sent",  "ALTER TABLE deals ADD COLUMN{if_not_exists} review_request_sent BOOLEAN DEFAULT FALSE"),
+    ("invoice_sent",         "ALTER TABLE deals ADD COLUMN{if_not_exists} invoice_sent BOOLEAN DEFAULT FALSE"),
 ]
 for _col, _stmt in _deal_migrations:
     _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")

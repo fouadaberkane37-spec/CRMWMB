@@ -81,6 +81,7 @@ class Deal(Base):
     client_reminder_sent = Column(Boolean, default=False)  # client 24h reminder sent
     marked_done_at     = Column(DateTime, nullable=True)   # set when job_status first flips to "done"
     review_request_sent = Column(Boolean, default=False)   # post-job review/MERCI20 SMS sent
+    invoice_sent       = Column(Boolean, default=False)    # invoice SMS sent to client
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

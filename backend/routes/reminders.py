@@ -40,6 +40,21 @@ def _send_sms(to: str, body: str) -> tuple[bool, str]:
         return False, str(e)
 
 
+def _send_mms(to: str, body: str, media_url: str) -> tuple[bool, str]:
+    """Send an MMS (SMS + media attachment, e.g. a PDF) via Twilio. Returns (success, error_or_empty)."""
+    sid      = os.getenv("TWILIO_ACCOUNT_SID")
+    token    = os.getenv("TWILIO_AUTH_TOKEN")
+    from_num = os.getenv("TWILIO_FROM_NUMBER")
+    if not (sid and token and from_num):
+        return False, "Twilio not configured"
+    try:
+        from twilio.rest import Client
+        Client(sid, token).messages.create(body=body, from_=from_num, to=to, media_url=[media_url])
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 def _build_message(deal: models.Deal, hours: int = 24) -> str:
     time_str = deal.expected_close_date.strftime("%H:%M") if deal.expected_close_date else "?"
     contact  = deal.contact

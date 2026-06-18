@@ -144,6 +144,7 @@ class Deal(DealBase):
     reminder_sent_48h: bool = False
     client_reminder_sent: bool = False
     review_request_sent: bool = False
+    invoice_sent: bool = False
     contact: Optional[Contact] = None
     company: Optional[Company] = None
     assigned_techs: List[TechBasic] = []
