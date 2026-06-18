@@ -24,14 +24,13 @@ from database import SessionLocal, get_db
 import models
 from auth import require_admin
 from routes.reminders import _send_mms
-from routes.invoices import invoice_pdf_url, invoice_image_url
+from routes.invoices import (
+    invoice_pdf_url, invoice_image_url,
+    REVIEW_LINK, DISCOUNT_CODE, DISCOUNT_AMOUNT,
+)
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/review-requests", tags=["review-requests"])
-
-REVIEW_LINK     = "https://share.google/VcubVLg5RaTFv5Wvi"
-DISCOUNT_CODE   = "MERCI20"
-DISCOUNT_AMOUNT = 20.0
 
 
 def _message_fr(name: str, invoice_url: str) -> str:

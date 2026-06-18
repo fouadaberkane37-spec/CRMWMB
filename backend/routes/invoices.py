@@ -19,6 +19,12 @@ COMPANY_PHONE   = os.getenv("COMPANY_PHONE",   "(514) 559-7007")
 COMPANY_EMAIL   = os.getenv("COMPANY_EMAIL",   "")
 COMPANY_ADDRESS = os.getenv("COMPANY_ADDRESS", "575 Robert-Élie, Laval, QC H7N 0E8")
 
+# Shared with routes/review_requests.py — same review link / discount code shown
+# in the thank-you text is also embedded in the invoice image below.
+REVIEW_LINK     = "https://share.google/VcubVLg5RaTFv5Wvi"
+DISCOUNT_CODE   = "MERCI20"
+DISCOUNT_AMOUNT = 20.0
+
 SERVICE_LABELS = {
     "window-ext": "Windows (Exterior)",
     "window-int": "Windows (Interior)",
@@ -503,17 +509,17 @@ def _invoice_html_image(deal: models.Deal) -> str:
 </head>
 <body>
 <table class="frame"><tr>
-  <td class="band" style="height:360px;vertical-align:middle;">
-    <div style="font-size:48px;font-weight:800;letter-spacing:-1px;">WMB<span style="color:#c7d2fe;">.</span></div>
-    <div style="font-size:16px;color:#e0e7ff;margin-top:6px;letter-spacing:2px;">GROUPE WMB</div>
-    <div style="margin-top:32px;font-size:38px;font-weight:800;letter-spacing:1px;">INVOICE</div>
-    <div style="font-size:15px;color:#e0e7ff;margin-top:6px;">{inv_number}</div>
-    <div style="margin-top:16px;">
-      <span style="display:inline-block;background:#fff;color:{status_color};font-weight:700;font-size:14px;letter-spacing:1px;padding:7px 20px;border-radius:999px;">{status_lbl.upper()}</span>
+  <td class="band" style="height:340px;vertical-align:middle;">
+    <div style="font-size:44px;font-weight:800;letter-spacing:-1px;">WMB<span style="color:#c7d2fe;">.</span></div>
+    <div style="font-size:15px;color:#e0e7ff;margin-top:4px;letter-spacing:2px;">GROUPE WMB</div>
+    <div style="margin-top:26px;font-size:34px;font-weight:800;letter-spacing:1px;">INVOICE</div>
+    <div style="font-size:14px;color:#e0e7ff;margin-top:4px;">{inv_number}</div>
+    <div style="margin-top:14px;">
+      <span style="display:inline-block;background:#fff;color:{status_color};font-weight:700;font-size:13px;letter-spacing:1px;padding:6px 18px;border-radius:999px;">{status_lbl.upper()}</span>
     </div>
   </td>
 </tr><tr>
-  <td style="vertical-align:middle;padding:48px 64px;">
+  <td style="vertical-align:top;padding:44px 64px;">
     <table style="width:100%;border-collapse:collapse;"><tr>
       <td style="width:55%;vertical-align:top;">
         <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;color:#9ca3af;text-transform:uppercase;margin-bottom:8px;">Bill To</div>
@@ -534,13 +540,28 @@ def _invoice_html_image(deal: models.Deal) -> str:
       <thead><tr><th>Description</th><th>Qty</th><th>Amount</th></tr></thead>
       <tbody>{rows_html}</tbody>
     </table>
+
+    <div style="margin:48px 0;border-top:2px dashed #e5e7eb;"></div>
+
+    <div style="text-align:center;background:#f5f3ff;border-radius:24px;padding:44px 36px;">
+      <div style="font-size:32px;letter-spacing:8px;color:#fbbf24;">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+      <div style="font-size:24px;font-weight:800;color:#111827;margin-top:16px;">Loved the results?</div>
+      <div style="font-size:16px;color:#6b7280;margin-top:10px;line-height:1.6;">A quick Google review really<br/>helps our small business!</div>
+      <div style="margin-top:22px;display:inline-block;background:#fff;border-radius:12px;padding:12px 20px;font-size:15px;font-weight:700;color:{BRAND_COLOR};word-break:break-all;">{REVIEW_LINK}</div>
+    </div>
+
+    <div style="margin-top:36px;text-align:center;border:3px dashed {BRAND_COLOR};border-radius:24px;padding:36px;">
+      <div style="font-size:14px;font-weight:700;letter-spacing:2px;color:{BRAND_COLOR};text-transform:uppercase;">Our Thank-You Gift</div>
+      <div style="font-size:46px;font-weight:800;color:#111827;margin-top:12px;">${DISCOUNT_AMOUNT:,.0f} OFF</div>
+      <div style="font-size:16px;color:#6b7280;margin-top:8px;">your next cleaning — code <strong style="color:#111827;">{DISCOUNT_CODE}</strong></div>
+    </div>
   </td>
 </tr><tr>
-  <td class="band" style="height:380px;vertical-align:middle;">
+  <td class="band" style="height:360px;vertical-align:middle;">
     <div style="font-size:14px;color:#e0e7ff;letter-spacing:2px;text-transform:uppercase;">Total Due</div>
-    <div style="font-size:58px;font-weight:800;margin-top:6px;">${deal.value:,.2f}</div>
-    <div style="margin-top:30px;font-size:19px;font-weight:600;">Thank you for choosing GROUPE WMB!</div>
-    <div style="margin-top:10px;font-size:14px;color:#e0e7ff;">{COMPANY_PHONE} · {COMPANY_ADDRESS}</div>
+    <div style="font-size:54px;font-weight:800;margin-top:6px;">${deal.value:,.2f}</div>
+    <div style="margin-top:26px;font-size:18px;font-weight:600;">Thank you for choosing GROUPE WMB!</div>
+    <div style="margin-top:8px;font-size:14px;color:#e0e7ff;">{COMPANY_PHONE} · {COMPANY_ADDRESS}</div>
   </td>
 </tr></table>
 </body>
