@@ -51,6 +51,7 @@ class Contact(Base):
     title = Column(String)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     status = Column(String, default="lead")  # lead | prospect | customer | inactive
+    language = Column(String, nullable=True)  # 'fr' | 'en' | None (unknown — send both)
     notes = Column(Text)
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -78,6 +79,8 @@ class Deal(Base):
     reminder_sent     = Column(Boolean, default=False)   # tech 24h reminder sent
     reminder_sent_48h = Column(Boolean, default=False)   # tech 48h reminder sent
     client_reminder_sent = Column(Boolean, default=False)  # client 24h reminder sent
+    marked_done_at     = Column(DateTime, nullable=True)   # set when job_status first flips to "done"
+    review_request_sent = Column(Boolean, default=False)   # post-job review/MERCI20 SMS sent
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -221,6 +224,22 @@ class ShiftConfirmation(Base):
     confirmed_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", foreign_keys=[user_id])
+
+
+class Discount(Base):
+    """A discount code granted to a client (e.g. MERCI20 post-job thank-you)."""
+    __tablename__ = "discounts"
+    id         = Column(Integer, primary_key=True, index=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=False)
+    deal_id    = Column(Integer, ForeignKey("deals.id"), nullable=True)
+    code       = Column(String, default="MERCI20")
+    amount     = Column(Float, default=20)
+    reason     = Column(String, default="review_request")
+    used       = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    contact = relationship("Contact")
+    deal    = relationship("Deal")
 
 
 class ReminderLog(Base):

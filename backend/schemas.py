@@ -81,6 +81,7 @@ class ContactBase(BaseModel):
     title: Optional[str] = Field(default=None, max_length=128)
     company_id: Optional[int] = None
     status: Literal["lead", "prospect", "customer", "inactive"] = "lead"
+    language: Optional[Literal["fr", "en"]] = None
     notes: Optional[str] = Field(default=None, max_length=5000)
 
 
@@ -142,6 +143,7 @@ class Deal(DealBase):
     reminder_sent: bool = False
     reminder_sent_48h: bool = False
     client_reminder_sent: bool = False
+    review_request_sent: bool = False
     contact: Optional[Contact] = None
     company: Optional[Company] = None
     assigned_techs: List[TechBasic] = []

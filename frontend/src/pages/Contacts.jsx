@@ -23,7 +23,7 @@ const SERVICES_OPTIONS = [
 
 const EMPTY = {
   first_name: '', last_name: '', phone: '',
-  address: '', services: '', price: '', status: 'lead', notes: '',
+  address: '', services: '', price: '', status: 'lead', language: '', notes: '',
 }
 
 function ServicesDisplay({ services }) {
@@ -78,6 +78,7 @@ export default function Contacts() {
       services: c.services || '',
       price: c.price != null ? String(c.price) : '',
       status: c.status || 'lead',
+      language: c.language || '',
       notes: c.notes || '',
     })
     setModal(c)
@@ -89,6 +90,7 @@ export default function Contacts() {
       const payload = {
         ...form,
         price: form.price !== '' ? parseFloat(form.price) : null,
+        language: form.language || null,
       }
       if (modal === 'create') await api.post('/contacts/', payload)
       else await api.put(`/contacts/${modal.id}`, payload)
@@ -474,6 +476,14 @@ export default function Contacts() {
               <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
               <select value={form.status} onChange={f('status')} className="input">
                 {STATUSES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Language</label>
+              <select value={form.language} onChange={f('language')} className="input">
+                <option value="">Unknown (send FR + EN)</option>
+                <option value="fr">French</option>
+                <option value="en">English</option>
               </select>
             </div>
             <div>

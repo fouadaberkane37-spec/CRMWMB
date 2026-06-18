@@ -247,11 +247,14 @@ def _cleanup_otp_sessions():
 def start_scheduler():
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
+        from routes.review_requests import run_review_requests
         scheduler = BackgroundScheduler(timezone="UTC")
         scheduler.add_job(run_reminders, "interval", hours=1, id="job_reminders",
                           next_run_time=datetime.utcnow() + timedelta(minutes=2))
         scheduler.add_job(_cleanup_otp_sessions, "interval", hours=6, id="job_otp_cleanup",
                           next_run_time=datetime.utcnow() + timedelta(minutes=5))
+        scheduler.add_job(run_review_requests, "interval", minutes=30, id="job_review_requests",
+                          next_run_time=datetime.utcnow() + timedelta(minutes=3))
         scheduler.start()
         log.info("[reminders] Scheduler started — runs every hour")
         return scheduler

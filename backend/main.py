@@ -14,6 +14,7 @@ from routes import availability as availability_routes
 from routes import reminders as reminders_routes
 from routes import invoices as invoices_routes
 from routes import hours as hours_routes
+from routes import review_requests as review_requests_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
@@ -319,6 +320,8 @@ for _col, _stmt in _user_migrations:
 _deal_migrations = [
     ("job_status",     "ALTER TABLE deals ADD COLUMN{if_not_exists} job_status VARCHAR DEFAULT 'todo'"),
     ("business_type",  "ALTER TABLE deals ADD COLUMN{if_not_exists} business_type VARCHAR DEFAULT 'window'"),
+    ("marked_done_at",       "ALTER TABLE deals ADD COLUMN{if_not_exists} marked_done_at " + ("DATETIME" if _is_sqlite else "TIMESTAMP")),
+    ("review_request_sent",  "ALTER TABLE deals ADD COLUMN{if_not_exists} review_request_sent BOOLEAN DEFAULT FALSE"),
 ]
 for _col, _stmt in _deal_migrations:
     _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")
@@ -336,6 +339,7 @@ _contact_migrations = [
     ("lat",        "ALTER TABLE contacts ADD COLUMN{if_not_exists} lat FLOAT"),
     ("lng",        "ALTER TABLE contacts ADD COLUMN{if_not_exists} lng FLOAT"),
     ("deleted_at", "ALTER TABLE contacts ADD COLUMN{if_not_exists} deleted_at " + ("DATETIME" if _is_sqlite else "TIMESTAMP")),
+    ("language",   "ALTER TABLE contacts ADD COLUMN{if_not_exists} language VARCHAR"),
 ]
 for _col, _stmt in _contact_migrations:
     if _is_sqlite:
@@ -786,6 +790,7 @@ app.include_router(reminders_routes.router)
 app.include_router(phases_routes.router)
 app.include_router(invoices_routes.router)
 app.include_router(hours_routes.router)
+app.include_router(review_requests_routes.router)
 
 # Start 24h reminder scheduler
 reminders_routes.start_scheduler()

@@ -277,8 +277,12 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
         raise HTTPException(status_code=403, detail="Only admins can reassign deals")
 
     old_date = db_deal.expected_close_date
+    was_done = db_deal.job_status == "done"
     for k, v in updates.items():
         setattr(db_deal, k, v)
+    if "job_status" in updates and updates["job_status"] == "done" and not was_done:
+        import datetime as _dt
+        db_deal.marked_done_at = _dt.datetime.utcnow()
     db.commit()
     db.refresh(db_deal)
 
@@ -333,7 +337,11 @@ def update_job_status(deal_id: int, job_status: str, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Deal not found")
     if not _own_deal(db_deal, current_user):
         raise HTTPException(status_code=403, detail="Access denied")
+    was_done = db_deal.job_status == "done"
     db_deal.job_status = job_status
+    if job_status == "done" and not was_done:
+        import datetime as _dt
+        db_deal.marked_done_at = _dt.datetime.utcnow()
     db.commit()
     return {"job_status": job_status}
 
