@@ -458,36 +458,91 @@ def _invoice_html_pdf(deal: models.Deal) -> str:
 </html>"""
 
 
-# ── Image rendering (9:16 portrait) ─────────────────────────────────────────────
+# ── Image rendering (9:16 portrait "story" card) ────────────────────────────────
 # Used as the actual MMS attachment — see invoice_image_bytes() below for why.
+# Unlike the PDF (a compact business document), this is a bold vertical graphic:
+# a fixed-height branded header band and footer band (always present, regardless
+# of invoice length) sandwich a white details section in the middle — so the
+# 1080x1920 frame is always filled with intentional design, never empty padding.
 
 IMAGE_WIDTH = 1080
 IMAGE_HEIGHT = 1920
+BRAND_COLOR = "#4f46e5"
 
 
 def _invoice_html_image(deal: models.Deal) -> str:
     ctx = _invoice_context(deal)
-    css = _invoice_card_css(ctx["status_color"])
-    card = _invoice_card_html(deal, ctx)
+    client_name = ctx["client_name"]; client_address = ctx["client_address"]; client_phone = ctx["client_phone"]
+    inv_number = ctx["inv_number"]; inv_date = ctx["inv_date"]; svc_date = ctx["svc_date"]
+    rows_html = ctx["rows_html"]; status_lbl = ctx["status_lbl"]; status_color = ctx["status_color"]
+
+    svc_date_html = (
+        f'<div style="font-size:13px;font-weight:700;letter-spacing:1.5px;color:#9ca3af;'
+        f'text-transform:uppercase;margin:18px 0 8px;">Service Date</div>'
+        f'<div style="font-size:18px;font-weight:600;color:#111827;">{svc_date}</div>' if svc_date else ""
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Invoice {ctx['inv_number']}</title>
+  <title>Invoice {inv_number}</title>
   <style>
-    {css}
-    html, body {{ margin: 0; padding: 0; background: #eef0fb; }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: Helvetica, Arial, sans-serif; color: #111827; background: #fff; }}
     table.frame {{ width: {IMAGE_WIDTH}px; height: {IMAGE_HEIGHT}px; border-collapse: collapse; }}
-    table.frame td {{ vertical-align: middle; padding: 0; }}
-    .card {{ background: #fff; width: 920px; margin: 0 auto; border-radius: 24px; padding: 56px; }}
+    table.frame td {{ padding: 0; }}
+    .band {{ background: {BRAND_COLOR}; color: #fff; text-align: center; padding: 0 64px; }}
+    table.items {{ width: 100%; border-collapse: collapse; margin-top: 28px; }}
+    table.items thead tr {{ background: #111827; }}
+    table.items thead th {{ color: #fff; padding: 14px 16px; text-align: left; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; }}
+    table.items thead th:nth-child(2) {{ text-align: center; }}
+    table.items thead th:nth-child(3) {{ text-align: right; }}
+    table.items td {{ font-size: 16px; padding: 14px 16px; }}
   </style>
 </head>
 <body>
-<table class="frame"><tr><td>
-  <div class="card">{card}
-  </div>
-</td></tr></table>
+<table class="frame"><tr>
+  <td class="band" style="height:360px;vertical-align:middle;">
+    <div style="font-size:48px;font-weight:800;letter-spacing:-1px;">WMB<span style="color:#c7d2fe;">.</span></div>
+    <div style="font-size:16px;color:#e0e7ff;margin-top:6px;letter-spacing:2px;">GROUPE WMB</div>
+    <div style="margin-top:32px;font-size:38px;font-weight:800;letter-spacing:1px;">INVOICE</div>
+    <div style="font-size:15px;color:#e0e7ff;margin-top:6px;">{inv_number}</div>
+    <div style="margin-top:16px;">
+      <span style="display:inline-block;background:#fff;color:{status_color};font-weight:700;font-size:14px;letter-spacing:1px;padding:7px 20px;border-radius:999px;">{status_lbl.upper()}</span>
+    </div>
+  </td>
+</tr><tr>
+  <td style="vertical-align:middle;padding:48px 64px;">
+    <table style="width:100%;border-collapse:collapse;"><tr>
+      <td style="width:55%;vertical-align:top;">
+        <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;color:#9ca3af;text-transform:uppercase;margin-bottom:8px;">Bill To</div>
+        <div style="font-size:22px;font-weight:700;color:#111827;margin-bottom:6px;">{client_name}</div>
+        <div style="font-size:15px;color:#6b7280;line-height:1.6;">
+          {("<div>" + client_address + "</div>") if client_address else ""}
+          {("<div>" + client_phone + "</div>") if client_phone else ""}
+        </div>
+      </td>
+      <td style="width:45%;vertical-align:top;text-align:right;">
+        <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;color:#9ca3af;text-transform:uppercase;margin-bottom:8px;">Invoice Date</div>
+        <div style="font-size:18px;font-weight:600;color:#111827;">{inv_date}</div>
+        {svc_date_html}
+      </td>
+    </tr></table>
+
+    <table class="items">
+      <thead><tr><th>Description</th><th>Qty</th><th>Amount</th></tr></thead>
+      <tbody>{rows_html}</tbody>
+    </table>
+  </td>
+</tr><tr>
+  <td class="band" style="height:380px;vertical-align:middle;">
+    <div style="font-size:14px;color:#e0e7ff;letter-spacing:2px;text-transform:uppercase;">Total Due</div>
+    <div style="font-size:58px;font-weight:800;margin-top:6px;">${deal.value:,.2f}</div>
+    <div style="margin-top:30px;font-size:19px;font-weight:600;">Thank you for choosing GROUPE WMB!</div>
+    <div style="margin-top:10px;font-size:14px;color:#e0e7ff;">{COMPANY_PHONE} · {COMPANY_ADDRESS}</div>
+  </td>
+</tr></table>
 </body>
 </html>"""
 
