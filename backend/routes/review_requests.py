@@ -2,10 +2,16 @@
 Post-job review request automation.
 
 When a deal's job_status flips to "done" (see routes/deals.py), the client
-is immediately sent a thank-you MMS (with their invoice PDF attached) asking
-for a Google review and offering a MERCI20 discount on their next cleaning.
-Fires at most once per deal. The scheduler job is kept as a safety net to
-catch any deal whose immediate send failed (e.g. Twilio hiccup).
+is immediately sent a thank-you MMS (with their invoice attached as an image,
+plus a PDF link in the text as backup) asking for a Google review and
+offering a MERCI20 discount on their next cleaning. Fires at most once per
+deal. The scheduler job is kept as a safety net to catch any deal whose
+immediate send failed (e.g. Twilio hiccup).
+
+Note: the MMS attachment is a PNG, not a PDF. Most carriers — Canadian ones
+in particular — don't reliably deliver non-image file attachments over MMS,
+so an image is the only format that's guaranteed to actually arrive as a
+real attachment on the client's phone.
 """
 
 import os
@@ -18,7 +24,7 @@ from database import SessionLocal, get_db
 import models
 from auth import require_admin
 from routes.reminders import _send_mms
-from routes.invoices import invoice_pdf_url
+from routes.invoices import invoice_pdf_url, invoice_image_url
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/review-requests", tags=["review-requests"])
@@ -74,14 +80,14 @@ def send_for_deal(db: Session, deal: "models.Deal") -> bool:
 
     pdf_url = invoice_pdf_url(deal.id)
     body = _build_message(contact, pdf_url)
-    success, error = _send_mms(contact.phone.strip(), body, pdf_url)
+    success, error = _send_mms(contact.phone.strip(), body, invoice_image_url(deal.id))
 
     if success:
         try:
             db.add(models.ChatMessage(
                 contact_id=contact.id,
                 sender_id=None,
-                body=body + " [invoice PDF]",
+                body=body + " [invoice image]",
                 direction="outbound",
             ))
             db.add(models.Discount(

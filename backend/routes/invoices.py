@@ -289,13 +289,22 @@ def invoice_pdf_url(deal_id: int) -> str:
     return f"{base_url}/api/invoices/public/{deal_id}/pdf?t={_invoice_token(deal_id)}"
 
 
+def invoice_image_url(deal_id: int) -> str:
+    base_url = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
+    return f"{base_url}/api/invoices/public/{deal_id}/image?t={_invoice_token(deal_id)}"
+
+
 @router.get("/{deal_id}/links")
 def get_invoice_links(deal_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    """Logged-in preview helper: the same public links/PDF that get MMS'd to the client, for testing."""
+    """Logged-in preview helper: the same public links/PDF/image that get MMS'd to the client, for testing."""
     deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
-    return {"html_url": invoice_public_url(deal_id), "pdf_url": invoice_pdf_url(deal_id)}
+    return {
+        "html_url": invoice_public_url(deal_id),
+        "pdf_url": invoice_pdf_url(deal_id),
+        "image_url": invoice_image_url(deal_id),
+    }
 
 
 @router.get("/public/{deal_id}", response_class=HTMLResponse)
@@ -464,4 +473,39 @@ def get_invoice_public_pdf(deal_id: int, t: str = Query(...), db: Session = Depe
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="invoice-{deal_id}.pdf"'},
+    )
+
+
+def invoice_image_bytes(deal: models.Deal) -> bytes:
+    """PNG rendering of the invoice — used as the actual MMS attachment, since most carriers
+    (notably in Canada) don't reliably deliver non-image file attachments over MMS."""
+    import imgkit
+    html = _invoice_html_pdf(deal)
+    options = {"quiet": "", "format": "png", "width": "800", "disable-smart-width": ""}
+    return imgkit.from_string(html, False, options=options)
+
+
+@router.get("/public/{deal_id}/image")
+def get_invoice_public_image(deal_id: int, t: str = Query(...), db: Session = Depends(get_db)):
+    from fastapi import Response
+    if not hmac.compare_digest(t, _invoice_token(deal_id)):
+        raise HTTPException(status_code=403, detail="Invalid link")
+
+    deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    if deal.contact_id:
+        deal.contact = db.query(models.Contact).filter(models.Contact.id == deal.contact_id).first()
+
+    try:
+        image_bytes = invoice_image_bytes(deal)
+    except Exception as e:
+        log.warning(f"Image generation failed for deal {deal_id}: {e}")
+        raise HTTPException(status_code=503, detail="Image generation is temporarily unavailable")
+
+    return Response(
+        content=image_bytes,
+        media_type="image/png",
+        headers={"Content-Disposition": f'inline; filename="invoice-{deal_id}.png"'},
     )
