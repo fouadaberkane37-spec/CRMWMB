@@ -287,6 +287,14 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
     db.commit()
     db.refresh(db_deal)
 
+    if just_marked_done:
+        try:
+            from routes.review_requests import send_for_deal
+            send_for_deal(db, db_deal)
+            db.commit()
+        except Exception as e:
+            log.warning("Review/invoice MMS failed for deal %s: %s", db_deal.id, e)
+
     # Send reschedule SMS if date changed and contact has a phone
     new_date = db_deal.expected_close_date
     if "expected_close_date" in updates and old_date != new_date and db_deal.contact_id and new_date:
@@ -340,10 +348,20 @@ def update_job_status(deal_id: int, job_status: str, db: Session = Depends(get_d
         raise HTTPException(status_code=403, detail="Access denied")
     was_done = db_deal.job_status == "done"
     db_deal.job_status = job_status
-    if job_status == "done" and not was_done:
+    just_marked_done = job_status == "done" and not was_done
+    if just_marked_done:
         import datetime as _dt
         db_deal.marked_done_at = _dt.datetime.utcnow()
     db.commit()
+
+    if just_marked_done:
+        try:
+            from routes.review_requests import send_for_deal
+            send_for_deal(db, db_deal)
+            db.commit()
+        except Exception as e:
+            log.warning("Review/invoice MMS failed for deal %s: %s", db_deal.id, e)
+
     return {"job_status": job_status}
 
 

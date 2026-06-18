@@ -1,15 +1,15 @@
 """
 Post-job review request automation.
 
-When a deal's job_status flips to "done" (see routes/deals.py, which stamps
-Deal.marked_done_at), the scheduler waits a couple of hours and then sends
-the client a thank-you SMS asking for a Google review and offering a
-MERCI20 discount on their next cleaning. Fires at most once per deal.
+When a deal's job_status flips to "done" (see routes/deals.py), the client
+is immediately sent a thank-you MMS (with their invoice PDF attached) asking
+for a Google review and offering a MERCI20 discount on their next cleaning.
+Fires at most once per deal. The scheduler job is kept as a safety net to
+catch any deal whose immediate send failed (e.g. Twilio hiccup).
 """
 
 import os
 import logging
-from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -26,7 +26,6 @@ router = APIRouter(prefix="/api/review-requests", tags=["review-requests"])
 REVIEW_LINK     = "https://share.google/VcubVLg5RaTFv5Wvi"
 DISCOUNT_CODE   = "MERCI20"
 DISCOUNT_AMOUNT = 20.0
-SEND_DELAY      = timedelta(hours=2)
 
 
 def _message_fr(name: str) -> str:
@@ -59,17 +58,57 @@ def _build_message(contact: models.Contact) -> str:
     return _message_fr(name) + "\n\n" + _message_en(name)
 
 
-def _send_review_requests(db: Session) -> int:
-    """Send review-request SMS for jobs marked done >= SEND_DELAY ago. Returns count sent."""
-    cutoff = datetime.utcnow() - SEND_DELAY
+def send_for_deal(db: Session, deal: "models.Deal") -> bool:
+    """Send the thank-you/review/MERCI20 MMS (with invoice PDF attached) for one deal.
+    Fires once per deal — safe to call repeatedly, no-ops if already sent."""
+    if deal.review_request_sent:
+        return False
+    if deal.contact_id and not deal.contact:
+        deal.contact = db.query(models.Contact).filter(models.Contact.id == deal.contact_id).first()
 
+    contact = deal.contact
+    if not contact or not (contact.phone or "").strip():
+        deal.review_request_sent = True   # no phone — skip silently, don't retry forever
+        log.info(f"[review-requests] deal={deal.id} skipped — no client phone")
+        return False
+
+    body = _build_message(contact)
+    success, error = _send_mms(contact.phone.strip(), body, invoice_pdf_url(deal.id))
+
+    if success:
+        try:
+            db.add(models.ChatMessage(
+                contact_id=contact.id,
+                sender_id=None,
+                body=body + " [invoice PDF]",
+                direction="outbound",
+            ))
+            db.add(models.Discount(
+                contact_id=contact.id,
+                deal_id=deal.id,
+                code=DISCOUNT_CODE,
+                amount=DISCOUNT_AMOUNT,
+                reason="review_request",
+            ))
+        except Exception:
+            pass
+        deal.review_request_sent = True
+        deal.invoice_sent = True
+        log.info(f"[review-requests] Sent to {contact.first_name} ({contact.phone}) for deal {deal.id}")
+        return True
+
+    log.warning(f"[review-requests] Failed for deal {deal.id}: {error}")
+    return False
+
+
+def _send_review_requests(db: Session) -> int:
+    """Safety-net sweep: catch any 'done' deal whose immediate send failed/never fired."""
     deals = (
         db.query(models.Deal)
         .filter(
             models.Deal.job_status == "done",
             models.Deal.review_request_sent == False,   # noqa: E712
             models.Deal.marked_done_at.isnot(None),
-            models.Deal.marked_done_at <= cutoff,
         )
         .all()
     )
@@ -77,53 +116,13 @@ def _send_review_requests(db: Session) -> int:
     if not deals:
         return 0
 
-    log.info(f"[review-requests] {len(deals)} completed job(s) ready for review SMS")
-    sent_count = 0
-
-    for deal in deals:
-        if deal.contact_id and not deal.contact:
-            deal.contact = db.query(models.Contact).filter(
-                models.Contact.id == deal.contact_id
-            ).first()
-
-        contact = deal.contact
-        if not contact or not (contact.phone or "").strip():
-            deal.review_request_sent = True   # no phone — skip silently, don't retry forever
-            log.info(f"[review-requests] deal={deal.id} skipped — no client phone")
-            continue
-
-        body = _build_message(contact)
-        success, error = _send_mms(contact.phone.strip(), body, invoice_pdf_url(deal.id))
-
-        if success:
-            try:
-                db.add(models.ChatMessage(
-                    contact_id=contact.id,
-                    sender_id=None,
-                    body=body + " [invoice PDF]",
-                    direction="outbound",
-                ))
-                db.add(models.Discount(
-                    contact_id=contact.id,
-                    deal_id=deal.id,
-                    code=DISCOUNT_CODE,
-                    amount=DISCOUNT_AMOUNT,
-                    reason="review_request",
-                ))
-            except Exception:
-                pass
-            deal.review_request_sent = True
-            deal.invoice_sent = True
-            sent_count += 1
-            log.info(f"[review-requests] Sent to {contact.first_name} ({contact.phone}) for deal {deal.id}")
-        else:
-            log.warning(f"[review-requests] Failed for deal {deal.id}: {error}")
-
+    log.info(f"[review-requests] {len(deals)} completed job(s) missing their review/invoice MMS — retrying")
+    sent_count = sum(1 for deal in deals if send_for_deal(db, deal))
     return sent_count
 
 
 def run_review_requests():
-    """Scheduler entry point."""
+    """Scheduler entry point (safety-net sweep, runs every 30 min)."""
     db = SessionLocal()
     try:
         count = _send_review_requests(db)
@@ -148,25 +147,14 @@ def trigger_review_requests(_=Depends(require_admin)):
 
 @router.post("/test/{deal_id}")
 def test_review_request(deal_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
-    """Admin: send the review-request SMS for a specific deal right now, bypassing the delay/flag."""
+    """Admin: send the review-request MMS for a specific deal right now, bypassing the flag."""
     deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
-    if deal.contact_id and not deal.contact:
-        deal.contact = db.query(models.Contact).filter(models.Contact.id == deal.contact_id).first()
-    contact = deal.contact
-    if not contact or not (contact.phone or "").strip():
-        return {"ok": False, "message": "Contact has no phone number"}
-
-    body = _build_message(contact)
-    success, error = _send_mms(contact.phone.strip(), body, invoice_pdf_url(deal.id))
-    if success:
-        db.add(models.ChatMessage(contact_id=contact.id, sender_id=None, body=body + " [invoice PDF]", direction="outbound"))
-        db.add(models.Discount(contact_id=contact.id, deal_id=deal.id, code=DISCOUNT_CODE, amount=DISCOUNT_AMOUNT, reason="review_request"))
-        deal.review_request_sent = True
-        deal.invoice_sent = True
-        db.commit()
-    return {"ok": success, "message": body, "error": error or None}
+    deal.review_request_sent = False
+    sent = send_for_deal(db, deal)
+    db.commit()
+    return {"ok": sent}
 
 
 @router.get("/discounts")
