@@ -464,106 +464,36 @@ def _invoice_html_pdf(deal: models.Deal) -> str:
 </html>"""
 
 
-# ── Image rendering (9:16 portrait "story" card) ────────────────────────────────
+# ── Image rendering (regular invoice page, high resolution) ──────────────────
 # Used as the actual MMS attachment — see invoice_image_bytes() below for why.
-# Unlike the PDF (a compact business document), this is a bold vertical graphic:
-# a fixed-height branded header band and footer band (always present, regardless
-# of invoice length) sandwich a white details section in the middle — so the
-# 1080x1920 frame is always filled with intentional design, never empty padding.
+# Same plain business-document layout as the PDF (_invoice_card_css/_invoice_card_html),
+# just rendered at a much higher pixel density via CSS zoom so it reads sharp even when
+# the client zooms into the photo on their phone.
 
-IMAGE_WIDTH = 1080
-IMAGE_HEIGHT = 1920
-BRAND_COLOR = "#4f46e5"
+IMAGE_WIDTH = 2550   # ~print-resolution width for a portrait page (vs. the ~850px PDF layout width)
+IMAGE_ZOOM = 3       # wkhtmltoimage's WebKit engine renders 1 CSS px as IMAGE_ZOOM device px
 
 
 def _invoice_html_image(deal: models.Deal) -> str:
     ctx = _invoice_context(deal)
-    client_name = ctx["client_name"]; client_address = ctx["client_address"]; client_phone = ctx["client_phone"]
-    inv_number = ctx["inv_number"]; inv_date = ctx["inv_date"]; svc_date = ctx["svc_date"]
-    rows_html = ctx["rows_html"]; status_lbl = ctx["status_lbl"]; status_color = ctx["status_color"]
-
-    svc_date_html = (
-        f'<div style="font-size:13px;font-weight:700;letter-spacing:1.5px;color:#9ca3af;'
-        f'text-transform:uppercase;margin:18px 0 8px;">Service Date</div>'
-        f'<div style="font-size:18px;font-weight:600;color:#111827;">{svc_date}</div>' if svc_date else ""
-    )
+    css = _invoice_card_css(ctx["status_color"])
+    card = _invoice_card_html(deal, ctx)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Invoice {inv_number}</title>
+  <title>Invoice {ctx['inv_number']}</title>
   <style>
-    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: Helvetica, Arial, sans-serif; color: #111827; background: #fff; }}
-    table.frame {{ width: {IMAGE_WIDTH}px; height: {IMAGE_HEIGHT}px; border-collapse: collapse; }}
-    table.frame td {{ padding: 0; }}
-    .band {{ background: {BRAND_COLOR}; color: #fff; text-align: center; padding: 0 64px; }}
-    table.items {{ width: 100%; border-collapse: collapse; margin-top: 28px; }}
-    table.items thead tr {{ background: #111827; }}
-    table.items thead th {{ color: #fff; padding: 14px 16px; text-align: left; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; }}
-    table.items thead th:nth-child(2) {{ text-align: center; }}
-    table.items thead th:nth-child(3) {{ text-align: right; }}
-    table.items td {{ font-size: 16px; padding: 14px 16px; }}
+    {css}
+    body {{ background: #fff; }}
+    .page {{ padding: 32px 40px; zoom: {IMAGE_ZOOM}; }}
   </style>
 </head>
 <body>
-<table class="frame"><tr>
-  <td class="band" style="height:340px;vertical-align:middle;">
-    <div style="font-size:44px;font-weight:800;letter-spacing:-1px;">WMB<span style="color:#c7d2fe;">.</span></div>
-    <div style="font-size:15px;color:#e0e7ff;margin-top:4px;letter-spacing:2px;">GROUPE WMB</div>
-    <div style="margin-top:26px;font-size:34px;font-weight:800;letter-spacing:1px;">INVOICE</div>
-    <div style="font-size:14px;color:#e0e7ff;margin-top:4px;">{inv_number}</div>
-    <div style="margin-top:14px;">
-      <span style="display:inline-block;background:#fff;color:{status_color};font-weight:700;font-size:13px;letter-spacing:1px;padding:6px 18px;border-radius:999px;">{status_lbl.upper()}</span>
-    </div>
-  </td>
-</tr><tr>
-  <td style="vertical-align:top;padding:44px 64px;">
-    <table style="width:100%;border-collapse:collapse;"><tr>
-      <td style="width:55%;vertical-align:top;">
-        <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;color:#9ca3af;text-transform:uppercase;margin-bottom:8px;">Bill To</div>
-        <div style="font-size:22px;font-weight:700;color:#111827;margin-bottom:6px;">{client_name}</div>
-        <div style="font-size:15px;color:#6b7280;line-height:1.6;">
-          {("<div>" + client_address + "</div>") if client_address else ""}
-          {("<div>" + client_phone + "</div>") if client_phone else ""}
-        </div>
-      </td>
-      <td style="width:45%;vertical-align:top;text-align:right;">
-        <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;color:#9ca3af;text-transform:uppercase;margin-bottom:8px;">Invoice Date</div>
-        <div style="font-size:18px;font-weight:600;color:#111827;">{inv_date}</div>
-        {svc_date_html}
-      </td>
-    </tr></table>
-
-    <table class="items">
-      <thead><tr><th>Description</th><th>Qty</th><th>Amount</th></tr></thead>
-      <tbody>{rows_html}</tbody>
-    </table>
-
-    <div style="margin:48px 0;border-top:2px dashed #e5e7eb;"></div>
-
-    <div style="text-align:center;background:#f5f3ff;border-radius:24px;padding:44px 36px;">
-      <div style="font-size:32px;letter-spacing:8px;color:#fbbf24;">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-      <div style="font-size:24px;font-weight:800;color:#111827;margin-top:16px;">Loved the results?</div>
-      <div style="font-size:16px;color:#6b7280;margin-top:10px;line-height:1.6;">A quick Google review really<br/>helps our small business!</div>
-      <div style="margin-top:22px;display:inline-block;background:#fff;border-radius:12px;padding:12px 20px;font-size:15px;font-weight:700;color:{BRAND_COLOR};word-break:break-all;">{REVIEW_LINK}</div>
-    </div>
-
-    <div style="margin-top:36px;text-align:center;border:3px dashed {BRAND_COLOR};border-radius:24px;padding:36px;">
-      <div style="font-size:14px;font-weight:700;letter-spacing:2px;color:{BRAND_COLOR};text-transform:uppercase;">Our Thank-You Gift</div>
-      <div style="font-size:46px;font-weight:800;color:#111827;margin-top:12px;">${DISCOUNT_AMOUNT:,.0f} OFF</div>
-      <div style="font-size:16px;color:#6b7280;margin-top:8px;">your next cleaning — code <strong style="color:#111827;">{DISCOUNT_CODE}</strong></div>
-    </div>
-  </td>
-</tr><tr>
-  <td class="band" style="height:360px;vertical-align:middle;">
-    <div style="font-size:14px;color:#e0e7ff;letter-spacing:2px;text-transform:uppercase;">Total Due</div>
-    <div style="font-size:54px;font-weight:800;margin-top:6px;">${deal.value:,.2f}</div>
-    <div style="margin-top:26px;font-size:18px;font-weight:600;">Thank you for choosing GROUPE WMB!</div>
-    <div style="margin-top:8px;font-size:14px;color:#e0e7ff;">{COMPANY_PHONE} · {COMPANY_ADDRESS}</div>
-  </td>
-</tr></table>
+<div class="page">
+{card}
+</div>
 </body>
 </html>"""
 
@@ -602,13 +532,15 @@ def get_invoice_public_pdf(deal_id: int, t: str = Query(...), db: Session = Depe
 
 
 def invoice_image_bytes(deal: models.Deal) -> bytes:
-    """9:16 portrait PNG rendering of the invoice — used as the actual MMS attachment, since most
-    carriers (notably in Canada) don't reliably deliver non-image file attachments over MMS."""
+    """High-resolution PNG rendering of the regular invoice page — used as the actual MMS
+    attachment, since most carriers (notably in Canada) don't reliably deliver non-image
+    file attachments over MMS. Height is left unset so wkhtmltoimage captures the full
+    page at its natural length."""
     import imgkit
     html = _invoice_html_image(deal)
     options = {
         "quiet": "", "format": "png",
-        "width": str(IMAGE_WIDTH), "height": str(IMAGE_HEIGHT),
+        "width": str(IMAGE_WIDTH),
         "disable-smart-width": "",
     }
     return imgkit.from_string(html, False, options=options)
