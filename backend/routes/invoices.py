@@ -14,7 +14,7 @@ log = logging.getLogger("invoices")
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
-COMPANY_NAME    = os.getenv("COMPANY_NAME",    "WMB Window & Maintenance")
+COMPANY_NAME    = os.getenv("COMPANY_NAME",    "GROUPE WMB")
 COMPANY_PHONE   = os.getenv("COMPANY_PHONE",   "(514) 559-7007")
 COMPANY_EMAIL   = os.getenv("COMPANY_EMAIL",   "")
 COMPANY_ADDRESS = os.getenv("COMPANY_ADDRESS", "575 Robert-Élie, Laval, QC H7N 0E8")
@@ -327,28 +327,11 @@ def get_invoice_public(deal_id: int, t: str = Query(...), db: Session = Depends(
 # so the PDF template uses plain block/table layout instead of the .header/.bill-section
 # flex rules from the in-app HTML invoice above.
 
-def _invoice_html_pdf(deal: models.Deal) -> str:
-    ctx = _invoice_context(deal)
-    client_name = ctx["client_name"]; client_address = ctx["client_address"]; client_phone = ctx["client_phone"]
-    inv_number = ctx["inv_number"]; inv_date = ctx["inv_date"]; svc_date = ctx["svc_date"]
-    rows_html = ctx["rows_html"]; status_lbl = ctx["status_lbl"]; status_color = ctx["status_color"]
-    company_email_line = ctx["company_email_line"]
-
-    svc_date_cell = (
-        f'<td style="padding-left:40px;"><div style="font-size:10px;font-weight:700;letter-spacing:1.2px;'
-        f'color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Service Date</div>'
-        f'<div style="font-size:14px;font-weight:600;">{svc_date}</div></td>' if svc_date else ""
-    )
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Invoice {inv_number}</title>
-  <style>
+def _invoice_card_css(status_color: str) -> str:
+    """Shared CSS for the table-based (flexbox-free) invoice card, used by both the PDF and image renders."""
+    return f"""
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: Helvetica, Arial, sans-serif; color: #111827; background: #fff; }}
-    .page {{ padding: 32px 40px; }}
+    body {{ font-family: Helvetica, Arial, sans-serif; color: #111827; }}
     table.layout {{ width: 100%; border-collapse: collapse; }}
     .logo {{ font-size: 26px; font-weight: 800; color: #111827; }}
     .logo span {{ color: #6366f1; }}
@@ -370,11 +353,23 @@ def _invoice_html_pdf(deal: models.Deal) -> str:
     table.items thead th:nth-child(3) {{ text-align: right; }}
     .footer-note {{ font-size: 12px; color: #9ca3af; }}
     .total-big {{ font-size: 28px; font-weight: 800; color: #111827; text-align: right; }}
-  </style>
-</head>
-<body>
-<div class="page">
+    """
 
+
+def _invoice_card_html(deal: models.Deal, ctx: dict) -> str:
+    """The invoice content itself (header/meta/bill/items/footer) — shared by the PDF and image renders."""
+    client_name = ctx["client_name"]; client_address = ctx["client_address"]; client_phone = ctx["client_phone"]
+    inv_number = ctx["inv_number"]; inv_date = ctx["inv_date"]; svc_date = ctx["svc_date"]
+    rows_html = ctx["rows_html"]; status_lbl = ctx["status_lbl"]
+    company_email_line = ctx["company_email_line"]
+
+    svc_date_cell = (
+        f'<td style="padding-left:40px;"><div style="font-size:10px;font-weight:700;letter-spacing:1.2px;'
+        f'color:#9ca3af;text-transform:uppercase;margin-bottom:4px;">Service Date</div>'
+        f'<div style="font-size:14px;font-weight:600;">{svc_date}</div></td>' if svc_date else ""
+    )
+
+    return f"""
   <table class="layout"><tr>
     <td style="vertical-align:top;">
       <div class="logo">WMB<span>.</span></div>
@@ -436,9 +431,63 @@ def _invoice_html_pdf(deal: models.Deal) -> str:
       <div style="font-size:11px;color:#9ca3af;text-align:right;margin-bottom:4px;">TOTAL DUE</div>
       <div class="total-big">${deal.value:,.2f}</div>
     </td>
-  </tr></table>
+  </tr></table>"""
 
+
+def _invoice_html_pdf(deal: models.Deal) -> str:
+    ctx = _invoice_context(deal)
+    css = _invoice_card_css(ctx["status_color"])
+    card = _invoice_card_html(deal, ctx)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invoice {ctx['inv_number']}</title>
+  <style>
+    {css}
+    body {{ background: #fff; }}
+    .page {{ padding: 32px 40px; }}
+  </style>
+</head>
+<body>
+<div class="page">
+{card}
 </div>
+</body>
+</html>"""
+
+
+# ── Image rendering (9:16 portrait) ─────────────────────────────────────────────
+# Used as the actual MMS attachment — see invoice_image_bytes() below for why.
+
+IMAGE_WIDTH = 1080
+IMAGE_HEIGHT = 1920
+
+
+def _invoice_html_image(deal: models.Deal) -> str:
+    ctx = _invoice_context(deal)
+    css = _invoice_card_css(ctx["status_color"])
+    card = _invoice_card_html(deal, ctx)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invoice {ctx['inv_number']}</title>
+  <style>
+    {css}
+    html, body {{ margin: 0; padding: 0; background: #eef0fb; }}
+    table.frame {{ width: {IMAGE_WIDTH}px; height: {IMAGE_HEIGHT}px; border-collapse: collapse; }}
+    table.frame td {{ vertical-align: middle; padding: 0; }}
+    .card {{ background: #fff; width: 920px; margin: 0 auto; border-radius: 24px; padding: 56px; }}
+  </style>
+</head>
+<body>
+<table class="frame"><tr><td>
+  <div class="card">{card}
+  </div>
+</td></tr></table>
 </body>
 </html>"""
 
@@ -477,11 +526,15 @@ def get_invoice_public_pdf(deal_id: int, t: str = Query(...), db: Session = Depe
 
 
 def invoice_image_bytes(deal: models.Deal) -> bytes:
-    """PNG rendering of the invoice — used as the actual MMS attachment, since most carriers
-    (notably in Canada) don't reliably deliver non-image file attachments over MMS."""
+    """9:16 portrait PNG rendering of the invoice — used as the actual MMS attachment, since most
+    carriers (notably in Canada) don't reliably deliver non-image file attachments over MMS."""
     import imgkit
-    html = _invoice_html_pdf(deal)
-    options = {"quiet": "", "format": "png", "width": "800", "disable-smart-width": ""}
+    html = _invoice_html_image(deal)
+    options = {
+        "quiet": "", "format": "png",
+        "width": str(IMAGE_WIDTH), "height": str(IMAGE_HEIGHT),
+        "disable-smart-width": "",
+    }
     return imgkit.from_string(html, False, options=options)
 
 
