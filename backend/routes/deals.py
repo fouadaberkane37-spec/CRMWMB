@@ -403,6 +403,21 @@ def update_job_status(deal_id: int, job_status: str, db: Session = Depends(get_d
     return {"job_status": job_status}
 
 
+@router.post("/{deal_id}/test-invoice")
+def test_invoice_send(deal_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Admin-only: force-resend the invoice PDF MMS for a deal, ignoring the invoice_sent flag. For testing."""
+    if current_user.role not in ("admin", "ceo"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    db_deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
+    if not db_deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    db_deal.invoice_sent = False
+    db.commit()
+    _send_invoice_sms(db, db_deal)
+    db.commit()
+    return {"invoice_sent": db_deal.invoice_sent}
+
+
 @router.patch("/{deal_id}/stage")
 def move_stage(deal_id: int, stage: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     if stage not in STAGES:

@@ -289,6 +289,15 @@ def invoice_pdf_url(deal_id: int) -> str:
     return f"{base_url}/api/invoices/public/{deal_id}/pdf?t={_invoice_token(deal_id)}"
 
 
+@router.get("/{deal_id}/links")
+def get_invoice_links(deal_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Logged-in preview helper: the same public links/PDF that get MMS'd to the client, for testing."""
+    deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    return {"html_url": invoice_public_url(deal_id), "pdf_url": invoice_pdf_url(deal_id)}
+
+
 @router.get("/public/{deal_id}", response_class=HTMLResponse)
 def get_invoice_public(deal_id: int, t: str = Query(...), db: Session = Depends(get_db)):
     if not hmac.compare_digest(t, _invoice_token(deal_id)):
