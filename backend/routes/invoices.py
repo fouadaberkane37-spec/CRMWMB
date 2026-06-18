@@ -467,12 +467,15 @@ def _invoice_html_pdf(deal: models.Deal) -> str:
 # ── Image rendering (regular invoice page, high resolution) ──────────────────
 # Used as the actual MMS attachment — see invoice_image_bytes() below for why.
 # Same plain business-document layout as the PDF (_invoice_card_css/_invoice_card_html),
-# just rendered at a much higher pixel density via CSS zoom so it reads sharp even when
-# the client zooms into the photo on their phone, and sized to exactly 8.5x11in @ 300dpi
-# so it prints to a standard sheet of Letter paper at the correct size.
+# just rendered at a higher pixel density via CSS zoom so it reads sharp on a phone
+# screen, and sized to exactly 8.5x11in proportions so it still prints to a standard
+# sheet of Letter paper at the correct shape. 150dpi (not 300) on purpose — MMS carriers
+# (especially Canadian ones) cap attachment size around ~1MB, and the PDF link already
+# in the text message is the perfect-quality option for anyone who wants to actually
+# print it; this image's job is just to be the thing that's guaranteed to arrive.
 
-IMAGE_WIDTH = 2550   # 8.5in @ 300dpi
-IMAGE_HEIGHT = 3300  # 11in @ 300dpi
+IMAGE_WIDTH = 1275   # 8.5in @ 150dpi
+IMAGE_HEIGHT = 1650  # 11in @ 150dpi
 IMAGE_ZOOM = 3       # wkhtmltoimage's WebKit engine renders 1 CSS px as IMAGE_ZOOM device px
 
 
@@ -534,16 +537,15 @@ def get_invoice_public_pdf(deal_id: int, t: str = Query(...), db: Session = Depe
 
 
 def invoice_image_bytes(deal: models.Deal) -> bytes:
-    """High-resolution PNG of the regular invoice page, sized to 8.5x11in @ 300dpi
-    (2550x3300px) — used as the actual MMS attachment, since most carriers (notably in
-    Canada) don't reliably deliver non-image file attachments over MMS, and as a
-    print-ready image for clients who want a paper copy.
+    """PNG of the regular invoice page, sized to 8.5x11in @ 150dpi (1275x1650px) — used
+    as the actual MMS attachment, since most carriers (notably in Canada) don't reliably
+    deliver non-image file attachments over MMS. Kept at 150dpi rather than print
+    quality so the file stays small enough for carriers to actually deliver; the PDF
+    link in the text message is the full-quality option for printing.
 
     wkhtmltoimage's width/height options set the PRE-zoom viewport; the final raster
     size is viewport * zoom. So we pass IMAGE_WIDTH/IMAGE_ZOOM here, not IMAGE_WIDTH
-    itself — otherwise the output balloons to (IMAGE_WIDTH*ZOOM) x (IMAGE_HEIGHT*ZOOM),
-    which is a multi-megapixel, multi-megabyte file too large for MMS carriers to
-    deliver."""
+    itself — otherwise the output balloons to (IMAGE_WIDTH*ZOOM) x (IMAGE_HEIGHT*ZOOM)."""
     import imgkit
     html = _invoice_html_image(deal)
     options = {
