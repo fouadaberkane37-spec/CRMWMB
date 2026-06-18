@@ -28,34 +28,34 @@ DISCOUNT_CODE   = "MERCI20"
 DISCOUNT_AMOUNT = 20.0
 
 
-def _message_fr(name: str) -> str:
+def _message_fr(name: str, invoice_url: str) -> str:
     return (
         f"Bonjour {name}, merci d'avoir choisi Groupe WMB pour le nettoyage de votre "
-        f"propriété. Voici votre facture en pièce jointe. Si vous êtes satisfait du résultat, un avis Google nous aiderait "
+        f"propriété. Voici votre facture : {invoice_url}. Si vous êtes satisfait du résultat, un avis Google nous aiderait "
         f"beaucoup : {REVIEW_LINK}. Pour vous remercier, profitez de 20 $ de rabais sur "
         f"votre prochain nettoyage (code {DISCOUNT_CODE}). Au plaisir de vous revoir! "
         f"— Équipe Groupe WMB"
     )
 
 
-def _message_en(name: str) -> str:
+def _message_en(name: str, invoice_url: str) -> str:
     return (
         f"Hi {name}, thank you for choosing Groupe WMB for your property cleaning. "
-        f"Your invoice is attached. If you're happy with the results, a quick Google review would mean a lot: "
+        f"Here's your invoice: {invoice_url}. If you're happy with the results, a quick Google review would mean a lot: "
         f"{REVIEW_LINK}. As a thank-you, enjoy $20 off your next cleaning (code "
         f"{DISCOUNT_CODE}). We look forward to seeing you again! — The Groupe WMB Team"
     )
 
 
-def _build_message(contact: models.Contact) -> str:
+def _build_message(contact: models.Contact, invoice_url: str) -> str:
     name = (contact.first_name or "").strip() or "there"
     lang = (contact.language or "").strip().lower()
     if lang == "fr":
-        return _message_fr(name)
+        return _message_fr(name, invoice_url)
     if lang == "en":
-        return _message_en(name)
+        return _message_en(name, invoice_url)
     # Unknown language — send both.
-    return _message_fr(name) + "\n\n" + _message_en(name)
+    return _message_fr(name, invoice_url) + "\n\n" + _message_en(name, invoice_url)
 
 
 def send_for_deal(db: Session, deal: "models.Deal") -> bool:
@@ -72,8 +72,9 @@ def send_for_deal(db: Session, deal: "models.Deal") -> bool:
         log.info(f"[review-requests] deal={deal.id} skipped — no client phone")
         return False
 
-    body = _build_message(contact)
-    success, error = _send_mms(contact.phone.strip(), body, invoice_pdf_url(deal.id))
+    pdf_url = invoice_pdf_url(deal.id)
+    body = _build_message(contact, pdf_url)
+    success, error = _send_mms(contact.phone.strip(), body, pdf_url)
 
     if success:
         try:
