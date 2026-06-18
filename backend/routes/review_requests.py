@@ -61,6 +61,35 @@ def _build_message(contact: models.Contact, invoice_url: str) -> str:
     return _message_fr(name, invoice_url) + "\n\n" + _message_en(name, invoice_url)
 
 
+def _campaign_message_fr(name: str) -> str:
+    return (
+        f"Bonjour {name}, merci d'avoir fait confiance à Groupe WMB pour le nettoyage de "
+        f"votre propriété! Si vous avez apprécié notre travail, un avis Google nous "
+        f"aiderait énormément : {REVIEW_LINK}. Profitez aussi de 20 $ de rabais sur votre "
+        f"prochain nettoyage avec le code {DISCOUNT_CODE}. Au plaisir de vous revoir! "
+        f"— Équipe Groupe WMB"
+    )
+
+
+def _campaign_message_en(name: str) -> str:
+    return (
+        f"Hi {name}, thank you for trusting Groupe WMB with your property cleaning! "
+        f"If you enjoyed the results, a quick Google review would mean a lot: "
+        f"{REVIEW_LINK}. Also enjoy $20 off your next cleaning with code "
+        f"{DISCOUNT_CODE}. We hope to see you again soon! — The Groupe WMB Team"
+    )
+
+
+def _build_campaign_message(contact: models.Contact) -> str:
+    name = (contact.first_name or "").strip() or "there"
+    lang = (contact.language or "").strip().lower()
+    if lang == "fr":
+        return _campaign_message_fr(name)
+    if lang == "en":
+        return _campaign_message_en(name)
+    return _campaign_message_fr(name) + "\n\n" + _campaign_message_en(name)
+
+
 def send_for_deal(db: Session, deal: "models.Deal") -> bool:
     """Send the thank-you/review/MERCI20 SMS (with an invoice link) for one deal.
     Fires once per deal — safe to call repeatedly, no-ops if already sent."""
@@ -159,6 +188,61 @@ def test_review_request(deal_id: int, db: Session = Depends(get_db), _=Depends(r
     sent = send_for_deal(db, deal)
     db.commit()
     return {"ok": sent}
+
+
+@router.post("/campaign/review-only")
+def run_review_campaign(db: Session = Depends(get_db), _=Depends(require_admin)):
+    """Admin: one-off bulk blast — ask every already-'done' client for a Google review +
+    MERCI20 discount right now, with no invoice link. Separate from send_for_deal/the
+    per-job automatic flow: doesn't touch review_request_sent/invoice_sent, and isn't
+    limited to deals that haven't been messaged yet, since this is a deliberate one-time
+    campaign rather than the ongoing post-job automation. Dedupes by contact so a client
+    with multiple completed jobs only gets texted once."""
+    deals = db.query(models.Deal).filter(models.Deal.job_status == "done").all()
+
+    seen_contacts = set()
+    sent = skipped_no_phone = skipped_duplicate = failed = 0
+
+    for deal in deals:
+        if deal.contact_id and not deal.contact:
+            deal.contact = db.query(models.Contact).filter(models.Contact.id == deal.contact_id).first()
+        contact = deal.contact
+        if not contact:
+            skipped_no_phone += 1
+            continue
+        if contact.id in seen_contacts:
+            skipped_duplicate += 1
+            continue
+        seen_contacts.add(contact.id)
+
+        phone = (contact.phone or "").strip()
+        if not phone:
+            skipped_no_phone += 1
+            continue
+
+        body = _build_campaign_message(contact)
+        success, error = _send_sms(phone, body)
+        if success:
+            sent += 1
+            try:
+                db.add(models.ChatMessage(contact_id=contact.id, sender_id=None, body=body, direction="outbound"))
+                db.add(models.Discount(
+                    contact_id=contact.id, deal_id=deal.id,
+                    code=DISCOUNT_CODE, amount=DISCOUNT_AMOUNT, reason="review_campaign",
+                ))
+            except Exception:
+                pass
+        else:
+            failed += 1
+            log.warning(f"[review-campaign] Failed for contact {contact.id}: {error}")
+
+    db.commit()
+    return {
+        "sent": sent,
+        "skipped_no_phone": skipped_no_phone,
+        "skipped_duplicate_contact": skipped_duplicate,
+        "failed": failed,
+    }
 
 
 @router.get("/discounts")
