@@ -39,50 +39,6 @@ def _own_deal(deal, user):
     return user.role != "technician"
 
 
-def _invoice_message_fr(name: str) -> str:
-    return f"Bonjour {name}! Voici votre facture pour votre service. Merci d'avoir choisi Groupe WMB!"
-
-
-def _invoice_message_en(name: str) -> str:
-    return f"Hi {name}! Here's your invoice for your service. Thanks for choosing Groupe WMB!"
-
-
-def _send_invoice_sms(db: Session, deal: "models.Deal"):
-    """MMS the client a PDF of their invoice once a job is marked done. Fires once per deal."""
-    if deal.invoice_sent:
-        return
-    if deal.contact_id and not deal.contact:
-        deal.contact = db.query(models.Contact).filter(models.Contact.id == deal.contact_id).first()
-    contact = deal.contact
-    if not contact or not (contact.phone or "").strip():
-        deal.invoice_sent = True   # no phone — skip silently, don't retry
-        return
-
-    from routes.invoices import invoice_pdf_url
-    from routes.reminders import _send_mms
-
-    name = (contact.first_name or "").strip() or "there"
-    pdf_url = invoice_pdf_url(deal.id)
-    lang = (contact.language or "").strip().lower()
-    if lang == "fr":
-        body = _invoice_message_fr(name)
-    elif lang == "en":
-        body = _invoice_message_en(name)
-    else:
-        body = _invoice_message_fr(name) + "\n\n" + _invoice_message_en(name)
-
-    success, error = _send_mms(contact.phone.strip(), body, pdf_url)
-    if success:
-        try:
-            db.add(models.ChatMessage(contact_id=contact.id, sender_id=None, body=body + " [invoice PDF]", direction="outbound"))
-        except Exception:
-            pass
-        deal.invoice_sent = True
-        log.info(f"[invoice] Sent PDF to {contact.first_name} ({contact.phone}) for deal {deal.id}")
-    else:
-        log.warning(f"[invoice] Failed for deal {deal.id}: {error}")
-
-
 @router.get("/", response_model=List[schemas.Deal])
 def list_deals(
     stage: Optional[str] = None,
@@ -331,13 +287,6 @@ def update_deal(deal_id: int, deal: schemas.DealUpdate, db: Session = Depends(ge
     db.commit()
     db.refresh(db_deal)
 
-    if just_marked_done:
-        try:
-            _send_invoice_sms(db, db_deal)
-            db.commit()
-        except Exception as e:
-            log.warning("Invoice send failed for deal %s: %s", db_deal.id, e)
-
     # Send reschedule SMS if date changed and contact has a phone
     new_date = db_deal.expected_close_date
     if "expected_close_date" in updates and old_date != new_date and db_deal.contact_id and new_date:
@@ -394,28 +343,8 @@ def update_job_status(deal_id: int, job_status: str, db: Session = Depends(get_d
     if job_status == "done" and not was_done:
         import datetime as _dt
         db_deal.marked_done_at = _dt.datetime.utcnow()
-        db.flush()
-        try:
-            _send_invoice_sms(db, db_deal)
-        except Exception as e:
-            log.warning("Invoice send failed for deal %s: %s", db_deal.id, e)
     db.commit()
     return {"job_status": job_status}
-
-
-@router.post("/{deal_id}/test-invoice")
-def test_invoice_send(deal_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    """Admin-only: force-resend the invoice PDF MMS for a deal, ignoring the invoice_sent flag. For testing."""
-    if current_user.role not in ("admin", "ceo"):
-        raise HTTPException(status_code=403, detail="Admin only")
-    db_deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
-    if not db_deal:
-        raise HTTPException(status_code=404, detail="Deal not found")
-    db_deal.invoice_sent = False
-    db.commit()
-    _send_invoice_sms(db, db_deal)
-    db.commit()
-    return {"invoice_sent": db_deal.invoice_sent}
 
 
 @router.patch("/{deal_id}/stage")

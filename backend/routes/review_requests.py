@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 from database import SessionLocal, get_db
 import models
 from auth import require_admin
-from routes.reminders import _send_sms
+from routes.reminders import _send_mms
+from routes.invoices import invoice_pdf_url
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/review-requests", tags=["review-requests"])
@@ -31,7 +32,7 @@ SEND_DELAY      = timedelta(hours=2)
 def _message_fr(name: str) -> str:
     return (
         f"Bonjour {name}, merci d'avoir choisi Groupe WMB pour le nettoyage de votre "
-        f"propriété. Si vous êtes satisfait du résultat, un avis Google nous aiderait "
+        f"propriété. Voici votre facture en pièce jointe. Si vous êtes satisfait du résultat, un avis Google nous aiderait "
         f"beaucoup : {REVIEW_LINK}. Pour vous remercier, profitez de 20 $ de rabais sur "
         f"votre prochain nettoyage (code {DISCOUNT_CODE}). Au plaisir de vous revoir! "
         f"— Équipe Groupe WMB"
@@ -41,7 +42,7 @@ def _message_fr(name: str) -> str:
 def _message_en(name: str) -> str:
     return (
         f"Hi {name}, thank you for choosing Groupe WMB for your property cleaning. "
-        f"If you're happy with the results, a quick Google review would mean a lot: "
+        f"Your invoice is attached. If you're happy with the results, a quick Google review would mean a lot: "
         f"{REVIEW_LINK}. As a thank-you, enjoy $20 off your next cleaning (code "
         f"{DISCOUNT_CODE}). We look forward to seeing you again! — The Groupe WMB Team"
     )
@@ -92,14 +93,14 @@ def _send_review_requests(db: Session) -> int:
             continue
 
         body = _build_message(contact)
-        success, error = _send_sms(contact.phone.strip(), body)
+        success, error = _send_mms(contact.phone.strip(), body, invoice_pdf_url(deal.id))
 
         if success:
             try:
                 db.add(models.ChatMessage(
                     contact_id=contact.id,
                     sender_id=None,
-                    body=body,
+                    body=body + " [invoice PDF]",
                     direction="outbound",
                 ))
                 db.add(models.Discount(
@@ -112,6 +113,7 @@ def _send_review_requests(db: Session) -> int:
             except Exception:
                 pass
             deal.review_request_sent = True
+            deal.invoice_sent = True
             sent_count += 1
             log.info(f"[review-requests] Sent to {contact.first_name} ({contact.phone}) for deal {deal.id}")
         else:
@@ -157,11 +159,12 @@ def test_review_request(deal_id: int, db: Session = Depends(get_db), _=Depends(r
         return {"ok": False, "message": "Contact has no phone number"}
 
     body = _build_message(contact)
-    success, error = _send_sms(contact.phone.strip(), body)
+    success, error = _send_mms(contact.phone.strip(), body, invoice_pdf_url(deal.id))
     if success:
-        db.add(models.ChatMessage(contact_id=contact.id, sender_id=None, body=body, direction="outbound"))
+        db.add(models.ChatMessage(contact_id=contact.id, sender_id=None, body=body + " [invoice PDF]", direction="outbound"))
         db.add(models.Discount(contact_id=contact.id, deal_id=deal.id, code=DISCOUNT_CODE, amount=DISCOUNT_AMOUNT, reason="review_request"))
         deal.review_request_sent = True
+        deal.invoice_sent = True
         db.commit()
     return {"ok": success, "message": body, "error": error or None}
 
