@@ -2,16 +2,14 @@
 Post-job review request automation.
 
 When a deal's job_status flips to "done" (see routes/deals.py), the client
-is immediately sent a thank-you MMS (with their invoice attached as an image,
-plus a PDF link in the text as backup) asking for a Google review and
-offering a MERCI20 discount on their next cleaning. Fires at most once per
-deal. The scheduler job is kept as a safety net to catch any deal whose
-immediate send failed (e.g. Twilio hiccup).
+is immediately sent a thank-you SMS (with a link to their invoice) asking
+for a Google review and offering a MERCI20 discount on their next cleaning.
+Fires at most once per deal. The scheduler job is kept as a safety net to
+catch any deal whose immediate send failed (e.g. Twilio hiccup).
 
-Note: the MMS attachment is a PNG, not a PDF. Most carriers — Canadian ones
-in particular — don't reliably deliver non-image file attachments over MMS,
-so an image is the only format that's guaranteed to actually arrive as a
-real attachment on the client's phone.
+Plain SMS, no MMS attachment: image/PDF attachments were unreliable over
+MMS (carrier-side size limits and delivery filtering), so the invoice is
+just a link in the text instead — that always arrives.
 """
 
 import os
@@ -23,9 +21,9 @@ from sqlalchemy.orm import Session
 from database import SessionLocal, get_db
 import models
 from auth import require_admin
-from routes.reminders import _send_mms
+from routes.reminders import _send_sms
 from routes.invoices import (
-    invoice_pdf_url, invoice_image_url,
+    invoice_pdf_url,
     REVIEW_LINK, DISCOUNT_CODE, DISCOUNT_AMOUNT,
 )
 
@@ -64,7 +62,7 @@ def _build_message(contact: models.Contact, invoice_url: str) -> str:
 
 
 def send_for_deal(db: Session, deal: "models.Deal") -> bool:
-    """Send the thank-you/review/MERCI20 MMS (with invoice PDF attached) for one deal.
+    """Send the thank-you/review/MERCI20 SMS (with an invoice link) for one deal.
     Fires once per deal — safe to call repeatedly, no-ops if already sent."""
     if deal.review_request_sent:
         return False
@@ -79,14 +77,14 @@ def send_for_deal(db: Session, deal: "models.Deal") -> bool:
 
     pdf_url = invoice_pdf_url(deal.id)
     body = _build_message(contact, pdf_url)
-    success, error = _send_mms(contact.phone.strip(), body, invoice_image_url(deal.id))
+    success, error = _send_sms(contact.phone.strip(), body)
 
     if success:
         try:
             db.add(models.ChatMessage(
                 contact_id=contact.id,
                 sender_id=None,
-                body=body + " [invoice image]",
+                body=body,
                 direction="outbound",
             ))
             db.add(models.Discount(
@@ -122,7 +120,7 @@ def _send_review_requests(db: Session) -> int:
     if not deals:
         return 0
 
-    log.info(f"[review-requests] {len(deals)} completed job(s) missing their review/invoice MMS — retrying")
+    log.info(f"[review-requests] {len(deals)} completed job(s) missing their review/invoice SMS — retrying")
     sent_count = sum(1 for deal in deals if send_for_deal(db, deal))
     return sent_count
 
@@ -153,7 +151,7 @@ def trigger_review_requests(_=Depends(require_admin)):
 
 @router.post("/test/{deal_id}")
 def test_review_request(deal_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
-    """Admin: send the review-request MMS for a specific deal right now, bypassing the flag."""
+    """Admin: send the review-request SMS for a specific deal right now, bypassing the flag."""
     deal = db.query(models.Deal).filter(models.Deal.id == deal_id).first()
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
