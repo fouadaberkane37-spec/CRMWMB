@@ -468,9 +468,11 @@ def _invoice_html_pdf(deal: models.Deal) -> str:
 # Used as the actual MMS attachment — see invoice_image_bytes() below for why.
 # Same plain business-document layout as the PDF (_invoice_card_css/_invoice_card_html),
 # just rendered at a much higher pixel density via CSS zoom so it reads sharp even when
-# the client zooms into the photo on their phone.
+# the client zooms into the photo on their phone, and sized to exactly 8.5x11in @ 300dpi
+# so it prints to a standard sheet of Letter paper at the correct size.
 
-IMAGE_WIDTH = 2550   # ~print-resolution width for a portrait page (vs. the ~850px PDF layout width)
+IMAGE_WIDTH = 2550   # 8.5in @ 300dpi
+IMAGE_HEIGHT = 3300  # 11in @ 300dpi
 IMAGE_ZOOM = 3       # wkhtmltoimage's WebKit engine renders 1 CSS px as IMAGE_ZOOM device px
 
 
@@ -532,15 +534,15 @@ def get_invoice_public_pdf(deal_id: int, t: str = Query(...), db: Session = Depe
 
 
 def invoice_image_bytes(deal: models.Deal) -> bytes:
-    """High-resolution PNG rendering of the regular invoice page — used as the actual MMS
-    attachment, since most carriers (notably in Canada) don't reliably deliver non-image
-    file attachments over MMS. Height is left unset so wkhtmltoimage captures the full
-    page at its natural length."""
+    """High-resolution PNG of the regular invoice page, sized to 8.5x11in @ 300dpi
+    (2550x3300px) — used as the actual MMS attachment, since most carriers (notably in
+    Canada) don't reliably deliver non-image file attachments over MMS, and as a
+    print-ready image for clients who want a paper copy."""
     import imgkit
     html = _invoice_html_image(deal)
     options = {
         "quiet": "", "format": "png",
-        "width": str(IMAGE_WIDTH),
+        "width": str(IMAGE_WIDTH), "height": str(IMAGE_HEIGHT),
         "disable-smart-width": "",
     }
     return imgkit.from_string(html, False, options=options)
