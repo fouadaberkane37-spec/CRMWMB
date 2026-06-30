@@ -414,7 +414,7 @@ function DealDetailSheet({ deal, onUpdate, onReschedule, onDelete, onClose }) {
   const time = deal.expected_close_date
     ? new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
     : ''
-  const estMin = estimateMinutes(deal.contact?.services || '')
+  const estMin = deal.estimated_minutes || estimateMinutes(deal.contact?.services || '')
   const estEnd = (deal.expected_close_date && estMin) ? endTimeFromIso(deal.expected_close_date, estMin) : ''
 
   async function handleReschedule() {

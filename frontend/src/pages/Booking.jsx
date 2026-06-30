@@ -51,6 +51,7 @@ export default function Booking() {
     price:     '',
     date:      '',
     time:      '',
+    estimatedMinutes: '',   // '' = use the service-based suggestion
     notes:     '',
   })
   const [saving, setSaving]         = useState(false)
@@ -90,8 +91,12 @@ export default function Booking() {
   }
 
   // No daily cap — multiple teams run in parallel. dayCount is shown for info only.
-  const estMinutes = estimateMinutes(form.services)
-  const estEnd     = addMinutesToTime(form.time, estMinutes)
+  const suggestedMinutes = estimateMinutes(form.services)        // auto guess from services
+  const effMinutes = form.estimatedMinutes !== '' ? Number(form.estimatedMinutes) : suggestedMinutes
+  const estEnd     = addMinutesToTime(form.time, effMinutes)
+
+  // Preset choices for the "estimated time" picker (minutes)
+  const DURATION_CHOICES = [30, 45, 60, 90, 120, 150, 180, 240, 300, 360, 480]
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -131,6 +136,7 @@ export default function Booking() {
         assigned_to:         user?.id,
         job_status:          'todo',
         business_type:       form.business,
+        estimated_minutes:   effMinutes > 0 ? effMinutes : null,
       }
       await api.post('/deals/', dealPayload)
 
@@ -281,18 +287,34 @@ export default function Booking() {
             />
           </Field>
 
-          {/* Estimated time to complete the job (from selected services) */}
-          {estMinutes > 0 && (
-            <div className="flex items-center gap-2 bg-indigo-950/40 border border-indigo-800/40 rounded-xl px-4 py-3">
-              <Clock size={15} className="text-indigo-400 shrink-0" />
-              <p className="text-sm text-indigo-200">
-                Estimated <span className="font-semibold text-white">{fmtDuration(estMinutes)}</span> to complete
-                {form.time && estEnd && (
-                  <> · finishes around <span className="font-semibold text-white">{estEnd}</span></>
-                )}
-              </p>
+          {/* Estimated time to complete the job */}
+          <Field label="Estimated Time to Complete" icon={Clock}>
+            <div className="relative">
+              <select
+                value={form.estimatedMinutes}
+                onChange={e => set('estimatedMinutes', e.target.value)}
+                className={INPUT + " appearance-none pr-10"}
+                style={{ height: '48px' }}
+              >
+                <option value="">
+                  {suggestedMinutes > 0
+                    ? `Suggested: ${fmtDuration(suggestedMinutes)} (from services)`
+                    : 'Select estimated time…'}
+                </option>
+                {DURATION_CHOICES.map(m => (
+                  <option key={m} value={m}>{fmtDuration(m)}</option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
             </div>
-          )}
+            {effMinutes > 0 && (
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-indigo-300">
+                <Clock size={12} className="shrink-0" />
+                {fmtDuration(effMinutes)} estimated
+                {form.time && estEnd && <> · finishes around <span className="font-semibold text-indigo-100">{estEnd}</span></>}
+              </p>
+            )}
+          </Field>
         </div>
 
         {/* Services */}

@@ -76,6 +76,7 @@ class Deal(Base):
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     job_status        = Column(String, default="todo")  # todo | payment_pending | done | cancelled
     business_type     = Column(String, default="window")  # window | landscape
+    estimated_minutes = Column(Integer, nullable=True)   # estimated time to complete the job (minutes)
     reminder_sent     = Column(Boolean, default=False)   # tech 24h reminder sent
     reminder_sent_48h = Column(Boolean, default=False)   # tech 48h reminder sent
     client_reminder_sent = Column(Boolean, default=False)  # client 24h reminder sent
