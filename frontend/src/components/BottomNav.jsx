@@ -11,6 +11,7 @@ import {
 const ADMIN_PRIMARY = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/booking', label: 'Booking', icon: CalendarDays },
+  { to: '/calendar', label: 'Calendar', icon: CalendarCheck },
   { to: '/schedule', label: 'Horaire', icon: CalendarRange },
   { to: '/chats', label: 'Messages', icon: MessageSquare, badge: true },
 ]
@@ -21,7 +22,6 @@ const ADMIN_MORE = [
   { to: '/deals', label: 'Deals', icon: TrendingUp },
   { to: '/map', label: 'Personal Map', icon: MapPin },
   { to: '/team-map', label: 'Team Map', icon: Map },
-  { to: '/calendar', label: 'Calendar', icon: CalendarCheck },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/team-sales', label: 'Team Sales', icon: TrendingUp },
   { to: '/new-numbers', label: 'New Numbers', icon: UserPlus },
@@ -34,11 +34,11 @@ const SALES_PRIMARY = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/contacts', label: 'Contacts', icon: Users },
   { to: '/booking', label: 'Booking', icon: CalendarDays },
+  { to: '/calendar', label: 'Calendar', icon: CalendarCheck },
   { to: '/chats', label: 'Messages', icon: MessageSquare, badge: true },
 ]
 
 const SALES_MORE = [
-  { to: '/calendar', label: 'Calendar', icon: CalendarCheck },
   { to: '/map', label: 'Knock Map', icon: MapPin },
   { to: '/new-numbers', label: 'New Numbers', icon: UserPlus },
   { to: '/deals', label: 'Deals', icon: TrendingUp },
@@ -58,8 +58,10 @@ const TECH_MORE = [
 ]
 
 function navForRole(role) {
-  if (role === 'admin') return { primary: ADMIN_PRIMARY, more: ADMIN_MORE }
+  // CEO gets the same admin-level bar (Calendar included).
+  if (role === 'admin' || role === 'ceo') return { primary: ADMIN_PRIMARY, more: ADMIN_MORE }
   if (role === 'technician') return { primary: TECH_PRIMARY, more: TECH_MORE }
+  // sales (and any other role) — Calendar lives in the primary bar.
   return { primary: SALES_PRIMARY, more: SALES_MORE }
 }
 

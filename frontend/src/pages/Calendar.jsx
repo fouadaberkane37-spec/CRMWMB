@@ -387,11 +387,14 @@ function CampaignPanel({ token }) {
 export default function Calendar() {
   const { token } = useAuth()
   const today     = new Date()
+  const todayKey  = toYMD(today)
   const [monthDate,    setMonthDate]    = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [viewMode,     setViewMode]     = useState('list')
   const [bookings,     setBookings]     = useState([])
   const [filterStatus, setFilterStatus] = useState('')
   const [selected,     setSelected]     = useState(null)
+  const dayRefs       = useRef({})       // dateKey -> list-section DOM node, for "jump to today"
+  const didScrollRef  = useRef(false)    // only auto-scroll once per mount
   const headers = { Authorization: `Bearer ${token}` }
 
   async function load(year, month) {
@@ -430,6 +433,20 @@ export default function Calendar() {
     grouped[d].push(b)
   })
   const groupKeys = Object.keys(grouped).sort()
+
+  // On open (mobile especially), land on today rather than the top of the month.
+  // Scroll the list to today's section, or the next upcoming day if today is empty.
+  useEffect(() => {
+    if (didScrollRef.current || viewMode !== 'list') return
+    if (year !== today.getFullYear() || month !== today.getMonth()) return
+    if (groupKeys.length === 0) return
+    const targetKey = groupKeys.find(k => k !== 'no-date' && k >= todayKey)
+    const el = targetKey ? dayRefs.current[targetKey] : null
+    if (el) {
+      el.scrollIntoView({ block: 'start' })
+      didScrollRef.current = true
+    }
+  }, [bookings, viewMode])
 
   // Grid helpers
   const firstDay    = new Date(year, month, 1).getDay()
@@ -515,11 +532,13 @@ export default function Calendar() {
           ) : groupKeys.map(dateKey => {
             const dayBookings = grouped[dateKey]
             const d = dateKey !== 'no-date' ? new Date(dateKey + 'T12:00:00') : null
+            const isToday = dateKey === todayKey
             return (
-              <div key={dateKey}>
+              <div key={dateKey} ref={el => { dayRefs.current[dateKey] = el }} className="scroll-mt-2">
                 {d && (
-                  <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">
+                  <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isToday ? 'text-indigo-400' : 'text-slate-500'}`}>
                     {DAYS[d.getDay()]} {d.getDate()} {MONTHS_SHORT[d.getMonth()]}
+                    {isToday && <span className="ml-2 normal-case bg-indigo-600 text-white px-1.5 py-0.5 rounded-md text-[10px]">Aujourd'hui</span>}
                   </p>
                 )}
                 <div className="space-y-2">

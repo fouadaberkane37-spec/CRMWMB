@@ -36,7 +36,7 @@ const TECH_NAV = [
 ]
 
 function navForRole(role) {
-  if (role === 'admin') return ADMIN_NAV
+  if (role === 'admin' || role === 'ceo') return ADMIN_NAV
   if (role === 'technician') return TECH_NAV
   return SALES_NAV
 }
@@ -107,8 +107,8 @@ export default function Sidebar() {
           </NavLink>
         ))}
 
-        {/* Admin-only extras */}
-        {user?.role === 'admin' && (
+        {/* Admin/CEO-only extras */}
+        {(user?.role === 'admin' || user?.role === 'ceo') && (
           <>
             <div className="pt-3 pb-1 px-3">
               <span className="text-slate-600 text-xs font-semibold uppercase tracking-wider">Admin</span>
