@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
 import { CalendarDays, User, MapPin, Phone, Wrench, DollarSign, Clock, CheckCircle, ChevronDown, Loader2 } from 'lucide-react'
+import { estimateMinutes, fmtDuration, addMinutesToTime } from '../serviceMeta.js'
 
 const SERVICES_WINDOW = [
   { value: 'window-ext',        label: 'Windows — Exterior' },
@@ -35,8 +36,6 @@ function Field({ label, icon: Icon, children }) {
 
 const INPUT = "w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
 const INPUT_CENTER = INPUT + " text-center"
-
-const MAX_PER_DAY = 3
 
 export default function Booking() {
   const { user } = useAuth()
@@ -90,15 +89,15 @@ export default function Booking() {
     }
   }
 
-  const dayFull = dayCount !== null && dayCount >= MAX_PER_DAY
-  const slotsLeft = dayCount !== null ? Math.max(0, MAX_PER_DAY - dayCount) : null
+  // No daily cap — multiple teams run in parallel. dayCount is shown for info only.
+  const estMinutes = estimateMinutes(form.services)
+  const estEnd     = addMinutesToTime(form.time, estMinutes)
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     if (!form.firstName.trim()) { setError('First name is required'); return }
     if (form.business === 'window' && !form.date) { setError('Date is required'); return }
-    if (form.business === 'window' && dayFull)    { setError(`This day is fully booked (${MAX_PER_DAY}/${MAX_PER_DAY}). Choose another date.`); return }
     setSaving(true)
     try {
       // 1. Create or find contact
@@ -253,7 +252,7 @@ export default function Booking() {
                 type="date"
                 value={form.date}
                 onChange={e => handleDateChange(e.target.value)}
-                className={`${INPUT_CENTER} ${dayFull ? 'border-red-500/70 ring-1 ring-red-500/40' : ''}`}
+                className={INPUT_CENTER}
                 style={{ colorScheme: 'dark', height: '48px' }}
                 required
               />
@@ -263,16 +262,12 @@ export default function Booking() {
                 <Loader2 size={11} className="animate-spin" /> Checking…
               </p>
             )}
-            {!checking && slotsLeft !== null && (
-              <p className={`mt-1.5 text-xs font-semibold flex items-center gap-1 ${
-                slotsLeft === 0 ? 'text-red-400' : slotsLeft === 1 ? 'text-amber-400' : 'text-emerald-400'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full inline-block ${
-                  slotsLeft === 0 ? 'bg-red-400' : slotsLeft === 1 ? 'bg-amber-400' : 'bg-emerald-400'
-                }`} />
-                {slotsLeft === 0
-                  ? 'Fully booked'
-                  : `${slotsLeft} slot${slotsLeft > 1 ? 's' : ''} left`}
+            {!checking && dayCount !== null && (
+              <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full inline-block bg-slate-500" />
+                {dayCount === 0
+                  ? 'No appointments booked yet that day'
+                  : `${dayCount} appointment${dayCount > 1 ? 's' : ''} already booked that day`}
               </p>
             )}
           </div>
@@ -285,6 +280,19 @@ export default function Booking() {
               style={{ colorScheme: 'dark', height: '48px' }}
             />
           </Field>
+
+          {/* Estimated time to complete the job (from selected services) */}
+          {estMinutes > 0 && (
+            <div className="flex items-center gap-2 bg-indigo-950/40 border border-indigo-800/40 rounded-xl px-4 py-3">
+              <Clock size={15} className="text-indigo-400 shrink-0" />
+              <p className="text-sm text-indigo-200">
+                Estimated <span className="font-semibold text-white">{fmtDuration(estMinutes)}</span> to complete
+                {form.time && estEnd && (
+                  <> · finishes around <span className="font-semibold text-white">{estEnd}</span></>
+                )}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Services */}
@@ -350,16 +358,12 @@ export default function Booking() {
 
         <button
           type="submit"
-          disabled={saving || dayFull}
-          className={`w-full font-bold rounded-2xl text-base transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
-            dayFull
-              ? 'bg-red-900/40 border border-red-700/50 text-red-400 cursor-not-allowed'
-              : 'bg-indigo-600 active:bg-indigo-700 text-white'
-          }`}
+          disabled={saving}
+          className="w-full font-bold rounded-2xl text-base transition-colors flex items-center justify-center gap-2 disabled:opacity-50 bg-indigo-600 active:bg-indigo-700 text-white"
           style={{ height: '56px' }}
         >
           {saving ? <Loader2 size={20} className="animate-spin" /> : <CalendarDays size={20} />}
-          {saving ? 'Saving…' : dayFull ? `Day fully booked (${MAX_PER_DAY}/${MAX_PER_DAY})` : 'Book Appointment'}
+          {saving ? 'Saving…' : 'Book Appointment'}
         </button>
 
       </form>

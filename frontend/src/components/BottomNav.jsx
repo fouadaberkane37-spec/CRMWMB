@@ -33,6 +33,7 @@ export default function BottomNav() {
     ? [
         { to: '/',               label: 'Dashboard', icon: LayoutDashboard, exact: true },
         { to: '/booking',        label: 'Booking',   icon: BookOpen },
+        { to: '/calendar',       label: 'Calendar',  icon: CalendarDays },
         { to: '/job-assignment', label: 'Jobs',      icon: Briefcase },
         { to: '/chats',          label: 'Messages',  icon: MessageSquare },
       ]
@@ -41,6 +42,7 @@ export default function BottomNav() {
         ...(isFouad ? [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true }] : []),
         { to: '/map',        label: 'Map',       icon: MapPin },
         { to: '/booking',    label: 'Booking',   icon: BookOpen },
+        { to: '/calendar',   label: 'Calendar',  icon: CalendarDays },
         { to: '/contacts',   label: 'Contacts',  icon: Users },
         ...(!isFouad ? [{ to: '/analytics', label: 'Analytics', icon: TrendingUp }] : []),
       ]
@@ -58,7 +60,6 @@ export default function BottomNav() {
         { to: '/',             label: 'Dashboard',      icon: LayoutDashboard },
         { to: '/analytics',    label: 'Analytics',      icon: TrendingUp },
         { to: '/contacts',     label: 'Contacts',       icon: Users },
-        { to: '/calendar',     label: 'Calendar',       icon: CalendarDays },
         { to: '/map',          label: 'My Map',         icon: MapPin },
         { to: '/team-map',     label: 'Team Map',       icon: Globe },
         { to: '/booking',      label: 'Booking',        icon: BookOpen },
@@ -76,7 +77,6 @@ export default function BottomNav() {
     ? [
         { to: '/',           label: 'Dashboard', icon: LayoutDashboard },
         { to: '/analytics',  label: 'Analytics', icon: TrendingUp },
-        { to: '/calendar',   label: 'Calendar',  icon: CalendarDays },
         { to: '/team-map',   label: 'Team Map',  icon: Globe },
       ]
     : []

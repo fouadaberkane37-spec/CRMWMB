@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import api, { openInvoice } from '../api.js'
 import { useAuth } from '../App.jsx'
+import { estimateMinutes, fmtDuration, endTimeFromIso } from '../serviceMeta.js'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
          ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut,
@@ -413,6 +414,8 @@ function DealDetailSheet({ deal, onUpdate, onReschedule, onDelete, onClose }) {
   const time = deal.expected_close_date
     ? new Date(deal.expected_close_date).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
     : ''
+  const estMin = estimateMinutes(deal.contact?.services || '')
+  const estEnd = (deal.expected_close_date && estMin) ? endTimeFromIso(deal.expected_close_date, estMin) : ''
 
   async function handleReschedule() {
     if (!newDate) return
@@ -447,7 +450,11 @@ function DealDetailSheet({ deal, onUpdate, onReschedule, onDelete, onClose }) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-white font-bold text-base truncate">{name}</p>
-            <p className="text-slate-400 text-xs">{time} {deal.value > 0 ? `· $${deal.value.toFixed(0)}` : ''}</p>
+            <p className="text-slate-400 text-xs">
+              {time}{estEnd ? ` → ${estEnd}` : ''}
+              {estMin ? ` · ~${fmtDuration(estMin)}` : ''}
+              {deal.value > 0 ? ` · $${deal.value.toFixed(0)}` : ''}
+            </p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
             <X size={16} />
@@ -1143,7 +1150,7 @@ function PhaseAgendaCard({ phase, isAdmin, isTech, onUpdated }) {
 // ── Main Calendar ──────────────────────────────────────────────────────────────
 export default function Calendar() {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role === 'admin' || user?.role === 'ceo'
   const isTech  = user?.role === 'technician'
 
   const today = new Date()
@@ -1151,6 +1158,8 @@ export default function Calendar() {
   const [month, setMonth] = useState(today.getMonth())
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
+  const agendaRefs   = useRef({})    // dateStr -> agenda day node, for "jump to today"
+  const didScrollRef = useRef(false) // only auto-scroll once per mount
 
   const [businessType, setBusinessType] = useState('window') // 'window' | 'landscape'
   const [phases, setPhases] = useState([])
@@ -1296,6 +1305,20 @@ export default function Calendar() {
       return acc
     }, {})
   ).sort(([a], [b]) => new Date(a) - new Date(b))
+
+  // On open (mobile especially), jump the agenda to today instead of the top of
+  // the month — scroll to today's group, or the next upcoming day if today is empty.
+  useEffect(() => {
+    if (didScrollRef.current || loading || viewMode !== 'agenda') return
+    if (year !== today.getFullYear() || month !== today.getMonth()) return
+    if (agendaDays.length === 0) return
+    const targetKey = agendaDays.find(([k]) => k >= todayStr)?.[0]
+    const el = targetKey ? agendaRefs.current[targetKey] : null
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ block: 'start' })
+      didScrollRef.current = true
+    }
+  }, [loading, deals, viewMode, businessType, year, month])
 
   // Landscape phases — grouped by month + date
   const monthPhases = phases.filter(p => {
@@ -1463,7 +1486,7 @@ export default function Calendar() {
                 const isToday = dateStr === todayStr
                 const isPast  = dt < new Date(today.getFullYear(), today.getMonth(), today.getDate())
                 return (
-                  <div key={dateStr} className="mb-3">
+                  <div key={dateStr} ref={el => { agendaRefs.current[dateStr] = el }} className="mb-3 scroll-mt-2">
                     <div className={`flex items-center gap-2 mb-2 ${isPast ? 'opacity-50' : ''}`}>
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                         isToday ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
