@@ -80,18 +80,9 @@ def get_available_slots(
 
 
 def _block_reason(day_class: str, service_type: str) -> Optional[str]:
-    new_techs = scheduling.get_tech_requirement(service_type)
-    if day_class == 'mixed':
-        return "Cette journée contient des rendez-vous mixtes. Aucun nouveau rendez-vous ne peut y être ajouté."
-    if day_class == '1-tech' and new_techs == 2:
-        if service_type == 'gutters':
-            return "Impossible d'ajouter un nettoyage de gouttières : cette journée est déjà classée comme journée à 1 technicien."
-        return "Impossible d'ajouter ce service à 2 techniciens : cette journée est déjà classée comme journée à 1 technicien."
-    if day_class == '2-tech' and new_techs == 1:
-        return "Impossible d'ajouter ce service à 1 technicien : cette journée nécessite 2 techniciens."
-    if day_class == '1-tech':
-        return "Cette journée a atteint sa capacité maximale de 5 rendez-vous."
-    return "Aucun créneau disponible pour cette journée."
+    # Scheduling limits are disabled (multiple teams run in parallel), so the only
+    # way to get no slots is a job longer than the working day.
+    return "La durée dépasse les heures de travail (8 h–18 h). Réduisez la durée."
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────

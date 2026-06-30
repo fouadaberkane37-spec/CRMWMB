@@ -39,6 +39,29 @@ function formatDateTime(dt) {
 function toDateStr(iso) { return iso ? iso.slice(0, 10) : '' }
 function toTimeStr(iso) { return iso ? iso.slice(11, 16) : '' }
 
+// "120" -> "2h", "90" -> "1h30", "45" -> "45min"
+function fmtDuration(min) {
+  if (!min) return ''
+  const h = Math.floor(min / 60), m = min % 60
+  if (h && m) return `${h}h${String(m).padStart(2, '0')}`
+  if (h)      return `${h}h`
+  return `${m}min`
+}
+// End time from a "HH:MM" start + duration minutes -> "HH:MM"
+function endTime(timeStr, durationMin) {
+  if (!timeStr || !durationMin) return ''
+  const [h, m] = timeStr.split(':').map(Number)
+  const total = h * 60 + m + Number(durationMin)
+  const eh = Math.floor((total % 1440) / 60), em = total % 60
+  return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`
+}
+// End time from an ISO datetime + duration -> "HH:MM"
+function endTimeFromIso(iso, durationMin) {
+  if (!iso || !durationMin) return ''
+  const d = new Date(new Date(iso).getTime() + Number(durationMin) * 60000)
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Booking() {
   const { token } = useAuth()
@@ -314,7 +337,11 @@ export default function Booking() {
                           <span className="flex items-center gap-1">
                             <Clock size={11} />
                             {formatDateTime(b.scheduled_at)}
-                            {b.duration_minutes ? ` · ${b.duration_minutes}min` : ''}
+                            {b.duration_minutes ? (
+                              <span className="text-slate-500">
+                                {' '}→ {endTimeFromIso(b.scheduled_at, b.duration_minutes)} ({fmtDuration(b.duration_minutes)})
+                              </span>
+                            ) : ''}
                           </span>
                           {contactName && (
                             <span className="flex items-center gap-1">
@@ -499,6 +526,15 @@ export default function Booking() {
                 <p className="text-slate-600 text-xs mt-1.5 pl-1">
                   Durée par défaut pour ce service : {svcInfo.duration} min
                 </p>
+                {form.time && form.duration_minutes ? (
+                  <div className="mt-2 flex items-center gap-2 bg-indigo-950/40 border border-indigo-800/40 rounded-2xl px-4 py-3">
+                    <Clock size={15} className="text-indigo-400 shrink-0" />
+                    <p className="text-sm text-indigo-200">
+                      Fin estimée vers <span className="font-semibold text-white">{endTime(form.time, form.duration_minutes)}</span>
+                      <span className="text-indigo-400"> ({fmtDuration(form.duration_minutes)} de travail)</span>
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               {/* Status */}

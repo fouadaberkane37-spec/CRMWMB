@@ -71,46 +71,10 @@ def validate_new_booking(
     duration_minutes: int,
     day_bookings: List,  # bookings already on that day, excluding the one being edited
 ) -> Optional[str]:
-    """Return French error string if invalid, None if OK."""
-    active = _active(day_bookings)
-    new_techs  = get_tech_requirement(service_type)
-    new_start  = scheduled_at
-    new_end    = new_start + timedelta(minutes=duration_minutes)
-    day_class  = classify_day(active)
-
-    # ── Day / tech compatibility ──────────────────────────────────────────────
-    if day_class == 'mixed':
-        return ("Cette journée contient des rendez-vous mixtes existants. "
-                "Aucun nouveau rendez-vous ne peut y être ajouté.")
-
-    if day_class == '1-tech' and new_techs == 2:
-        if service_type == 'gutters':
-            return ("Impossible d'ajouter un nettoyage de gouttières : "
-                    "cette journée est déjà classée comme journée à 1 technicien.")
-        return ("Impossible d'ajouter ce service à 2 techniciens : "
-                "cette journée est déjà classée comme journée à 1 technicien.")
-
-    if day_class == '2-tech' and new_techs == 1:
-        return ("Impossible d'ajouter ce service à 1 technicien : "
-                "cette journée nécessite 2 techniciens.")
-
-    # ── Capacity (1-tech days) ────────────────────────────────────────────────
-    if day_class == '1-tech' and len(active) >= MAX_1TECH_JOBS:
-        return "Cette journée a atteint sa capacité maximale de 5 rendez-vous."
-    # Also apply cap when adding the first 1-tech job to an empty day
-    if day_class == 'empty' and new_techs == 1 and len(active) >= MAX_1TECH_JOBS:
-        return "Cette journée a atteint sa capacité maximale de 5 rendez-vous."
-
-    # ── 30-minute buffer ──────────────────────────────────────────────────────
-    for b in active:
-        if not b.scheduled_at:
-            continue
-        b_start = b.scheduled_at
-        b_end   = b_start + timedelta(minutes=b.duration_minutes or 60)
-        err = _buffer_error(new_start, new_end, b_start, b_end)
-        if err:
-            return err
-
+    """No scheduling limits — the business runs multiple teams in parallel, so
+    daily capacity, 1-tech/2-tech day classification, per-hour concurrency and the
+    30-minute buffer are all intentionally disabled. Capacity is managed manually.
+    Kept as a hook so the constraint can be reintroduced later if needed."""
     return None
 
 
@@ -118,43 +82,23 @@ def available_slots(
     service_type: str,
     date_str: str,        # YYYY-MM-DD
     duration_minutes: int,
-    day_bookings: List,   # all bookings on that day
+    day_bookings: List,   # all bookings on that day (unused — no limits applied)
     start_hour: int = 8,
     end_hour:   int = 18,
     interval:   int = 30, # minutes
 ) -> List[str]:
-    """Return sorted list of available HH:MM start-time strings."""
-    active    = _active(day_bookings)
-    new_techs = get_tech_requirement(service_type)
-    day_class = classify_day(active)
-
-    # Fast-fail: incompatible day
-    if day_class == 'mixed':
-        return []
-    if day_class == '1-tech' and new_techs == 2:
-        return []
-    if day_class == '2-tech' and new_techs == 1:
-        return []
-    if day_class == '1-tech' and len(active) >= MAX_1TECH_JOBS:
-        return []
-
+    """Every working-hour start time is offered — no per-day cap, no per-hour cap,
+    no overlap blocking. With multiple teams running in parallel, the same slot can
+    be booked more than once, so slots are not filtered against existing bookings."""
     d        = datetime.strptime(date_str, "%Y-%m-%d").date()
     slots    = []
     cur      = datetime(d.year, d.month, d.day, start_hour, 0)
     deadline = datetime(d.year, d.month, d.day, end_hour,   0)
     dur      = timedelta(minutes=duration_minutes)
     step     = timedelta(minutes=interval)
-    buf      = timedelta(minutes=BUFFER_MINUTES)
 
     while cur + dur <= deadline:
-        cur_end = cur + dur
-        ok = all(
-            (cur_end + buf <= b.scheduled_at) or
-            (cur >= b.scheduled_at + timedelta(minutes=b.duration_minutes or 60) + buf)
-            for b in active if b.scheduled_at
-        )
-        if ok:
-            slots.append(cur.strftime("%H:%M"))
+        slots.append(cur.strftime("%H:%M"))
         cur += step
 
     return slots

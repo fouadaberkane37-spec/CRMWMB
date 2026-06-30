@@ -56,6 +56,18 @@ function fmtDateLocal(dt) {
   if (!dt) return ''
   return new Date(dt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
 }
+function fmtDuration(min) {
+  if (!min) return ''
+  const h = Math.floor(min / 60), m = min % 60
+  if (h && m) return `${h}h${String(m).padStart(2, '0')}`
+  if (h)      return `${h}h`
+  return `${m}min`
+}
+function endTimeFromIso(iso, durationMin) {
+  if (!iso || !durationMin) return ''
+  const d = new Date(new Date(iso).getTime() + Number(durationMin) * 60000)
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
 
 // ── Available-slots fetcher ───────────────────────────────────────────────────
 async function fetchAvailableSlots(token, date, type, duration, excludeId) {
@@ -145,7 +157,9 @@ function DetailSheet({ booking, onClose, onUpdate, token }) {
             <h2 className="text-white font-bold text-xl">{contactName}</h2>
             <p className="text-slate-400 text-sm mt-0.5">
               {fmtTime(booking.scheduled_at)}
-              {booking.duration_minutes ? ` · ${booking.duration_minutes} min` : ''}
+              {booking.duration_minutes
+                ? ` → ${endTimeFromIso(booking.scheduled_at, booking.duration_minutes)} · ${fmtDuration(booking.duration_minutes)}`
+                : ''}
             </p>
           </div>
           <button
@@ -612,7 +626,7 @@ export default function Calendar() {
               const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
               return (
                 <div key={day}
-                  className={`min-h-[4.5rem] border-b border-slate-800/60 p-0.5 overflow-hidden ${isToday ? 'bg-indigo-950/40' : ''}`}
+                  className={`min-h-[4.5rem] border-b border-slate-800/60 p-0.5 ${isToday ? 'bg-indigo-950/40' : ''}`}
                 >
                   <div className={`text-xs font-semibold text-center py-0.5 mb-0.5 rounded-md ${
                     isToday ? 'text-white bg-indigo-600' : 'text-slate-400'
@@ -620,7 +634,7 @@ export default function Calendar() {
                     {day}
                   </div>
                   <div className="space-y-0.5">
-                    {dayBookings.slice(0, 3).map(b => {
+                    {dayBookings.map(b => {
                       const cfg       = statusCfg(b.status)
                       const firstName = b.contact?.first_name || b.title || ''
                       return (
@@ -643,11 +657,6 @@ export default function Calendar() {
                         </button>
                       )
                     })}
-                    {dayBookings.length > 3 && (
-                      <p className="text-slate-500 text-[9px] text-center leading-none">
-                        +{dayBookings.length - 3}
-                      </p>
-                    )}
                   </div>
                 </div>
               )
