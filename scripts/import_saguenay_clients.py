@@ -119,7 +119,7 @@ def split_name(raw: str):
 
 # ── Import ────────────────────────────────────────────────────────────────────
 
-def run(csv_path, tag, source, status, commit, db_url):
+def run(csv_path, tag, source, status, commit, db_url, merge_name_mismatch=False):
     if db_url:
         os.environ["DATABASE_URL"] = db_url
 
@@ -179,13 +179,22 @@ def run(csv_path, tag, source, status, commit, db_url):
 
             address = " ".join((row.get("Home Address") or "").split()) or None
 
-            # Dedup: phone first, then real email
+            # Dedup: phone first, then real (non-placeholder) email.
             match = None
-            if e164 and e164 in by_phone:
-                match = by_phone[e164]
-                if (match.first_name or "").lower() != (first or "").lower():
+            phone_hit = by_phone.get(e164) if e164 else None
+            if phone_hit is not None:
+                same_name = (phone_hit.first_name or "").lower() == (first or "").lower()
+                if same_name or merge_name_mismatch:
+                    match = phone_hit
+                    if not same_name:
+                        flags["collision"].append(
+                            f"{label} ({e164}) MERGED into existing '{phone_hit.first_name} {phone_hit.last_name or ''}'".strip()
+                        )
+                else:
+                    # Same phone, different person — keep separate, don't merge.
                     flags["collision"].append(
-                        f"{label} ({e164}) matches existing '{match.first_name} {match.last_name or ''}'".strip()
+                        f"{label} ({e164}) kept SEPARATE — shares phone with existing "
+                        f"'{phone_hit.first_name} {phone_hit.last_name or ''}'".strip()
                     )
             elif email and not is_ph and email.lower() in by_email:
                 match = by_email[email.lower()]
@@ -265,8 +274,11 @@ def main():
                    choices=["lead", "prospect", "customer", "inactive"])
     p.add_argument("--commit", action="store_true", help="write to DB (default: dry-run)")
     p.add_argument("--db-url", default=None, help="override DATABASE_URL for this run")
+    p.add_argument("--merge-name-mismatch", action="store_true",
+                   help="merge when a phone matches but the name differs (default: keep separate)")
     args = p.parse_args()
-    run(args.csv, args.tag, args.source, args.status, args.commit, args.db_url)
+    run(args.csv, args.tag, args.source, args.status, args.commit, args.db_url,
+        merge_name_mismatch=args.merge_name_mismatch)
 
 
 if __name__ == "__main__":
