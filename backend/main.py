@@ -15,6 +15,7 @@ from routes import reminders as reminders_routes
 from routes import invoices as invoices_routes
 from routes import hours as hours_routes
 from routes import review_requests as review_requests_routes
+from routes import campaigns as campaigns_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
@@ -309,6 +310,21 @@ _user_migrations = [
     ("phone", "ALTER TABLE users ADD COLUMN{if_not_exists} phone VARCHAR"),
 ]
 for _col, _stmt in _user_migrations:
+    _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(_sql))
+    except Exception:
+        pass  # already exists
+
+# Segmentation / import-traceability / SMS opt-out columns on contacts
+_contact_migrations = [
+    ("tags",           "ALTER TABLE contacts ADD COLUMN{if_not_exists} tags VARCHAR"),
+    ("source",         "ALTER TABLE contacts ADD COLUMN{if_not_exists} source VARCHAR"),
+    ("sms_opt_out",    "ALTER TABLE contacts ADD COLUMN{if_not_exists} sms_opt_out BOOLEAN DEFAULT FALSE"),
+    ("sms_opt_out_at", "ALTER TABLE contacts ADD COLUMN{if_not_exists} sms_opt_out_at " + ("DATETIME" if _is_sqlite else "TIMESTAMP")),
+]
+for _col, _stmt in _contact_migrations:
     _sql = _stmt.replace("{if_not_exists}", "" if _is_sqlite else " IF NOT EXISTS")
     try:
         with engine.begin() as _conn:
@@ -793,6 +809,7 @@ app.include_router(phases_routes.router)
 app.include_router(invoices_routes.router)
 app.include_router(hours_routes.router)
 app.include_router(review_requests_routes.router)
+app.include_router(campaigns_routes.router)
 
 # Start 24h reminder scheduler
 reminders_routes.start_scheduler()

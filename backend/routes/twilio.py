@@ -81,6 +81,40 @@ def upsert_inbound_lead(db: Session, phone: str, body: str, source: str = "sms")
         db.rollback()
 
 
+# Inbound keywords that toggle SMS consent. Kept conservative on the START side
+# so a customer answering "yes/oui" to a normal question isn't treated as re-consent.
+STOP_KEYWORDS = {
+    "stop", "stopall", "unsubscribe", "cancel", "end", "quit",
+    "arret", "arrêt", "arretez", "arrêtez", "desabonner", "désabonner",
+}
+START_KEYWORDS = {"start", "unstop"}
+
+
+def apply_sms_optout(db: Session, contact: "models.Contact", body: str):
+    """If an inbound SMS is a STOP/START keyword, flip the contact's opt-out flag.
+    Returns 'stop', 'start', or None. Twilio may also enforce opt-out carrier-side;
+    this keeps our own flag in sync so campaigns never target opted-out contacts."""
+    if not contact or not body:
+        return None
+    first = body.strip().lower().split()
+    if not first:
+        return None
+    word = first[0].strip(".!,;:")
+    if word in STOP_KEYWORDS:
+        contact.sms_opt_out = True
+        contact.sms_opt_out_at = datetime.utcnow()
+        db.commit()
+        log.info("[twilio] %s opted OUT of SMS", contact.phone)
+        return "stop"
+    if word in START_KEYWORDS:
+        contact.sms_opt_out = False
+        contact.sms_opt_out_at = None
+        db.commit()
+        log.info("[twilio] %s opted BACK IN to SMS", contact.phone)
+        return "start"
+    return None
+
+
 def save_inbound_message(db: Session, contact: models.Contact, body: str):
     """Persist an inbound SMS as a ChatMessage."""
     msg = models.ChatMessage(
@@ -124,6 +158,7 @@ async def twilio_incoming(
     if from_number and body:
         contact = match_contact_by_phone(db, from_number)
         if contact:
+            apply_sms_optout(db, contact, body)   # STOP/ARRET → opt out; START → opt back in
             save_inbound_message(db, contact, body)
             label = f"{contact.first_name} {contact.last_name or ''}".strip()
         else:

@@ -21,6 +21,19 @@ def _own_contact(contact, user):
     return user.role in ("admin", "ceo") or contact.created_by == user.id
 
 
+def _tag_filter(tag: str):
+    """SQLAlchemy filter matching `tag` as a whole item in the comma-separated
+    Contact.tags column (so 'Saguenay' does not match 'Hors-Saguenay')."""
+    t = tag.strip()
+    col = models.Contact.tags
+    return (
+        (col == t)
+        | col.ilike(f"{t},%")
+        | col.ilike(f"%,{t}")
+        | col.ilike(f"%,{t},%")
+    )
+
+
 def geocode_address(address: str):
     """Geocode an address in the Greater Montreal / Laurentians area.
 
@@ -112,6 +125,8 @@ def list_contacts(
     search: Optional[str] = None,
     status: Optional[str] = None,
     company_id: Optional[int] = None,
+    tag: Optional[str] = None,
+    sms_eligible: bool = False,
     trashed: bool = False,
     skip: int = 0,
     limit: int = 200,
@@ -145,6 +160,23 @@ def list_contacts(
         q = q.filter(models.Contact.status == status)
     if company_id:
         q = q.filter(models.Contact.company_id == company_id)
+    if tag:
+        # Exact comma-separated token match so "Saguenay" doesn't also match
+        # "Hors-Saguenay". Guarded in case the column isn't migrated yet.
+        try:
+            q = q.filter(_tag_filter(tag))
+        except Exception:
+            pass
+    if sms_eligible:
+        # Reachable by SMS: has a phone and hasn't opted out.
+        try:
+            q = q.filter(
+                models.Contact.phone.isnot(None),
+                models.Contact.phone != "",
+                (models.Contact.sms_opt_out.is_(False)) | (models.Contact.sms_opt_out.is_(None)),
+            )
+        except Exception:
+            pass
     return q.order_by(models.Contact.created_at.desc()).offset(skip).limit(limit).all()
 
 

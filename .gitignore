@@ -50,3 +50,7 @@ frontend/.vite/
 # Logs
 *.log
 logs/
+
+# Client import data — contains PII, must NOT be committed to the repo
+data/
+scripts/build_saguenay_csv.py

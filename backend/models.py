@@ -53,6 +53,10 @@ class Contact(Base):
     status = Column(String, default="lead")  # lead | prospect | customer | inactive
     language = Column(String, nullable=True)  # 'fr' | 'en' | None (unknown — send both)
     notes = Column(Text)
+    tags = Column(String, nullable=True)       # comma-separated segment tags, e.g. "Saguenay"
+    source = Column(String, nullable=True)     # import/lead traceability, e.g. "import_saguenay_2026-07"
+    sms_opt_out = Column(Boolean, default=False)          # True after a STOP/ARRET reply — never SMS
+    sms_opt_out_at = Column(DateTime, nullable=True)      # when they opted out
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

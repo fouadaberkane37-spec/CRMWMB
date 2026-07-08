@@ -83,6 +83,8 @@ class ContactBase(BaseModel):
     status: Literal["lead", "prospect", "customer", "inactive"] = "lead"
     language: Optional[Literal["fr", "en"]] = None
     notes: Optional[str] = Field(default=None, max_length=5000)
+    tags: Optional[str] = Field(default=None, max_length=512)      # comma-separated segments
+    source: Optional[str] = Field(default=None, max_length=128)    # traceability
 
 
 class ContactCreate(ContactBase):
@@ -97,6 +99,7 @@ class Contact(ContactBase):
     id: int
     lat: Optional[float] = None
     lng: Optional[float] = None
+    sms_opt_out: bool = False
     created_by: Optional[int]
     created_at: datetime
     updated_at: datetime

@@ -7,7 +7,7 @@ from database import get_db
 import models
 import os
 from auth import get_current_user
-from routes.twilio import match_contact_by_phone, save_inbound_message, TWIML_EMPTY
+from routes.twilio import match_contact_by_phone, save_inbound_message, apply_sms_optout, TWIML_EMPTY
 
 log = logging.getLogger(__name__)
 
@@ -99,6 +99,7 @@ async def twilio_webhook_legacy(
     if from_number and body:
         contact = match_contact_by_phone(db, from_number)
         if contact:
+            apply_sms_optout(db, contact, body)   # honor STOP/ARRET here too
             save_inbound_message(db, contact, body)
 
     return PlainTextResponse(TWIML_EMPTY, media_type="application/xml")
