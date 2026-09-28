@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from sqlalchemy import exists
 from typing import List, Optional
 import os
+import io
+import csv
 import logging
+from datetime import datetime
 from database import get_db
 import models
 import schemas
@@ -37,6 +41,93 @@ STAGES = ["lead", "qualified", "proposal", "negotiation", "won", "lost"]
 def _own_deal(deal, user):
     """All non-technician users can view and update deals (calendar is shared)."""
     return user.role != "technician"
+
+
+SERVICE_LABELS = {
+    "window-ext": "Windows (Exterior)",
+    "window-int": "Windows (Interior)",
+    "gutters":    "Gutter Cleaning",
+    "pressure":   "Pressure Washing",
+    "roof":       "Roof Cleaning",
+    "screens":    "Screen Cleaning",
+    "solar":      "Solar Panels",
+    "lawn-mowing":  "Lawn Mowing",
+    "hedge-trim":   "Hedge Trimming",
+    "landscaping":  "Landscaping",
+    "snow-removal": "Snow Removal",
+    "mulching":     "Mulching",
+    "aeration":     "Aeration",
+}
+
+STATUS_LABELS = {
+    "todo":            "To Do",
+    "payment_pending": "Payment Pending",
+    "done":            "Paid",
+    "cancelled":       "Cancelled",
+}
+
+
+@router.get("/export/scheduled")
+def export_scheduled(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Export all scheduled (calendar-booked) deals as CSV — opens directly in Excel."""
+    if current_user.role not in ("admin", "ceo"):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    deals = (
+        db.query(models.Deal)
+        .options(joinedload(models.Deal.contact))
+        .filter(models.Deal.expected_close_date.isnot(None))
+        .filter(models.Deal.job_status != "cancelled")
+        .order_by(models.Deal.expected_close_date.asc())
+        .all()
+    )
+
+    buf = io.StringIO()
+    buf.write("﻿")  # BOM so Excel treats it as UTF-8 (accents, é, etc.)
+    writer = csv.writer(buf)
+    writer.writerow([
+        "Date", "Time", "Client Name", "Phone", "Address",
+        "Services", "Business Type", "Price ($)", "Status", "Notes",
+    ])
+
+    for d in deals:
+        c = d.contact
+        name = ""
+        phone = ""
+        address = ""
+        if c:
+            name    = f"{c.first_name or ''} {c.last_name or ''}".strip()
+            phone   = c.phone or ""
+            address = c.address or ""
+        if not name:
+            name = d.title or f"Deal #{d.id}"
+
+        date_str = d.expected_close_date.strftime("%Y-%m-%d") if d.expected_close_date else ""
+        time_str = d.expected_close_date.strftime("%H:%M") if d.expected_close_date else ""
+
+        svc_keys = [s.strip() for s in (c.services if c and c.services else "").split(",") if s.strip()]
+        svc_pretty = ", ".join(SERVICE_LABELS.get(k, k) for k in svc_keys)
+
+        writer.writerow([
+            date_str,
+            time_str,
+            name,
+            phone,
+            address,
+            svc_pretty,
+            (d.business_type or "").title(),
+            f"{d.value or 0:.2f}",
+            STATUS_LABELS.get(d.job_status, d.job_status or ""),
+            (d.notes or "").replace("\n", " ").replace("\r", " "),
+        ])
+
+    filename = f"scheduled-clients-{datetime.utcnow().strftime('%Y-%m-%d')}.csv"
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/", response_model=List[schemas.Deal])
