@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import api, { openInvoice } from '../api.js'
-import { ClipboardList, RefreshCw, Loader2, X, Check, DollarSign, FileText } from 'lucide-react'
+import { ClipboardList, RefreshCw, Loader2, X, Check, DollarSign, FileText, Download } from 'lucide-react'
 
 const WINDOW_SERVICES = [
   { key: 'window-ext', label: 'Windows (Ext)' },
@@ -268,9 +268,32 @@ export default function ClientJobs() {
           </div>
           <p className="text-slate-500 text-xs ml-8">Tap any job to edit price &amp; services</p>
         </div>
-        <button onClick={load} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              try {
+                const r = await api.get('/deals/export/scheduled', { responseType: 'blob' })
+                const url  = window.URL.createObjectURL(new Blob([r.data]))
+                const link = document.createElement('a')
+                link.href = url
+                link.setAttribute('download', `scheduled-clients-${new Date().toISOString().slice(0,10)}.csv`)
+                document.body.appendChild(link)
+                link.click()
+                link.remove()
+                window.URL.revokeObjectURL(url)
+              } catch {
+                alert('Failed to download export. Please try again.')
+              }
+            }}
+            className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-full"
+          >
+            <Download size={14} />
+            Excel
+          </button>
+          <button onClick={load} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Search */}
