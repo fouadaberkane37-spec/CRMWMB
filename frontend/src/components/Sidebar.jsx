@@ -4,7 +4,7 @@ import { useAuth } from '../App.jsx'
 import {
   LayoutDashboard, Users, BookOpen,
   UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe, CalendarDays,
-  Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase, Leaf,
+  Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase, Leaf, Receipt, Activity,
 } from 'lucide-react'
 import api from '../api.js'
 
@@ -24,6 +24,8 @@ const ADMIN_NAV_GROUPS = [
       { to: '/calendar',       label: 'Calendar',       icon: CalendarDays },
       { to: '/landscape',      label: 'Landscape',      icon: Leaf },
       { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase },
+      { to: '/client-jobs',    label: 'Client Jobs',    icon: Receipt },
+      { to: '/jobs-overview',  label: 'Jobs Overview',  icon: Activity },
     ],
   },
   {
