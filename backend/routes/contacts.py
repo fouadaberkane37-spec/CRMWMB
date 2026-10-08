@@ -373,6 +373,70 @@ def export_contacts_csv(db: Session = Depends(get_db), current_user=Depends(get_
     )
 
 
+@router.get("/export/leads")
+def export_leads_csv(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Export all leads: contacts with status='lead' + inbound leads (unknown callers)."""
+    if current_user.role not in ("admin", "ceo"):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    out = io.StringIO()
+    out.write("﻿")  # UTF-8 BOM for Excel to display é à è correctly
+    w = csv.writer(out)
+    w.writerow([
+        "Type", "Name", "Phone", "Email", "Address",
+        "Services", "Status", "Source", "Notes", "Created",
+    ])
+
+    # 1. All contacts with status='lead'
+    contact_leads = (
+        db.query(models.Contact)
+        .filter(models.Contact.status == "lead")
+        .order_by(models.Contact.created_at.desc())
+        .all()
+    )
+    for c in contact_leads:
+        full_name = f"{c.first_name or ''} {c.last_name or ''}".strip()
+        w.writerow([
+            "Contact",
+            full_name,
+            c.phone or "",
+            c.email or "",
+            c.address or "",
+            c.services or "",
+            c.status or "",
+            "",
+            (c.notes or "").replace("\n", " ").replace("\r", " ") if hasattr(c, "notes") else "",
+            c.created_at.strftime("%Y-%m-%d %H:%M") if c.created_at else "",
+        ])
+
+    # 2. All InboundLead rows (unknown callers/texters)
+    inbound = (
+        db.query(models.InboundLead)
+        .order_by(models.InboundLead.updated_at.desc())
+        .all()
+    )
+    for l in inbound:
+        w.writerow([
+            "Unknown",
+            "(unknown)",
+            l.phone or "",
+            "",
+            "",
+            "",
+            "unconverted",
+            l.source or "",
+            (l.last_body or "").replace("\n", " ").replace("\r", " "),
+            l.created_at.strftime("%Y-%m-%d %H:%M") if l.created_at else "",
+        ])
+
+    filename = f"leads-{datetime.utcnow().strftime('%Y-%m-%d')}.csv"
+    return Response(
+        content=out.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/import/csv")
 async def import_contacts_csv(
     file: UploadFile = File(...),

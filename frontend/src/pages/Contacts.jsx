@@ -139,6 +139,17 @@ export default function Contacts() {
     })
   }
 
+  function exportLeads() {
+    api.get('/contacts/export/leads', { responseType: 'blob' }).then((r) => {
+      const blob = window.URL.createObjectURL(r.data)
+      const a = document.createElement('a')
+      a.href = blob
+      a.setAttribute('download', `leads-${new Date().toISOString().slice(0,10)}.csv`)
+      a.click()
+      window.URL.revokeObjectURL(blob)
+    }).catch(() => alert('Failed to download leads export'))
+  }
+
   async function handleImport(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -299,6 +310,12 @@ export default function Contacts() {
             className="flex items-center gap-1.5 border border-slate-600 text-slate-300 text-sm font-medium px-3 py-2 rounded-lg transition-colors"
           >
             <Download size={15} /> Export
+          </button>
+          <button
+            onClick={exportLeads}
+            className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors"
+          >
+            <Download size={15} /> Leads Excel
           </button>
         </div>
       )}
