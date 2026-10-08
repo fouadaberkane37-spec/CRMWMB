@@ -50,8 +50,7 @@ def _fmt_phone(raw: str) -> str:
 
 
 def build_reactivation_workbook(rows: list[dict]) -> bytes:
-    """rows: dicts with keys name, phone, address, last_service (datetime|None), services, paid,
-    booked_on (datetime|None — an upcoming job already in the CRM; pre-marks the row Booked)."""
+    """rows: dicts with keys name, phone, address, last_service (datetime|None), services, paid."""
     wb = Workbook()
     ws = wb.active
     ws.title = "Call Sheet"
@@ -73,10 +72,7 @@ def build_reactivation_workbook(rows: list[dict]) -> bytes:
     ws.merge_cells(start_row=SUBTITLE_ROW, start_column=1, end_row=SUBTITLE_ROW, end_column=last_col)
     s = ws.cell(
         row=SUBTITLE_ROW, column=1,
-        value=(
-            f"Past clients — job completed & paid  •  {len(rows)} clients  •  "
-            f"{sum(1 for r in rows if not r.get('booked_on'))} to call  •  generated {datetime.now().strftime('%Y-%m-%d')}"
-        ),
+        value=f"Past clients — job Done in the calendar  •  {len(rows)} to call  •  generated {datetime.now().strftime('%Y-%m-%d')}",
     )
     s.font = Font(size=10, italic=True, color="64748B")
     s.alignment = Alignment(horizontal="left", indent=1)
@@ -129,10 +125,6 @@ def build_reactivation_workbook(rows: list[dict]) -> bytes:
             float(r.get("paid") or 0),
             None, None, None, None,
         ]
-        if r.get("booked_on"):
-            values[7] = "Booked"
-            values[8] = r["booked_on"].date()
-            values[10] = "Already booked in the CRM — no call needed"
         stripe = PatternFill("solid", fgColor=STRIPE) if idx % 2 else None
         for ci, (val, (_, _, is_input)) in enumerate(zip(values, COLUMNS), 1):
             c = ws.cell(row=row, column=ci, value=clean_text(val))

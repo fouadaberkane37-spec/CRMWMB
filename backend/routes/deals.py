@@ -85,26 +85,26 @@ def export_reactivation(db: Session = Depends(get_db), current_user=Depends(get_
         .all()
     )
 
+    # Only people the calendar shows as Done: anyone who also has a To Do or
+    # Payment Pending job is left off the sheet.
+    open_contact_ids = {
+        cid for (cid,) in (
+            db.query(models.Deal.contact_id)
+            .filter(models.Deal.contact_id.isnot(None))
+            .filter(models.Deal.expected_close_date.isnot(None))
+            .filter(models.Deal.job_status.in_(("todo", "payment_pending")))
+            .distinct()
+        )
+    }
+
     # One row per client, keeping their most recent completed job
     latest = {}
     for d in deals:
+        if d.contact_id in open_contact_ids:
+            continue
         key = ("c", d.contact_id) if d.contact_id else ("d", d.id)
         if key not in latest:
             latest[key] = d
-
-    # Clients who already have an upcoming job are pre-marked Booked so nobody calls them
-    today = datetime.combine(datetime.utcnow().date(), datetime.min.time())
-    contact_ids = [d.contact_id for d in latest.values() if d.contact_id]
-    upcoming = {}
-    if contact_ids:
-        for cid, when in (
-            db.query(models.Deal.contact_id, models.Deal.expected_close_date)
-            .filter(models.Deal.contact_id.in_(contact_ids))
-            .filter(models.Deal.job_status == "todo")
-            .filter(models.Deal.expected_close_date >= today)
-            .order_by(models.Deal.expected_close_date.asc())
-        ):
-            upcoming.setdefault(cid, when)
 
     rows = []
     for d in latest.values():
@@ -118,9 +118,8 @@ def export_reactivation(db: Session = Depends(get_db), current_user=Depends(get_
             "last_service": d.expected_close_date,
             "services": ", ".join(SERVICE_LABELS.get(k, k) for k in svc_keys),
             "paid": d.value or 0,
-            "booked_on": upcoming.get(d.contact_id),
         })
-    rows.sort(key=lambda r: (r["booked_on"] is not None, r["last_service"]))
+    rows.sort(key=lambda r: r["last_service"])
 
     filename = f"reactivation-call-sheet-{datetime.utcnow().strftime('%Y-%m-%d')}.xlsx"
     return StreamingResponse(
