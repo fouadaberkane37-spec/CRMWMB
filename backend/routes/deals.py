@@ -13,6 +13,7 @@ from database import get_db
 import models
 import schemas
 from auth import get_current_user
+from spreadsheet_safety import csv_safe
 
 log = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ def export_reactivation(db: Session = Depends(get_db), current_user=Depends(get_
     deals = (
         db.query(models.Deal)
         .options(joinedload(models.Deal.contact))
+        .filter(~models.Deal.contact.has(models.Contact.deleted_at.isnot(None)))
         .filter(models.Deal.expected_close_date.isnot(None))
         .filter(models.Deal.job_status == "done")
         .order_by(models.Deal.expected_close_date.desc())
@@ -90,6 +92,20 @@ def export_reactivation(db: Session = Depends(get_db), current_user=Depends(get_
         if key not in latest:
             latest[key] = d
 
+    # Clients who already have an upcoming job are pre-marked Booked so nobody calls them
+    today = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+    contact_ids = [d.contact_id for d in latest.values() if d.contact_id]
+    upcoming = {}
+    if contact_ids:
+        for cid, when in (
+            db.query(models.Deal.contact_id, models.Deal.expected_close_date)
+            .filter(models.Deal.contact_id.in_(contact_ids))
+            .filter(models.Deal.job_status == "todo")
+            .filter(models.Deal.expected_close_date >= today)
+            .order_by(models.Deal.expected_close_date.asc())
+        ):
+            upcoming.setdefault(cid, when)
+
     rows = []
     for d in latest.values():
         c = d.contact
@@ -102,8 +118,9 @@ def export_reactivation(db: Session = Depends(get_db), current_user=Depends(get_
             "last_service": d.expected_close_date,
             "services": ", ".join(SERVICE_LABELS.get(k, k) for k in svc_keys),
             "paid": d.value or 0,
+            "booked_on": upcoming.get(d.contact_id),
         })
-    rows.sort(key=lambda r: r["last_service"])
+    rows.sort(key=lambda r: (r["booked_on"] is not None, r["last_service"]))
 
     filename = f"reactivation-call-sheet-{datetime.utcnow().strftime('%Y-%m-%d')}.xlsx"
     return StreamingResponse(
@@ -154,7 +171,7 @@ def export_scheduled(db: Session = Depends(get_db), current_user=Depends(get_cur
         svc_keys = [s.strip() for s in (c.services if c and c.services else "").split(",") if s.strip()]
         svc_pretty = ", ".join(SERVICE_LABELS.get(k, k) for k in svc_keys)
 
-        writer.writerow([
+        writer.writerow([csv_safe(v) for v in (
             date_str,
             time_str,
             name,
@@ -165,7 +182,7 @@ def export_scheduled(db: Session = Depends(get_db), current_user=Depends(get_cur
             f"{d.value or 0:.2f}",
             STATUS_LABELS.get(d.job_status, d.job_status or ""),
             (d.notes or "").replace("\n", " ").replace("\r", " "),
-        ])
+        )])
 
     filename = f"scheduled-clients-{datetime.utcnow().strftime('%Y-%m-%d')}.csv"
     buf.seek(0)

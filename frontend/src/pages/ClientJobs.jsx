@@ -276,30 +276,30 @@ export default function ClientJobs() {
   return (
     <div className="flex-1 overflow-y-auto bg-slate-950">
       {/* Header */}
-      <div className="px-4 pt-6 pb-3 flex items-center justify-between">
-        <div>
+      <div className="px-4 pt-6 pb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <div className="flex items-center gap-2.5 mb-0.5">
             <ClipboardList size={20} className="text-indigo-400" />
             <h1 className="text-white text-xl font-bold tracking-tight">Client Jobs</h1>
           </div>
           <p className="text-slate-500 text-xs ml-8">Tap any job to edit price &amp; services</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => downloadFile('/deals/export/reactivation', `reactivation-call-sheet-${new Date().toISOString().slice(0,10)}.xlsx`)}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-full"
+            className="flex items-center gap-1.5 whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-full"
           >
             <PhoneCall size={14} />
             Call Sheet
           </button>
           <button
             onClick={() => downloadFile('/deals/export/scheduled', `scheduled-clients-${new Date().toISOString().slice(0,10)}.csv`)}
-            className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-full"
+            className="flex items-center gap-1.5 whitespace-nowrap bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-full"
           >
             <Download size={14} />
             Excel
           </button>
-          <button onClick={load} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
+          <button onClick={load} aria-label="Refresh" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-full bg-slate-800 text-slate-400">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>

@@ -11,6 +11,7 @@ from database import get_db, SessionLocal
 import models
 import schemas
 from auth import get_current_user, require_admin
+from spreadsheet_safety import csv_safe
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
@@ -391,12 +392,13 @@ def export_leads_csv(db: Session = Depends(get_db), current_user=Depends(get_cur
     contact_leads = (
         db.query(models.Contact)
         .filter(models.Contact.status == "lead")
+        .filter(models.Contact.deleted_at.is_(None))
         .order_by(models.Contact.created_at.desc())
         .all()
     )
     for c in contact_leads:
         full_name = f"{c.first_name or ''} {c.last_name or ''}".strip()
-        w.writerow([
+        w.writerow([csv_safe(v) for v in (
             "Contact",
             full_name,
             c.phone or "",
@@ -404,10 +406,10 @@ def export_leads_csv(db: Session = Depends(get_db), current_user=Depends(get_cur
             c.address or "",
             c.services or "",
             c.status or "",
-            "",
-            (c.notes or "").replace("\n", " ").replace("\r", " ") if hasattr(c, "notes") else "",
+            c.source or "",
+            (c.notes or "").replace("\n", " ").replace("\r", " "),
             c.created_at.strftime("%Y-%m-%d %H:%M") if c.created_at else "",
-        ])
+        )])
 
     # 2. All InboundLead rows (unknown callers/texters)
     inbound = (
@@ -416,7 +418,7 @@ def export_leads_csv(db: Session = Depends(get_db), current_user=Depends(get_cur
         .all()
     )
     for l in inbound:
-        w.writerow([
+        w.writerow([csv_safe(v) for v in (
             "Unknown",
             "(unknown)",
             l.phone or "",
@@ -427,7 +429,7 @@ def export_leads_csv(db: Session = Depends(get_db), current_user=Depends(get_cur
             l.source or "",
             (l.last_body or "").replace("\n", " ").replace("\r", " "),
             l.created_at.strftime("%Y-%m-%d %H:%M") if l.created_at else "",
-        ])
+        )])
 
     filename = f"leads-{datetime.utcnow().strftime('%Y-%m-%d')}.csv"
     return Response(
