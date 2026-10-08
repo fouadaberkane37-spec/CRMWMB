@@ -11,3 +11,4 @@ twilio==9.0.5
 geopy==2.4.1
 requests==2.32.3
 apscheduler==3.10.4
+openpyxl==3.1.5

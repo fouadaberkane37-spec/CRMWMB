@@ -67,6 +67,52 @@ STATUS_LABELS = {
 }
 
 
+@router.get("/export/reactivation")
+def export_reactivation(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Styled .xlsx call sheet of past clients whose calendar job is done & paid."""
+    if current_user.role not in ("admin", "ceo"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    from reactivation_sheet import build_reactivation_workbook
+
+    deals = (
+        db.query(models.Deal)
+        .options(joinedload(models.Deal.contact))
+        .filter(models.Deal.expected_close_date.isnot(None))
+        .filter(models.Deal.job_status == "done")
+        .order_by(models.Deal.expected_close_date.desc())
+        .all()
+    )
+
+    # One row per client, keeping their most recent completed job
+    latest = {}
+    for d in deals:
+        key = ("c", d.contact_id) if d.contact_id else ("d", d.id)
+        if key not in latest:
+            latest[key] = d
+
+    rows = []
+    for d in latest.values():
+        c = d.contact
+        name = f"{c.first_name or ''} {c.last_name or ''}".strip() if c else ""
+        svc_keys = [s.strip() for s in (c.services if c and c.services else "").split(",") if s.strip()]
+        rows.append({
+            "name": name or d.title or f"Job #{d.id}",
+            "phone": c.phone if c else "",
+            "address": c.address if c else "",
+            "last_service": d.expected_close_date,
+            "services": ", ".join(SERVICE_LABELS.get(k, k) for k in svc_keys),
+            "paid": d.value or 0,
+        })
+    rows.sort(key=lambda r: r["last_service"])
+
+    filename = f"reactivation-call-sheet-{datetime.utcnow().strftime('%Y-%m-%d')}.xlsx"
+    return StreamingResponse(
+        io.BytesIO(build_reactivation_workbook(rows)),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/export/scheduled")
 def export_scheduled(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     """Export all scheduled (calendar-booked) deals as CSV — opens directly in Excel."""

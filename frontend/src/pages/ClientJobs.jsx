@@ -1,7 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import api from '../api.js'
-import { ClipboardList, RefreshCw, Loader2, X, Check, DollarSign, FileText, Download } from 'lucide-react'
+import { ClipboardList, RefreshCw, Loader2, X, Check, DollarSign, FileText, Download, PhoneCall } from 'lucide-react'
+
+async function downloadFile(path, filename) {
+  try {
+    const r = await api.get(path, { responseType: 'blob' })
+    const url  = window.URL.createObjectURL(r.data)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  } catch {
+    alert('Failed to download. Please try again.')
+  }
+}
 
 const WINDOW_SERVICES = [
   { key: 'window-ext', label: 'Windows (Ext)' },
@@ -270,21 +286,14 @@ export default function ClientJobs() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={async () => {
-              try {
-                const r = await api.get('/deals/export/scheduled', { responseType: 'blob' })
-                const url  = window.URL.createObjectURL(new Blob([r.data]))
-                const link = document.createElement('a')
-                link.href = url
-                link.setAttribute('download', `scheduled-clients-${new Date().toISOString().slice(0,10)}.csv`)
-                document.body.appendChild(link)
-                link.click()
-                link.remove()
-                window.URL.revokeObjectURL(url)
-              } catch {
-                alert('Failed to download export. Please try again.')
-              }
-            }}
+            onClick={() => downloadFile('/deals/export/reactivation', `reactivation-call-sheet-${new Date().toISOString().slice(0,10)}.xlsx`)}
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-full"
+          >
+            <PhoneCall size={14} />
+            Call Sheet
+          </button>
+          <button
+            onClick={() => downloadFile('/deals/export/scheduled', `scheduled-clients-${new Date().toISOString().slice(0,10)}.csv`)}
             className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-full"
           >
             <Download size={14} />
