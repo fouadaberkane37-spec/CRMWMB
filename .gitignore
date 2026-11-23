@@ -54,3 +54,6 @@ logs/
 # Client import data — contains PII, must NOT be committed to the repo
 data/
 scripts/build_saguenay_csv.py
+
+# Preview login (never commit)
+.preview-login.txt
