@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import { LEAD_STATUSES, statusOf, circlePin, customerPin, DOT_ZOOM } from '../mapPins.js'
 import 'leaflet/dist/leaflet.css'
 import api from '../api.js'
 import { Users, ChevronDown, Navigation } from 'lucide-react'
@@ -29,40 +30,16 @@ function makePin(color) {
   })
 }
 
-// Contact pins — identical to Personal Map
-const clientPinIcon = makePin('#818cf8')
+const STATUS_LABELS = Object.fromEntries(LEAD_STATUSES.map((st) => [st.key, st.label]))
 
-const bookedPinIcon = L.divIcon({
-  className: '',
-  html: `<svg width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg">
-    <path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#f59e0b" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/>
-    <circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/>
-    <rect x="9" y="10" width="8" height="6.5" rx="1" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
-    <line x1="11" y1="9" x2="11" y2="11" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
-    <line x1="15" y1="9" x2="15" y2="11" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
-    <line x1="9" y1="13" x2="17" y2="13" stroke="#f59e0b" stroke-width="1.2"/>
-  </svg>`,
-  iconSize: [26, 36], iconAnchor: [13, 36], popupAnchor: [0, -38],
-})
-
-const donePinIcon = L.divIcon({
-  className: '',
-  html: `<svg width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg">
-    <path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#10b981" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/>
-    <circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/>
-    <polyline points="9,13 11.5,15.5 17,10" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`,
-  iconSize: [26, 36], iconAnchor: [13, 36], popupAnchor: [0, -38],
-})
-
-const STATUS_LABELS = {
-  knocked: 'Knocked', not_home: 'Not Home', answered: 'Answered',
-  interested: 'Interested', not_interested: 'Not Interested',
-}
-
-function MapReady({ onReady }) {
+function MapReady({ onReady, onZoom }) {
   const map = useMap()
-  useEffect(() => { onReady(map) }, [map])
+  useEffect(() => { onReady(map); onZoom && onZoom(map.getZoom()) }, [map])
+  useEffect(() => {
+    const h = () => onZoom && onZoom(map.getZoom())
+    map.on('zoomend', h)
+    return () => map.off('zoomend', h)
+  }, [map])
   return null
 }
 
@@ -74,6 +51,7 @@ export default function TeamMap() {
   const [teamUsers, setTeamUsers] = useState([])
   const [synced, setSynced]     = useState(true)
   const [filterUserId, setFilterUserId] = useState(null)
+  const [zoom, setZoom]         = useState(12)
   const [filterOpen, setFilterOpen]     = useState(false)
   const mapRef = useRef(null)
 
@@ -136,13 +114,13 @@ export default function TeamMap() {
         zoomControl={false} attributionControl={false}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <MapReady onReady={(m) => { mapRef.current = m }} />
+        <MapReady onReady={(m) => { mapRef.current = m }} onZoom={setZoom} />
 
         {/* Contact / lead pins — same icons & logic as Personal Map */}
         {geocodedContacts.map((c) => {
           const isDone   = doneContactIds.has(c.id)
           const isBooked = bookedContactIds.has(c.id)
-          const icon = isDone ? donePinIcon : isBooked ? bookedPinIcon : clientPinIcon
+          const icon = customerPin(isDone ? 'done' : isBooked ? 'booked' : 'customer', zoom < DOT_ZOOM)
           return (
             <Marker key={`contact-${c.id}`} position={[c.lat, c.lng]} icon={icon}
               zIndexOffset={isDone ? 600 : isBooked ? 500 : 0}>
@@ -168,7 +146,7 @@ export default function TeamMap() {
 
         {/* Knock pins — colored by agent */}
         {filtered.map((k) => (
-          <Marker key={k.id} position={[k.lat, k.lng]} icon={getPinIcon(k.created_by)}>
+          <Marker key={k.id} position={[k.lat, k.lng]} icon={circlePin(statusOf(k.status).color, statusOf(k.status).Icon, { dot: zoom < DOT_ZOOM, ring: getUserColor(k.created_by, userOrder) })}>
             <Popup minWidth={200}>
               <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0', marginBottom: 4 }}>
@@ -183,7 +161,7 @@ export default function TeamMap() {
                       : `User #${k.created_by}`}
                   </span>
                 </div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{STATUS_LABELS[k.status] || k.status}</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>{statusOf(k.status).label}</div>
                 {k.notes && <div style={{ marginTop: 6, padding: '5px 8px', background: 'rgba(0,0,0,0.25)', borderRadius: 6, fontSize: 11, color: '#cbd5e1' }}>{k.notes}</div>}
               </div>
             </Popup>

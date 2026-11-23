@@ -333,6 +333,15 @@ for _col, _stmt in _contact_migrations:
         pass  # already exists
 
 
+# ZF CRM v2: map knock statuses to the Blue work lead-status set
+for _old, _new in (("knocked", "contacted"), ("answered", "contacted"),
+                   ("interested", "follow_up"), ("not_interested", "no")):
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text("UPDATE knocks SET status = :n WHERE status = :o"), {"n": _new, "o": _old})
+    except Exception:
+        pass
+
 # ZF CRM v2: Blue work bridge traceability (external_ref = Blue work id)
 for _tbl in ("contacts", "deals"):
     _sql = f"ALTER TABLE {_tbl} ADD COLUMN{'' if _is_sqlite else ' IF NOT EXISTS'} external_ref VARCHAR"

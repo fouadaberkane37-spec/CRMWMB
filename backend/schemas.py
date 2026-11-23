@@ -208,12 +208,20 @@ class Activity(ActivityBase):
         from_attributes = True
 
 
+# Blue work lead statuses (+ legacy values still accepted)
+KnockStatus = Literal[
+    "new", "not_home", "contacted", "follow_up", "quote", "scheduled", "sale", "completed",
+    "uncertain", "no", "lost", "cancelled", "avoid", "other",
+    "knocked", "answered", "interested", "not_interested",
+]
+
+
 # ── Knock ─────────────────────────────────────────────────────────────────────
 class KnockBase(BaseModel):
     lat: float
     lng: float
     address: Optional[str] = Field(default=None, max_length=300)
-    status: Literal["knocked", "answered", "not_home", "interested", "not_interested"] = "knocked"
+    status: KnockStatus = "new"
     notes: Optional[str] = Field(default=None, max_length=2000)
     contact_id: Optional[int] = None
 
@@ -224,7 +232,7 @@ class KnockCreate(KnockBase):
 
 class KnockUpdate(BaseModel):
     address: Optional[str] = Field(default=None, max_length=300)
-    status: Optional[Literal["knocked", "answered", "not_home", "interested", "not_interested"]] = None
+    status: Optional[KnockStatus] = None
     notes: Optional[str] = Field(default=None, max_length=2000)
     contact_id: Optional[int] = None
 

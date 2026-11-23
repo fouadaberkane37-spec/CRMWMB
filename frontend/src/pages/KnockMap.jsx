@@ -4,6 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
+import { LEAD_STATUSES, statusPin, customerPin, statusOf, DOT_ZOOM } from '../mapPins.js'
 import { Plus, Navigation, X, MapPin, ChevronDown, CalendarDays, CheckCircle2 } from 'lucide-react'
 
 // Fix Vite broken Leaflet default icons
@@ -16,15 +17,9 @@ L.Icon.Default.mergeOptions({
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUSES = [
-  { key: 'knocked',        label: 'Knocked',        color: '#94a3b8', tw: 'bg-slate-400'   },
-  { key: 'not_home',       label: 'Not Home',       color: '#f59e0b', tw: 'bg-amber-400'   },
-  { key: 'answered',       label: 'Answered',       color: '#3b82f6', tw: 'bg-blue-500'    },
-  { key: 'interested',     label: 'Interested',     color: '#22c55e', tw: 'bg-green-500'   },
-  { key: 'not_interested', label: 'Not Interested', color: '#ef4444', tw: 'bg-red-500'     },
-]
+const STATUSES = LEAD_STATUSES
 
-const EMPTY_FORM = { address: '', status: 'knocked', notes: '', contact_id: '' }
+const EMPTY_FORM = { address: '', status: 'new', notes: '', contact_id: '' }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -52,43 +47,13 @@ const locationDotIcon = L.divIcon({
   iconSize: [18, 18], iconAnchor: [9, 9],
 })
 
-const pinIcons = Object.fromEntries(STATUSES.map((s) => [s.key, makePin(s.color)]))
-
-// Client pin — indigo, distinct from knock pins
-const clientPinIcon = makePin('#818cf8')
-
-// Booked/scheduled pin — amber, calendar icon
-const bookedPinIcon = L.divIcon({
-  className: '',
-  html: `<div style="position:relative;display:inline-block">
-    <svg width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg">
-      <path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z"
-            fill="#f59e0b" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/>
-      <circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/>
-      <rect x="9" y="10" width="8" height="6.5" rx="1" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
-      <line x1="11" y1="9" x2="11" y2="11" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="15" y1="9" x2="15" y2="11" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="9" y1="13" x2="17" y2="13" stroke="#f59e0b" stroke-width="1.2"/>
-    </svg>
-  </div>`,
-  iconSize: [26, 36], iconAnchor: [13, 36], popupAnchor: [0, -38],
-})
-
-// Done pin — emerald with checkmark
-const donePinIcon = L.divIcon({
-  className: '',
-  html: `<div style="position:relative;display:inline-block">
-    <svg width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg">
-      <path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z"
-            fill="#10b981" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/>
-      <circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/>
-      <polyline points="9,13 11.5,15.5 17,10" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </div>`,
-  iconSize: [26, 36], iconAnchor: [13, 36], popupAnchor: [0, -38],
-})
-
 // ─── Internal Leaflet components ──────────────────────────────────────────────
+
+function ZoomWatcher({ onZoom }) {
+  const map = useMapEvents({ zoomend: () => onZoom(map.getZoom()) })
+  useEffect(() => { onZoom(map.getZoom()) }, [map])
+  return null
+}
 
 function MapController({ onReady, placing, onMove }) {
   const map = useMap()
@@ -105,6 +70,7 @@ export default function KnockMap() {
   const [contacts, setContacts]   = useState([])
   const [deals, setDeals]         = useState([])
   const [userLoc, setUserLoc]     = useState(null)       // { lat, lng }
+  const [zoom, setZoom]           = useState(13)
   const [locError, setLocError]   = useState(false)
 
   // pin-placement flow
@@ -238,8 +204,8 @@ export default function KnockMap() {
 
   // Only show this user's own pins — use Team Map to see everyone's pins
   const myKnocks = knocks.filter((k) => k.created_by === user?.id)
-  const filtered = filterStatus ? myKnocks.filter((k) => k.status === filterStatus) : myKnocks
-  const counts   = Object.fromEntries(STATUSES.map((s) => [s.key, myKnocks.filter((k) => k.status === s.key).length]))
+  const filtered = filterStatus ? myKnocks.filter((k) => statusOf(k.status).key === filterStatus) : myKnocks
+  const counts   = Object.fromEntries(STATUSES.map((s) => [s.key, myKnocks.filter((k) => statusOf(k.status).key === s.key).length]))
   const activeStatus = STATUSES.find((s) => s.key === filterStatus)
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -261,6 +227,7 @@ export default function KnockMap() {
           placing={mode === 'placing'}
           onMove={() => {}}
         />
+        <ZoomWatcher onZoom={setZoom} />
 
         {/* User location dot */}
         {userLoc && (
@@ -271,7 +238,7 @@ export default function KnockMap() {
         {contacts.filter((c) => c.lat && c.lng).map((c) => {
           const isDone   = doneContactIds.has(c.id)
           const isBooked = bookedContactIds.has(c.id)
-          const icon = isDone ? donePinIcon : isBooked ? bookedPinIcon : clientPinIcon
+          const icon = customerPin(isDone ? 'done' : isBooked ? 'booked' : 'customer', zoom < DOT_ZOOM)
           return (
             <Marker
               key={`client-${c.id}`}
@@ -340,7 +307,7 @@ export default function KnockMap() {
 
         {/* Saved knock pins */}
         {filtered.map((k) => (
-          <Marker key={k.id} position={[k.lat, k.lng]} icon={pinIcons[k.status] || pinIcons.knocked}>
+          <Marker key={k.id} position={[k.lat, k.lng]} icon={statusPin(k.status, zoom < DOT_ZOOM)}>
             <Popup minWidth={220} className="knock-popup">
               <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
                 {/* Address + delete */}
@@ -377,9 +344,9 @@ export default function KnockMap() {
                   {STATUSES.map((s) => (
                     <button key={s.key} onClick={() => updateStatus(k.id, s.key)} style={{
                       padding: '4px 9px', borderRadius: 20,
-                      border: `1.5px solid ${k.status === s.key ? s.color : 'rgba(100,116,139,0.4)'}`,
-                      background: k.status === s.key ? s.color : 'rgba(255,255,255,0.06)',
-                      color: k.status === s.key ? '#fff' : '#94a3b8',
+                      border: `1.5px solid ${statusOf(k.status).key === s.key ? s.color : 'rgba(100,116,139,0.4)'}`,
+                      background: statusOf(k.status).key === s.key ? s.color : 'rgba(255,255,255,0.06)',
+                      color: statusOf(k.status).key === s.key ? '#fff' : '#94a3b8',
                       fontSize: 11, cursor: 'pointer', fontWeight: 600,
                       transition: 'all 0.15s',
                     }}>

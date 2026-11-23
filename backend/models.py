@@ -129,7 +129,7 @@ class Knock(Base):
     lat = Column(Float, nullable=False)
     lng = Column(Float, nullable=False)
     address = Column(String)
-    status = Column(String, default="knocked")  # knocked | answered | not_home | interested | not_interested
+    status = Column(String, default="new")  # Blue work lead statuses, see frontend/src/mapPins.js
     notes = Column(Text)
     contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"))
