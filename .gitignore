@@ -56,4 +56,4 @@ data/
 scripts/build_saguenay_csv.py
 
 # Preview login (never commit)
-.preview-login.txt
+PREVIEW-LOGIN.txt
