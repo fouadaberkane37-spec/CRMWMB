@@ -16,8 +16,14 @@ from database import SessionLocal  # noqa: E402
 from auth import create_access_token, get_password_hash  # noqa: E402
 from routes import customers, service_plans  # noqa: E402
 
+_before = len(main.app.router.routes)
 for r in (customers.router, service_plans.router, service_plans.public_router):
     main.app.include_router(r)
+# Move our routes ahead of main's SPA catch-all (present when frontend/dist exists)
+_routes = main.app.router.routes
+_new = _routes[_before:]
+del _routes[_before:]
+_routes[0:0] = _new
 
 
 @pytest.fixture(scope="module")
