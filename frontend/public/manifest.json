@@ -1,7 +1,7 @@
 {
-  "name": "Groupe WMB CRM",
-  "short_name": "WMB CRM",
-  "description": "Team CRM for Groupe WMB window cleaning",
+  "name": "ZF Entretien CRM",
+  "short_name": "ZF CRM",
+  "description": "Team CRM for ZF Entretien window cleaning",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

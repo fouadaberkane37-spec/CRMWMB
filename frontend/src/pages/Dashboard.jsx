@@ -89,7 +89,7 @@ export default function Dashboard() {
         <h1 className="text-xl font-bold text-slate-100">
           Hey, {user?.full_name?.split(' ')[0] || user?.username} 👋
         </h1>
-        <p className="text-slate-500 text-sm mt-0.5">Groupe WMB overview</p>
+        <p className="text-slate-500 text-sm mt-0.5">ZF Entretien overview</p>
       </div>
 
       {/* Stats 2×2 grid */}

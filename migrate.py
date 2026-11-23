@@ -6,7 +6,7 @@ import urllib.request
 import urllib.error
 import json
 
-BASE = "https://crmwmb-production.up.railway.app/api"
+BASE = "https://crm.zfentretien.ca/api"
 
 
 def post(path, payload, token=None):

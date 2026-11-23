@@ -65,7 +65,7 @@ def _send_invite_sms(to_phone: str, invite_url: str, inviter_name: str, full_nam
 def _placeholder_email(phone: str) -> str:
     """Generate a unique internal email so the DB unique constraint is satisfied."""
     digits = re.sub(r"\D", "", phone)
-    return f"{digits}@wmb.internal"
+    return f"{digits}@zf.internal"
 
 
 @router.post("/", response_model=schemas.InviteOut)

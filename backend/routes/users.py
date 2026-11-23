@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 ALLOWED_ROLES = {"admin", "user", "technician", "sales", "ceo"}
 MIN_PASSWORD_LENGTH = 8
 _PWD_ALPHABET = string.ascii_letters + string.digits + "!@#$%&"
-APP_URL = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
+APP_URL = os.getenv("APP_URL", "https://crm.zfentretien.ca")
 
 
 def _validate_password(password: str):
@@ -38,7 +38,7 @@ def _send_welcome_sms(phone: str, name: str, username: str, password: str) -> bo
     try:
         from twilio.rest import Client
         body = (
-            f"Hi {name}! Your WMB CRM account is ready.\n"
+            f"Hi {name}! Your ZF CRM account is ready.\n"
             f"Username: {username}\n"
             f"Password: {password}\n"
             f"Login at: {APP_URL}"
@@ -59,7 +59,7 @@ def _send_password_sms(phone: str, name: str, password: str) -> bool:
     try:
         from twilio.rest import Client
         body = (
-            f"Hi {name}! Your WMB CRM password has been reset.\n"
+            f"Hi {name}! Your ZF CRM password has been reset.\n"
             f"New password: {password}\n"
             f"Please log in and update it right away."
         )

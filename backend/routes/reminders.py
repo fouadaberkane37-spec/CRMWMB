@@ -50,7 +50,7 @@ def _build_message(deal: models.Deal, hours: int = 24) -> str:
     service  = (deal.title or "service")[:80].replace("\r", "").replace("\n", " ")
     when     = "demain" if hours == 24 else "après-demain"
     return (
-        f"Rappel Groupe WMB: Vous avez un rendez-vous {when} à {time_str} — "
+        f"Rappel ZF Entretien: Vous avez un rendez-vous {when} à {time_str} — "
         f"{service} chez {name}, {address}. "
         f"Contactez le bureau si besoin."
     )

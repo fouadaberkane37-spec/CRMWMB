@@ -143,7 +143,7 @@ async def twilio_incoming(
     Public endpoint — no authentication required (Twilio calls this).
 
     Set your Twilio phone number's Messaging webhook to:
-        POST  https://crmwmb-production.up.railway.app/api/twilio/incoming
+        POST  https://crm.zfentretien.ca/api/twilio/incoming
 
     Twilio posts application/x-www-form-urlencoded with at minimum:
         From  — sender's E.164 phone number  (+15551234567)
@@ -207,7 +207,7 @@ def call_number_direct(
     if not my_phone:
         raise HTTPException(status_code=500, detail="CALL_FORWARD_TO not configured")
 
-    base_url    = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
+    base_url    = os.getenv("APP_URL", "https://crm.zfentretien.ca")
     connect_url = f"{base_url}/api/twilio/connect?to={payload.phone}&from_num={from_num}"
 
     client = Client(sid, token)
@@ -248,7 +248,7 @@ def initiate_call(
         raise HTTPException(status_code=500, detail="CALL_FORWARD_TO not configured")
 
     # Build the connect URL — Twilio fetches this when Fouad picks up
-    base_url = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
+    base_url = os.getenv("APP_URL", "https://crm.zfentretien.ca")
     connect_url = f"{base_url}/api/twilio/connect?to={contact.phone}&from_num={from_num}"
 
     client = Client(sid, token)
@@ -443,7 +443,7 @@ async def twilio_voice(
     Logs the call as a chat message on the matching contact.
 
     Set your Twilio phone number's Voice webhook to:
-        POST  https://crmwmb-production.up.railway.app/api/twilio/voice
+        POST  https://crm.zfentretien.ca/api/twilio/voice
     """
     form = await request.form()
 

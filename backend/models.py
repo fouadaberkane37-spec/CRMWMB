@@ -61,6 +61,7 @@ class Contact(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
+    external_ref = Column(String, nullable=True, index=True)  # Blue work id (bridge)
 
     company = relationship("Company", back_populates="contacts")
     deals = relationship("Deal", back_populates="contact")
@@ -87,6 +88,7 @@ class Deal(Base):
     marked_done_at     = Column(DateTime, nullable=True)   # set when job_status first flips to "done"
     review_request_sent = Column(Boolean, default=False)   # post-job review/MERCI20 SMS sent
     invoice_sent       = Column(Boolean, default=False)    # invoice SMS sent to client
+    external_ref       = Column(String, nullable=True, index=True)  # Blue work id (bridge)
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -310,3 +312,175 @@ class DailyHoursLog(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", foreign_keys=[user_id])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ZF CRM v2 — Blue work–style modules (quotes, invoices, payments, plans).
+# Money is stored in integer cents. Customers are `contacts` rows.
+# `external_ref` holds the Blue work id for records imported by the bridge.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AppSetting(Base):
+    """Workspace settings as key/value (company name, tax numbers, templates…)."""
+    __tablename__ = "app_settings"
+    key = Column(String, primary_key=True)
+    value = Column(Text)
+
+
+class Property(Base):
+    """A service address belonging to a customer (a customer can have several)."""
+    __tablename__ = "properties"
+    id = Column(Integer, primary_key=True, index=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=False, index=True)
+    label = Column(String, nullable=True)        # "Maison", "Chalet", …
+    address = Column(Text, nullable=False)
+    city = Column(String, nullable=True)
+    postal_code = Column(String, nullable=True)
+    lat = Column(Float, nullable=True)
+    lng = Column(Float, nullable=True)
+    notes = Column(Text, nullable=True)          # windows count, floors, access…
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Service(Base):
+    """Price book entry."""
+    __tablename__ = "services"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)        # French (primary)
+    name_en = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    category = Column(String, nullable=True)     # windows | gutters | washing | pavers | other
+    unit_price_cents = Column(Integer, default=0)
+    default_minutes = Column(Integer, nullable=True)
+    taxable = Column(Boolean, default=True)
+    active = Column(Boolean, default=True)
+    position = Column(Integer, default=0)
+
+
+class LineItem(Base):
+    """Line of a quote, invoice or job. parent_type: quote | invoice | job (job = deals.id)."""
+    __tablename__ = "line_items"
+    id = Column(Integer, primary_key=True, index=True)
+    parent_type = Column(String, nullable=False, index=True)
+    parent_id = Column(Integer, nullable=False, index=True)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    qty = Column(Float, default=1)
+    unit_price_cents = Column(Integer, default=0)
+    taxable = Column(Boolean, default=True)
+    position = Column(Integer, default=0)
+
+
+class Quote(Base):
+    """status: draft | sent | viewed | accepted | declined | expired"""
+    __tablename__ = "quotes"
+    id = Column(Integer, primary_key=True, index=True)
+    number = Column(String, unique=True, index=True)          # e.g. Q-1001
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=True)
+    deal_id = Column(Integer, ForeignKey("deals.id"), nullable=True)   # job created on acceptance
+    status = Column(String, default="draft", index=True)
+    title = Column(String, nullable=True)
+    message = Column(Text, nullable=True)
+    discount_type = Column(String, nullable=True)            # percent | fixed | None
+    discount_value = Column(Float, default=0)                # percent (0-100) or cents
+    subtotal_cents = Column(Integer, default=0)
+    discount_cents = Column(Integer, default=0)
+    tps_cents = Column(Integer, default=0)
+    tvq_cents = Column(Integer, default=0)
+    total_cents = Column(Integer, default=0)
+    require_signature = Column(Boolean, default=True)
+    signature_name = Column(String, nullable=True)
+    signature_data = Column(Text, nullable=True)             # PNG data URL
+    signed_ip = Column(String, nullable=True)
+    token = Column(String, unique=True, index=True)          # public link token
+    sent_at = Column(DateTime, nullable=True)
+    viewed_at = Column(DateTime, nullable=True)
+    accepted_at = Column(DateTime, nullable=True)
+    declined_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    external_ref = Column(String, nullable=True, index=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contact = relationship("Contact")
+
+
+class Invoice(Base):
+    """status: draft | sent | viewed | partial | paid | cancelled | refunded"""
+    __tablename__ = "invoices"
+    id = Column(Integer, primary_key=True, index=True)
+    number = Column(String, unique=True, index=True)          # e.g. F-1001
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=False, index=True)
+    deal_id = Column(Integer, ForeignKey("deals.id"), nullable=True, index=True)
+    quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True)
+    status = Column(String, default="draft", index=True)
+    issue_date = Column(DateTime, default=datetime.utcnow)
+    due_date = Column(DateTime, nullable=True)
+    discount_type = Column(String, nullable=True)
+    discount_value = Column(Float, default=0)
+    subtotal_cents = Column(Integer, default=0)
+    discount_cents = Column(Integer, default=0)
+    tps_cents = Column(Integer, default=0)
+    tvq_cents = Column(Integer, default=0)
+    tip_cents = Column(Integer, default=0)
+    total_cents = Column(Integer, default=0)
+    paid_cents = Column(Integer, default=0)
+    notes = Column(Text, nullable=True)
+    token = Column(String, unique=True, index=True)
+    sent_at = Column(DateTime, nullable=True)
+    viewed_at = Column(DateTime, nullable=True)
+    paid_at = Column(DateTime, nullable=True)
+    external_ref = Column(String, nullable=True, index=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contact = relationship("Contact")
+    payments = relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")
+
+
+class Payment(Base):
+    """method: interac | cash | cheque | card | stripe | other"""
+    __tablename__ = "payments"
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False, index=True)
+    method = Column(String, default="interac")
+    amount_cents = Column(Integer, nullable=False)
+    refunded_cents = Column(Integer, default=0)
+    reference = Column(String, nullable=True)
+    paid_at = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text, nullable=True)
+    external_ref = Column(String, nullable=True, index=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    invoice = relationship("Invoice", back_populates="payments")
+
+
+class ServicePlan(Base):
+    """Recurring service agreement. status: draft | sent | active | past_due | cancelled | expired"""
+    __tablename__ = "service_plans"
+    id = Column(Integer, primary_key=True, index=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=True)
+    name = Column(String, nullable=False)
+    status = Column(String, default="draft", index=True)
+    included_services = Column(Text, nullable=True)
+    visits_per_year = Column(Integer, default=1)
+    price_cents = Column(Integer, default=0)            # per billing period
+    billing_frequency = Column(String, default="yearly")  # per_visit | monthly | yearly
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)          # None = until cancelled
+    terms = Column(Text, nullable=True)
+    signature_name = Column(String, nullable=True)
+    signature_data = Column(Text, nullable=True)
+    signed_at = Column(DateTime, nullable=True)
+    token = Column(String, unique=True, index=True)
+    external_ref = Column(String, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contact = relationship("Contact")

@@ -14,7 +14,7 @@ log = logging.getLogger("invoices")
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
-COMPANY_NAME    = os.getenv("COMPANY_NAME",    "GROUPE WMB")
+COMPANY_NAME    = os.getenv("COMPANY_NAME",    "ZF ENTRETIEN")
 COMPANY_PHONE   = os.getenv("COMPANY_PHONE",   "(514) 559-7007")
 COMPANY_EMAIL   = os.getenv("COMPANY_EMAIL",   "")
 COMPANY_ADDRESS = os.getenv("COMPANY_ADDRESS", "575 Robert-Élie, Laval, QC H7N 0E8")
@@ -187,7 +187,7 @@ def _invoice_html(deal: models.Deal) -> str:
   <!-- Header -->
   <div class="header">
     <div>
-      <div class="logo">WMB<span>.</span></div>
+      <div class="logo">ZF<span>.</span></div>
       <div style="font-size:12px;color:#9ca3af;margin-top:4px;">Window &amp; Maintenance</div>
     </div>
     <div class="company-info">
@@ -286,17 +286,17 @@ def _invoice_token(deal_id: int) -> str:
 
 
 def invoice_public_url(deal_id: int) -> str:
-    base_url = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
+    base_url = os.getenv("APP_URL", "https://crm.zfentretien.ca")
     return f"{base_url}/api/invoices/public/{deal_id}?t={_invoice_token(deal_id)}"
 
 
 def invoice_pdf_url(deal_id: int) -> str:
-    base_url = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
+    base_url = os.getenv("APP_URL", "https://crm.zfentretien.ca")
     return f"{base_url}/api/invoices/public/{deal_id}/pdf?t={_invoice_token(deal_id)}"
 
 
 def invoice_image_url(deal_id: int) -> str:
-    base_url = os.getenv("APP_URL", "https://crmwmb-production.up.railway.app")
+    base_url = os.getenv("APP_URL", "https://crm.zfentretien.ca")
     return f"{base_url}/api/invoices/public/{deal_id}/image?t={_invoice_token(deal_id)}"
 
 
@@ -378,7 +378,7 @@ def _invoice_card_html(deal: models.Deal, ctx: dict) -> str:
     return f"""
   <table class="layout"><tr>
     <td style="vertical-align:top;">
-      <div class="logo">WMB<span>.</span></div>
+      <div class="logo">ZF<span>.</span></div>
       <div style="font-size:12px;color:#9ca3af;margin-top:4px;">Window &amp; Maintenance</div>
     </td>
     <td class="company-info" style="vertical-align:top;">

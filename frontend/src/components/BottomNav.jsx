@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Users, BookOpen,
   Menu, MapPin, UserCog, LogOut, X, MessageSquare, Globe, CalendarDays,
   Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase, Leaf, Receipt, Activity,
+  FileText, Repeat, Tag, ArrowLeftRight,
 } from 'lucide-react'
 
 export default function BottomNav() {
@@ -68,6 +69,12 @@ export default function BottomNav() {
         { to: '/chats',        label: 'Messages',       icon: MessageSquare },
         { to: '/team-sales',   label: 'Team Sales',     icon: BarChart2 },
         { to: '/client-jobs',  label: 'Client Jobs',    icon: Receipt },
+        { to: '/customers',    label: 'Customers',      icon: Users },
+        { to: '/quotes',       label: 'Quotes',         icon: FileText },
+        { to: '/invoices',     label: 'Invoices',       icon: Receipt },
+        { to: '/service-plans', label: 'Service Plans', icon: Repeat },
+        { to: '/settings/price-book', label: 'Price Book', icon: Tag },
+        { to: '/settings/import', label: 'Blue work Bridge', icon: ArrowLeftRight },
         { to: '/jobs-overview', label: 'Jobs Overview',  icon: Activity },
         { to: '/timesheet',    label: 'Timesheet',      icon: ClipboardList },
         { to: '/new-numbers',  label: 'New Numbers',    icon: PhoneIncoming },

@@ -1,4 +1,4 @@
-# Self-Hosted CRM
+# ZF CRM — ZF Entretien
 
 A fully self-hosted CRM — your data stays 100% on your machine. No subscriptions, no seat limits, no data sent anywhere.
 

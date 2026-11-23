@@ -5,42 +5,67 @@ import {
   LayoutDashboard, Users, BookOpen,
   UserCog, LogOut, Zap, MapPin, Search, MessageSquare, Globe, CalendarDays,
   Timer, ClipboardList, TrendingUp, PhoneIncoming, BarChart2, Briefcase, Leaf,
+  Contact2, Activity, FileText, Receipt, Repeat, Tag, ArrowLeftRight,
 } from 'lucide-react'
 import api from '../api.js'
 
+// Navigation grouped like Blue work: Sales Hub, Schedule, Customers, Communication, Team, Settings
 const ADMIN_NAV_GROUPS = [
   {
     label: 'Overview',
     items: [
       { to: '/',          label: 'Dashboard',  icon: LayoutDashboard, exact: true },
       { to: '/analytics', label: 'Analytics',  icon: TrendingUp },
-      { to: '/contacts',  label: 'Contacts',   icon: Users },
     ],
   },
   {
-    label: 'Operations',
+    label: 'Sales Hub',
     items: [
-      { to: '/booking',        label: 'Booking',        icon: BookOpen },
-      { to: '/calendar',       label: 'Calendar',       icon: CalendarDays },
-      { to: '/landscape',      label: 'Landscape',      icon: Leaf },
-      { to: '/job-assignment', label: 'Job Assignment', icon: Briefcase },
-    ],
-  },
-  {
-    label: 'Maps & Leads',
-    items: [
-      { to: '/map',         label: 'My Map',      icon: MapPin },
+      { to: '/contacts',    label: 'Leads & Contacts', icon: Users },
+      { to: '/map',         label: 'D2D Map',     icon: MapPin },
       { to: '/team-map',    label: 'Team Map',    icon: Globe },
+      { to: '/landscape',   label: 'Pipeline',    icon: Leaf },
       { to: '/new-numbers', label: 'New Numbers', icon: PhoneIncoming },
+    ],
+  },
+  {
+    label: 'Schedule',
+    items: [
+      { to: '/calendar',       label: 'Calendar',       icon: CalendarDays },
+      { to: '/booking',        label: 'New Booking',    icon: BookOpen },
+      { to: '/job-assignment', label: 'Dispatch',       icon: Briefcase },
+      { to: '/tech-schedule',  label: 'Availability',   icon: ClipboardList },
+    ],
+  },
+  {
+    label: 'Customers',
+    items: [
+      { to: '/customers',     label: 'Customers',     icon: Contact2 },
+      { to: '/jobs-overview', label: 'Jobs',          icon: Activity },
+      { to: '/quotes',        label: 'Quotes',        icon: FileText },
+      { to: '/invoices',      label: 'Invoices',      icon: Receipt },
+      { to: '/service-plans', label: 'Service Plans', icon: Repeat },
+    ],
+  },
+  {
+    label: 'Communication',
+    items: [
+      { to: '/chats', label: 'Messages', icon: MessageSquare, badge: true },
     ],
   },
   {
     label: 'Team',
     items: [
-      { to: '/chats',      label: 'Messages',   icon: MessageSquare, badge: true },
       { to: '/team-sales', label: 'Team Sales', icon: BarChart2 },
-      { to: '/timesheet',  label: 'Timesheet',  icon: ClipboardList },
+      { to: '/timesheet',  label: 'Timesheet',  icon: Timer },
       { to: '/users',      label: 'Users',      icon: UserCog },
+    ],
+  },
+  {
+    label: 'Settings',
+    items: [
+      { to: '/settings/price-book', label: 'Price Book',        icon: Tag },
+      { to: '/settings/import',     label: 'Blue work Bridge',  icon: ArrowLeftRight },
     ],
   },
 ]
@@ -112,19 +137,19 @@ export default function Sidebar() {
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
       isActive
-        ? (isLandscape ? 'bg-emerald-800/60 text-emerald-200' : 'bg-indigo-600 text-white')
+        ? (isLandscape ? 'bg-emerald-800/60 text-emerald-200' : 'bg-[#5b8eff] text-white shadow-sm shadow-[#5b8eff]/30')
         : (isLandscape ? 'text-emerald-700 hover:text-emerald-200 hover:bg-emerald-900/40' : 'text-slate-400 hover:text-white hover:bg-slate-800')
     }`
 
   return (
-    <aside className={`w-60 flex-shrink-0 flex flex-col h-full ${isLandscape ? 'bg-[#020805]' : 'bg-slate-900'}`}>
+    <aside className={`w-60 flex-shrink-0 flex flex-col h-full ${isLandscape ? 'bg-[#020805]' : 'bg-[#0a0b0d]'}`}>
       {/* Logo */}
       <div className={`px-6 py-5 border-b ${isLandscape ? 'border-emerald-900/30' : 'border-slate-700/50'}`}>
         <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isLandscape ? 'bg-emerald-800' : 'bg-indigo-500'}`}>
-            <Zap size={16} className="text-white" />
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isLandscape ? 'bg-emerald-800' : 'bg-[#5b8eff]'}`}>
+            <span className="text-white font-black text-sm">ZF</span>
           </div>
-          <span className="text-white font-bold text-lg">CRM</span>
+          <div className="leading-tight"><span className="text-white font-bold text-base block">ZF Entretien</span><span className="text-[10px] text-slate-400 uppercase tracking-widest">CRM</span></div>
         </div>
       </div>
 

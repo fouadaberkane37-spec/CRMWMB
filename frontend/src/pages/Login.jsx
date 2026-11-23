@@ -104,7 +104,7 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-600 rounded-3xl mb-5 shadow-lg shadow-indigo-900/50">
             <span className="text-white text-4xl font-black">W</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">WMB CRM</h1>
+          <h1 className="text-3xl font-bold text-white">ZF CRM</h1>
           <p className="text-slate-400 text-sm mt-2">
             {step === 'otp' ? 'Enter your verification code' : 'Sign in to your account'}
           </p>
@@ -207,7 +207,7 @@ export default function Login() {
         )}
 
         <p className="text-center text-slate-600 text-xs mt-8">
-          Groupe WMB · Team CRM
+          ZF Entretien · Team CRM
         </p>
       </div>
     </div>

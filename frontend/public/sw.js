@@ -1,4 +1,4 @@
-const CACHE = 'wmb-crm-v1'
+const CACHE = 'zf-crm-v2'
 const STATIC = [
   '/',
   '/index.html',

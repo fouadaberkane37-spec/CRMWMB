@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Import a batch of clients from a CSV into the WMB CRM `contacts` table and tag
+Import a batch of clients from a CSV into the ZF CRM `contacts` table and tag
 them as a segment for Twilio SMS automation.
 
 CSV columns (header row required):

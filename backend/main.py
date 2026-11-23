@@ -333,6 +333,16 @@ for _col, _stmt in _contact_migrations:
         pass  # already exists
 
 
+# ZF CRM v2: Blue work bridge traceability (external_ref = Blue work id)
+for _tbl in ("contacts", "deals"):
+    _sql = f"ALTER TABLE {_tbl} ADD COLUMN{'' if _is_sqlite else ' IF NOT EXISTS'} external_ref VARCHAR"
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(_sql))
+    except Exception:
+        pass  # already exists
+
+
 # Add new contact columns (address, services, price) for existing production DBs
 _deal_migrations = [
     ("job_status",     "ALTER TABLE deals ADD COLUMN{if_not_exists} job_status VARCHAR DEFAULT 'todo'"),
@@ -395,7 +405,7 @@ def promote_admins():
 
 
 def seed_calendar_data():
-    """Create contacts + deals from Groupe WMB calendar appointments.
+    """Create contacts + deals from ZF Entretien calendar appointments.
     Runs once when SEED_CALENDAR=1 env var is set. Uses CALENDAR_OWNER username to assign ownership."""
     owner_username = os.getenv("CALENDAR_OWNER", "").strip()
     if not owner_username:

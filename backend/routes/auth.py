@@ -54,7 +54,7 @@ def _send_otp_sms(phone: str, otp: str) -> bool:
     try:
         from twilio.rest import Client
         Client(sid, token).messages.create(
-            body=f"Your WMB CRM verification code is: {otp}. It expires in 10 minutes.",
+            body=f"Your ZF CRM verification code is: {otp}. It expires in 10 minutes.",
             from_=from_,
             to=phone,
         )

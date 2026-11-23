@@ -33,20 +33,20 @@ router = APIRouter(prefix="/api/review-requests", tags=["review-requests"])
 
 def _message_fr(name: str, invoice_url: str) -> str:
     return (
-        f"Bonjour {name}, merci d'avoir choisi Groupe WMB pour le nettoyage de votre "
+        f"Bonjour {name}, merci d'avoir choisi ZF Entretien pour le nettoyage de votre "
         f"propriété. Voici votre facture : {invoice_url}. Si vous êtes satisfait du résultat, un avis Google nous aiderait "
         f"beaucoup : {REVIEW_LINK}. Pour vous remercier, profitez de 20 $ de rabais sur "
         f"votre prochain nettoyage (code {DISCOUNT_CODE}). Au plaisir de vous revoir! "
-        f"— Équipe Groupe WMB"
+        f"— Équipe ZF Entretien"
     )
 
 
 def _message_en(name: str, invoice_url: str) -> str:
     return (
-        f"Hi {name}, thank you for choosing Groupe WMB for your property cleaning. "
+        f"Hi {name}, thank you for choosing ZF Entretien for your property cleaning. "
         f"Here's your invoice: {invoice_url}. If you're happy with the results, a quick Google review would mean a lot: "
         f"{REVIEW_LINK}. As a thank-you, enjoy $20 off your next cleaning (code "
-        f"{DISCOUNT_CODE}). We look forward to seeing you again! — The Groupe WMB Team"
+        f"{DISCOUNT_CODE}). We look forward to seeing you again! — The ZF Entretien Team"
     )
 
 
@@ -63,20 +63,20 @@ def _build_message(contact: models.Contact, invoice_url: str) -> str:
 
 def _campaign_message_fr(name: str) -> str:
     return (
-        f"Bonjour {name}, merci d'avoir fait confiance à Groupe WMB pour le nettoyage de "
+        f"Bonjour {name}, merci d'avoir fait confiance à ZF Entretien pour le nettoyage de "
         f"votre propriété! Si vous avez apprécié notre travail, un avis Google nous "
         f"aiderait énormément : {REVIEW_LINK}. Profitez aussi de 20 $ de rabais sur votre "
         f"prochain nettoyage avec le code {DISCOUNT_CODE}. Au plaisir de vous revoir! "
-        f"— Équipe Groupe WMB"
+        f"— Équipe ZF Entretien"
     )
 
 
 def _campaign_message_en(name: str) -> str:
     return (
-        f"Hi {name}, thank you for trusting Groupe WMB with your property cleaning! "
+        f"Hi {name}, thank you for trusting ZF Entretien with your property cleaning! "
         f"If you enjoyed the results, a quick Google review would mean a lot: "
         f"{REVIEW_LINK}. Also enjoy $20 off your next cleaning with code "
-        f"{DISCOUNT_CODE}. We hope to see you again soon! — The Groupe WMB Team"
+        f"{DISCOUNT_CODE}. We hope to see you again soon! — The ZF Entretien Team"
     )
 
 

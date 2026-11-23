@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from collections import defaultdict
 from datetime import datetime
-import csv, io
+import csv, io, os
 from database import get_db, SessionLocal
 import models
 import schemas
@@ -62,7 +62,7 @@ def geocode_address(address: str):
             addr = addr[: -len(tail)].strip().rstrip(",").strip()
             break
 
-    HEADERS = {"User-Agent": "CRMWMB/1.0 groupewmb@gmail.com"}
+    HEADERS = {"User-Agent": "ZF-CRM/1.0 " + os.getenv("NOMINATIM_EMAIL", "")}
 
     # ── Nominatim — city-specific first, then broad ────────────────────────────
     city_suffixes = [
