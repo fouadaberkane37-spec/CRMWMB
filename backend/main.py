@@ -623,7 +623,10 @@ if _reset_for:
 # One-time admin password reset — self-disabling via DB marker table _pwd_reset_v1.
 # Resets the admin account password to "Admin1234!" so you can log in after a fresh deploy.
 # Runs exactly once; all subsequent deploys skip it because the marker table already exists.
+# Now OPT-IN ONLY (ONE_TIME_ADMIN_RESET=1): on a fresh database it set a publicly known password.
 try:
+    if os.getenv("ONE_TIME_ADMIN_RESET") != "1":
+        raise RuntimeError("skip")
     with engine.begin() as _conn:
         _conn.execute(text("CREATE TABLE _pwd_reset_v1 (id int)"))
     # Marker table just created → first time running → reset password
@@ -644,8 +647,10 @@ except Exception:
 
 promote_admins()
 
-# One-time auto-reset of admin password (runs once, self-disabling via DB marker)
+# One-time auto-reset of admin password — OPT-IN ONLY (ONE_TIME_ADMIN_RESET=1)
 try:
+    if os.getenv("ONE_TIME_ADMIN_RESET") != "1":
+        raise RuntimeError("skipped (ONE_TIME_ADMIN_RESET not set)")
     with engine.begin() as _c:
         _exists = _c.execute(text("SELECT to_regclass('_pwd_reset_v1')")).scalar()
         if not _exists:
@@ -698,7 +703,10 @@ if os.getenv("SEED_CALENDAR") == "1":
 
 # Reset bad geocoding — clear lat/lng outside Greater Montreal area.
 # Covers lat 45.1–46.1, lon -74.6 to -73.0 (~1 h from Montreal).
-try:
+# Opt-in only (STARTUP_GEO_RESET=1): it used to run on every startup and erased
+# valid coordinates for clients outside Montreal (e.g. Saguenay).
+if os.getenv("STARTUP_GEO_RESET") == "1":
+  try:
     with engine.begin() as _conn:
         _conn.execute(text(
             "UPDATE contacts SET lat = NULL, lng = NULL "
@@ -707,40 +715,44 @@ try:
             ")"
         ))
     print("[OK] Cleared out-of-area geocoding (outside Saint-Jerome/Laval/Montreal area)")
-except Exception as _e:
+  except Exception as _e:
     print(f"[WARN] geo-reset failed: {_e}")
 
-# Auto-dedup contacts on EVERY startup — keeps oldest per unique full name.
-# Prevents duplicates from re-appearing after redeployments or repeated CSV imports.
+# Contact dedup by full name — OPT-IN ONLY (STARTUP_DEDUP_CONTACTS=1).
+# It used to run on every startup and deleted different people sharing a name
+# (and then their jobs). Use the Contacts "dedupe" tool instead.
 _db = SessionLocal()
 try:
-    from collections import defaultdict as _dd
-    _all = _db.query(models.Contact).order_by(models.Contact.id.asc()).all()
-    _groups = _dd(list)
-    for _c in _all:
-        _key = (
-            f"{(_c.first_name or '').strip().lower()} "
-            f"{(_c.last_name or '').strip().lower()}"
-        ).strip()
-        _groups[_key].append(_c)
-    _deleted = 0
-    for _key, _grp in _groups.items():
-        for _dup in _grp[1:]:
-            _db.delete(_dup)
-            _deleted += 1
-    if _deleted:
-        _db.commit()
-        print(f"[OK] Auto-dedup: removed {_deleted} duplicate contact(s)")
+  if os.getenv("STARTUP_DEDUP_CONTACTS") == "1":
+      from collections import defaultdict as _dd
+      _all = _db.query(models.Contact).order_by(models.Contact.id.asc()).all()
+      _groups = _dd(list)
+      for _c in _all:
+          _key = (
+              f"{(_c.first_name or '').strip().lower()} "
+              f"{(_c.last_name or '').strip().lower()}"
+          ).strip()
+          _groups[_key].append(_c)
+      _deleted = 0
+      for _key, _grp in _groups.items():
+          for _dup in _grp[1:]:
+              _db.delete(_dup)
+              _deleted += 1
+      if _deleted:
+          _db.commit()
+          print(f"[OK] Auto-dedup: removed {_deleted} duplicate contact(s)")
 except Exception as _e:
     _db.rollback()
     print(f"[WARN] Auto-dedup failed: {_e}")
 finally:
     _db.close()
 
-# ── Deal cleanup (runs every startup) ─────────────────────────────────────────
+# ── Deal cleanup — OPT-IN ONLY (STARTUP_DEAL_CLEANUP=1) ──────────────────────
+# It used to run on every startup and permanently deleted jobs booked before 07:00
+# or from 17:00, and a customer's second job on the same day.
 _db = SessionLocal()
 try:
-    _all_deals = _db.query(models.Deal).filter(models.Deal.expected_close_date.isnot(None)).order_by(models.Deal.id.asc()).all()
+    _all_deals = _db.query(models.Deal).filter(models.Deal.expected_close_date.isnot(None)).order_by(models.Deal.id.asc()).all() if os.getenv("STARTUP_DEAL_CLEANUP") == "1" else []
     _valid_contact_ids = {c.id for c in _db.query(models.Contact.id).all()}
     _to_delete = set()
 
