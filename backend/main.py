@@ -16,13 +16,17 @@ from routes import invoices as invoices_routes
 from routes import hours as hours_routes
 from routes import review_requests as review_requests_routes
 from routes import campaigns as campaigns_routes
+from routes import quotes as quotes_routes, pricebook as pricebook_routes
+from routes import billing as billing_routes
+from routes import customers as customers_routes, service_plans as service_plans_routes
+from routes import bridge as bridge_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
 
 _is_prod = os.getenv("ENV", "").lower() == "production"
 _docs_url = None if _is_prod else "/api/docs"
-app = FastAPI(title="Self-Hosted CRM", version="1.0.0", docs_url=_docs_url, redoc_url=None, redirect_slashes=False)
+app = FastAPI(title="ZF CRM", version="1.0.0", docs_url=_docs_url, redoc_url=None, redirect_slashes=False)
 
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
 if _raw_origins and _raw_origins.strip() != "*":
@@ -829,6 +833,16 @@ app.include_router(invoices_routes.router)
 app.include_router(hours_routes.router)
 app.include_router(review_requests_routes.router)
 app.include_router(campaigns_routes.router)
+# ZF CRM v2 modules
+app.include_router(quotes_routes.router)
+app.include_router(quotes_routes.public_router)
+app.include_router(pricebook_routes.router)
+app.include_router(billing_routes.router)
+app.include_router(billing_routes.public_router)
+app.include_router(customers_routes.router)
+app.include_router(service_plans_routes.router)
+app.include_router(service_plans_routes.public_router)
+app.include_router(bridge_routes.router)
 
 # Start 24h reminder scheduler
 reminders_routes.start_scheduler()

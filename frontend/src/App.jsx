@@ -22,6 +22,18 @@ import JobAssignment from './pages/JobAssignment.jsx'
 import LandscapePipeline from './pages/LandscapePipeline.jsx'
 import ClientJobs from './pages/ClientJobs.jsx'
 import JobsOverview from './pages/JobsOverview.jsx'
+import Quotes from './pages/Quotes.jsx'
+import QuoteEditor from './pages/QuoteEditor.jsx'
+import PriceBook from './pages/PriceBook.jsx'
+import PublicQuote from './pages/PublicQuote.jsx'
+import Invoices from './pages/Invoices.jsx'
+import InvoiceDetail from './pages/InvoiceDetail.jsx'
+import PublicInvoice from './pages/PublicInvoice.jsx'
+import Customers from './pages/Customers.jsx'
+import CustomerDetail from './pages/CustomerDetail.jsx'
+import ServicePlans from './pages/ServicePlans.jsx'
+import PublicPlan from './pages/PublicPlan.jsx'
+import BlueworkBridge from './pages/BlueworkBridge.jsx'
 
 export const AuthContext = createContext(null)
 
@@ -67,6 +79,10 @@ export default function App() {
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
           <Route path="/invite/:token" element={<AcceptInvite />} />
+          {/* Public customer pages (no login) */}
+          <Route path="/q/:token" element={<PublicQuote />} />
+          <Route path="/i/:token" element={<PublicInvoice />} />
+          <Route path="/p/:token" element={<PublicPlan />} />
           <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
             <Route index element={
             user?.role === 'technician'
@@ -91,6 +107,17 @@ export default function App() {
             <Route path="landscape" element={<RequireAdmin><LandscapePipeline /></RequireAdmin>} />
             <Route path="client-jobs" element={<RequireAdmin><ClientJobs /></RequireAdmin>} />
             <Route path="jobs-overview" element={<RequireAdmin><JobsOverview /></RequireAdmin>} />
+            <Route path="customers" element={<RequireAdmin><Customers /></RequireAdmin>} />
+            <Route path="customers/:id" element={<RequireAdmin><CustomerDetail /></RequireAdmin>} />
+            <Route path="quotes" element={<Quotes />} />
+            <Route path="quotes/new" element={<QuoteEditor />} />
+            <Route path="quotes/:id" element={<QuoteEditor />} />
+            <Route path="invoices" element={<RequireAdmin><Invoices /></RequireAdmin>} />
+            <Route path="invoices/new" element={<RequireAdmin><InvoiceDetail /></RequireAdmin>} />
+            <Route path="invoices/:id" element={<RequireAdmin><InvoiceDetail /></RequireAdmin>} />
+            <Route path="service-plans" element={<RequireAdmin><ServicePlans /></RequireAdmin>} />
+            <Route path="settings/price-book" element={<RequireAdmin><PriceBook /></RequireAdmin>} />
+            <Route path="settings/import" element={<RequireAdmin><BlueworkBridge /></RequireAdmin>} />
           </Route>
         </Routes>
       </BrowserRouter>
