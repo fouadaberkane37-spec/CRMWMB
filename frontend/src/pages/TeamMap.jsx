@@ -113,7 +113,7 @@ export default function TeamMap() {
         style={{ position: 'absolute', inset: 0, zIndex: 0 }}
         zoomControl={false} attributionControl={false}
       >
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" crossOrigin="anonymous" />
         <MapReady onReady={(m) => { mapRef.current = m }} onZoom={setZoom} />
 
         {/* Contact / lead pins — same icons & logic as Personal Map */}

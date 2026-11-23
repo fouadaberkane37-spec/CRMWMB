@@ -71,6 +71,7 @@ export default function App() {
     setToken(null)
     localStorage.removeItem('user')
     localStorage.removeItem('token')
+    navigator.serviceWorker?.controller?.postMessage('clear-api-cache')
   }
 
   return (

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import api, { openInvoice } from '../api.js'
 import { useAuth } from '../App.jsx'
 import { estimateMinutes, fmtDuration, endTimeFromIso } from '../serviceMeta.js'
+import JobPhotos from '../components/JobPhotos.jsx'
 import { ChevronLeft, ChevronRight, DollarSign, CalendarDays, Clock, X, Lock,
          Phone, Mail, MapPin, Navigation, Timer, CheckCircle, MessageSquare,
          ClipboardList, AlertCircle, ChevronDown, ExternalLink, LogIn, LogOut,
@@ -315,6 +316,9 @@ function TechJobModal({ deal, allDeals, onClose, onClockAction }) {
             </div>
           )}
 
+          {/* Photos of the customer's requests */}
+          <JobPhotos dealId={deal.id} />
+
           {/* Clock In / Out */}
           <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/40">
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -485,6 +489,9 @@ function DealDetailSheet({ deal, onUpdate, onReschedule, onDelete, onClose }) {
             </div>
           </div>
         )}
+
+        {/* Photos of the customer's requests */}
+        <JobPhotos dealId={deal.id} />
 
         {/* Assigned techs */}
         {deal.assigned_techs?.length > 0 && (

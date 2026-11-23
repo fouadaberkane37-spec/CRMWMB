@@ -60,7 +60,7 @@ export function circlePin(color, Icon, { dot = false, size = 32, ring = null } =
   if (dot) {
     icon = L.divIcon({
       className: '',
-      html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 1px 3px rgba(15,23,42,.35)"></div>`,
+      html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 1px 3px rgba(15,23,42,.35)${ring ? `,0 0 0 2.5px ${ring}` : ''}"></div>`,
       iconSize: [12, 12], iconAnchor: [6, 6], popupAnchor: [0, -8],
     })
   } else {

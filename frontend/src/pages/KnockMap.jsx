@@ -4,8 +4,9 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
-import { LEAD_STATUSES, statusPin, customerPin, statusOf, DOT_ZOOM } from '../mapPins.js'
-import { Plus, Navigation, X, MapPin, ChevronDown, CalendarDays, CheckCircle2 } from 'lucide-react'
+import { LEAD_STATUSES, statusPin, customerPin, statusOf, circlePin, DOT_ZOOM } from '../mapPins.js'
+import { enqueue, newRef, listOutbox, onOutboxChange } from '../offline.js'
+import { Plus, Navigation, X, MapPin, ChevronDown, CalendarDays, CheckCircle2, User as UserIcon } from 'lucide-react'
 
 // Fix Vite broken Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl
@@ -95,6 +96,28 @@ export default function KnockMap() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Pins saved while offline (waiting in the outbox) are shown right away
+  const [pendingKnocks, setPendingKnocks] = useState([])
+  useEffect(() => {
+    const apply = (list) => {
+      const statusFor = {}
+      list.filter((e) => e.type === 'knock-status' && e.payload.knock_client_ref)
+        .forEach((e) => { statusFor[e.payload.knock_client_ref] = e.payload.status })
+      setPendingKnocks(list.filter((e) => e.type === 'knock').map((e) => ({
+        ...e.payload, id: 'p-' + e.payload.client_ref, pending: true, created_by: user?.id,
+        status: statusFor[e.payload.client_ref] || e.payload.status, created_at: new Date(e.createdAt).toISOString(),
+      })))
+    }
+    listOutbox().then(apply).catch(() => {})
+    let had = 0
+    return onOutboxChange((list) => {
+      apply(list)
+      const n = list.filter((e) => e.type === 'knock' || e.type === 'knock-status').length
+      if (n < had) load()          // something was uploaded → refresh server pins
+      had = n
+    })
+  }, [user?.id, load])
   const loadContactsDeals = useCallback(() => {
     api.get('/contacts/').then((r) => setContacts(r.data)).catch(() => {})
     api.get('/deals/').then((r) => setDeals(r.data)).catch(() => {})
@@ -167,24 +190,30 @@ export default function KnockMap() {
     if (!pendingLL) return
     setSaving(true)
     try {
-      await api.post('/knocks/', {
+      // Always goes through the outbox: instant when online, uploaded later when offline
+      await enqueue('knock', {
+        client_ref: newRef(),
         lat: pendingLL.lat, lng: pendingLL.lng,
         address: form.address || null,
         status: form.status,
         notes: form.notes || null,
         contact_id: form.contact_id ? parseInt(form.contact_id) : null,
-      })
+      }, { summary: form.address || `${pendingLL.lat.toFixed(5)}, ${pendingLL.lng.toFixed(5)}` })
       cancel()
-      load()
     } finally { setSaving(false) }
   }
 
   async function updateStatus(id, status) {
-    await api.patch(`/knocks/${id}`, { status })
-    load()
+    const pending = String(id).startsWith('p-')
+    setKnocks((list) => list.map((k) => (k.id === id ? { ...k, status } : k)))   // optimistic
+    await enqueue('knock-status', {
+      client_ref: newRef(), status,
+      ...(pending ? { knock_client_ref: String(id).slice(2) } : { knock_id: id }),
+    }, { summary: statusOf(status).label })
   }
 
   async function deleteKnock(id) {
+    if (String(id).startsWith('p-') || !navigator.onLine) { window.alert('Connexion requise pour supprimer une épingle.'); return }
     if (!window.confirm('Delete this pin?')) return
     await api.delete(`/knocks/${id}`)
     load()
@@ -203,7 +232,7 @@ export default function KnockMap() {
   )
 
   // Only show this user's own pins — use Team Map to see everyone's pins
-  const myKnocks = knocks.filter((k) => k.created_by === user?.id)
+  const myKnocks = [...knocks.filter((k) => k.created_by === user?.id), ...pendingKnocks]
   const filtered = filterStatus ? myKnocks.filter((k) => statusOf(k.status).key === filterStatus) : myKnocks
   const counts   = Object.fromEntries(STATUSES.map((s) => [s.key, myKnocks.filter((k) => statusOf(k.status).key === s.key).length]))
   const activeStatus = STATUSES.find((s) => s.key === filterStatus)
@@ -221,7 +250,7 @@ export default function KnockMap() {
         zoomControl={false}
         attributionControl={false}
       >
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" crossOrigin="anonymous" />
         <MapController
           onReady={(m) => { mapRef.current = m }}
           placing={mode === 'placing'}
@@ -307,7 +336,7 @@ export default function KnockMap() {
 
         {/* Saved knock pins */}
         {filtered.map((k) => (
-          <Marker key={k.id} position={[k.lat, k.lng]} icon={statusPin(k.status, zoom < DOT_ZOOM)}>
+          <Marker key={k.id} position={[k.lat, k.lng]} icon={k.pending ? circlePin(statusOf(k.status).color, statusOf(k.status).Icon, { dot: zoom < DOT_ZOOM, ring: '#ffd166' }) : statusPin(k.status, zoom < DOT_ZOOM)}>
             <Popup minWidth={220} className="knock-popup">
               <div style={{ fontFamily: 'system-ui,sans-serif', padding: '2px 0' }}>
                 {/* Address + delete */}
@@ -486,17 +515,21 @@ export default function KnockMap() {
       {mode === null && (
         <div className="absolute bottom-0 left-0 z-10 p-4">
           <div className="bg-slate-900/85 backdrop-blur-md rounded-2xl px-3 py-2.5 border border-slate-700/40 shadow-xl space-y-1.5">
+            {[
+              { label: 'Client', color: '#5b8eff', Icon: UserIcon },
+              { label: 'Planifié', color: '#0ea5e9', Icon: CalendarDays },
+              { label: 'Complété', color: '#10b981', Icon: CheckCircle2 },
+            ].map(({ label, color, Icon }) => (
+              <div key={label} className="flex items-center gap-2">
+                <span className="w-4 h-4 rounded-full flex items-center justify-center border border-white" style={{ background: color }}>
+                  <Icon size={9} className="text-white" strokeWidth={3} />
+                </span>
+                <span className="text-slate-300 text-xs">{label}</span>
+              </div>
+            ))}
             <div className="flex items-center gap-2">
-              <svg width="12" height="16" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#818cf8"/><circle cx="13" cy="13" r="4.5" fill="white" opacity="0.9"/></svg>
-              <span className="text-slate-300 text-xs">Contact</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <svg width="12" height="16" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#f59e0b"/><circle cx="13" cy="13" r="4.5" fill="white" opacity="0.9"/></svg>
-              <span className="text-amber-400 text-xs">Booked</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <svg width="12" height="16" viewBox="0 0 26 36"><path d="M13 0C5.82 0 0 5.82 0 13c0 8.67 13 23 13 23S26 21.67 26 13C26 5.82 20.18 0 13 0z" fill="#10b981"/><circle cx="13" cy="13" r="6" fill="white" opacity="0.95"/><polyline points="9,13 11.5,15.5 17,10" fill="none" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <span className="text-emerald-400 text-xs">Done</span>
+              <span className="w-4 h-4 rounded-full bg-slate-500 border border-white" style={{ boxShadow: '0 0 0 2px #ffd166' }} />
+              <span className="text-[#ffd166] text-xs">En attente d'envoi</span>
             </div>
             {contacts.length === 0 && (
               <div className="text-amber-400 text-xs pt-0.5 border-t border-slate-700/40">Import contacts first</div>

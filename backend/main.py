@@ -21,6 +21,7 @@ from routes import billing as billing_routes
 from routes import customers as customers_routes, service_plans as service_plans_routes
 from routes import bridge as bridge_routes
 from routes import job_items as job_items_routes
+from routes import sync as sync_routes, attachments as attachments_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
@@ -52,15 +53,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        # The app itself needs location (D2D map) and camera (job photos); other sites embedded can't.
+        response.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=(self)"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https:; "
+            "img-src 'self' data: blob: https:; "
             "font-src 'self' data:; "
-            "connect-src 'self'"
+            "connect-src 'self' https://*.tile.openstreetmap.org; "   # offline map tile cache
+            "worker-src 'self'"
         )
         if _is_prod:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -857,6 +860,8 @@ app.include_router(service_plans_routes.router)
 app.include_router(service_plans_routes.public_router)
 app.include_router(bridge_routes.router)
 app.include_router(job_items_routes.router)
+app.include_router(sync_routes.router)
+app.include_router(attachments_routes.router)
 
 # Start 24h reminder scheduler
 reminders_routes.start_scheduler()
@@ -869,9 +874,15 @@ if os.path.isdir(FRONTEND_DIST):
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def serve_frontend(full_path: str):
-        """Catch-all: serve index.html for React Router client-side routing."""
+        """Serve real files from the build root (sw.js, manifest.json, icons…);
+        everything else gets index.html for React Router client-side routing."""
+        if full_path and "/" not in full_path and not full_path.startswith("."):
+            candidate = os.path.join(FRONTEND_DIST, full_path)
+            if os.path.isfile(candidate):
+                headers = {"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"} if full_path == "sw.js" else None
+                return FileResponse(candidate, headers=headers)
         index = os.path.join(FRONTEND_DIST, "index.html")
-        return FileResponse(index)
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 else:
     @app.get("/")
     def root():

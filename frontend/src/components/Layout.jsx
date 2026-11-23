@@ -2,6 +2,7 @@ import React from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
+import SyncStatus from './SyncStatus.jsx'
 
 export default function Layout() {
   return (
@@ -9,6 +10,7 @@ export default function Layout() {
       className="flex flex-col md:flex-row bg-slate-950"
       style={{ height: '100%' }}
     >
+      <SyncStatus />
       {/* Top safe area (notch / Dynamic Island) — mobile only */}
       <div
         className="md:hidden flex-shrink-0 bg-slate-950"

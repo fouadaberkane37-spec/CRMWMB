@@ -4,8 +4,9 @@ import api from '../api.js'
 import { useAuth } from '../App.jsx'
 import {
   CalendarDays, User, MapPin, Phone, Wrench, Clock, CheckCircle, Loader2,
-  Plus, Minus, Trash2, Search, X, Star, BookOpen,
+  Plus, Minus, Trash2, Search, X, Star, BookOpen, Camera, CloudOff,
 } from 'lucide-react'
+import { enqueue, newRef, compressImage } from '../offline.js'
 import { fmtDuration, addMinutesToTime } from '../serviceMeta.js'
 
 // Blue work–style "Create job": typed duration (minutes) + free line items
@@ -74,20 +75,38 @@ export default function Booking() {
   const [error, setError] = useState('')
   const [dayCount, setDayCount] = useState(null)
   const [savedToBook, setSavedToBook] = useState({})
+  const [photos, setPhotos] = useState([])          // { key, blob, url, caption }
+  const [savedOffline, setSavedOffline] = useState(false)
+  const [allContacts, setAllContacts] = useState([])  // offline search fallback
 
   useEffect(() => {
     api.get('/services', { params: { active: true } }).then(r => setServices(r.data || [])).catch(() => {})
+    api.get('/contacts/').then(r => setAllContacts(r.data || [])).catch(() => {})   // cached for offline use
   }, [])
+
+  useEffect(() => () => photos.forEach(p => URL.revokeObjectURL(p.url)), [])   // eslint-disable-line
+
+  async function addPhotos(fileList) {
+    const files = Array.from(fileList || [])
+    for (const f of files) {
+      const blob = await compressImage(f)
+      setPhotos(list => [...list, { key: newRef(), blob, url: URL.createObjectURL(blob), caption: '' }])
+    }
+  }
 
   // Existing customer search (debounced)
   useEffect(() => {
     if (existing || query.trim().length < 2) { setResults([]); return }
     const t = setTimeout(() => {
+      const q = query.trim().toLowerCase()
+      const local = () => allContacts.filter(c =>
+        `${c.first_name || ''} ${c.last_name || ''} ${c.phone || ''}`.toLowerCase().includes(q)).slice(0, 8)
+      if (!navigator.onLine) { setResults(local()); return }
       api.get('/contacts/', { params: { search: query.trim(), limit: 8 } })
-        .then(r => setResults(r.data || [])).catch(() => setResults([]))
+        .then(r => setResults(r.data || [])).catch(() => setResults(local()))
     }, 250)
     return () => clearTimeout(t)
-  }, [query, existing])
+  }, [query, existing, allContacts])
 
   // Suggested duration = sum of price-book default minutes × qty (only until the user types)
   const suggested = useMemo(() => items.reduce((s, it) => s + (it.minutes ? it.minutes * (parseFloat(it.qty) || 1) : 0), 0), [items])
@@ -153,50 +172,62 @@ export default function Booking() {
     setSaving(true)
     try {
       const serviceNames = lines.map(it => it.name.trim())
-      let contact = existing
-      if (!contact) {
-        const { data } = await api.post('/contacts/', {
+      const ref = newRef()
+      const apptIso = date ? `${date}T${time || '08:00'}:00` : null
+      const name = existing
+        ? `${existing.first_name || ''} ${existing.last_name || ''}`.trim()
+        : `${cust.firstName} ${cust.lastName}`.trim()
+
+      // One outbox entry for the whole booking (customer + job + services). It is sent
+      // right away when online, or kept on the phone and sent when the connection is back.
+      await enqueue('booking', {
+        client_ref: ref,
+        contact_id: existing?.id || null,
+        new_contact: existing ? null : {
           first_name: cust.firstName.trim(),
           last_name: cust.lastName.trim() || null,
           phone: cust.phone.trim() || null,
           address: cust.address.trim() || null,
-          services: serviceNames.join(', '),
+          services: serviceNames.join(', ').slice(0, 500),
           price: totals.subtotal / 100,
-          status: 'prospect',
-        })
-        contact = data
-        if (cust.address.trim()) api.post(`/contacts/${contact.id}/geocode`).catch(() => {})
+        },
+        deal: {
+          title: `${name} — ${serviceNames.join(', ')}`.slice(0, 250),
+          value: totals.subtotal / 100,
+          stage: 'qualified',
+          expected_close_date: apptIso,
+          notes: notes.trim() || null,
+          assigned_to: user?.id,
+          job_status: 'todo',
+          business_type: business,
+          estimated_minutes: effMinutes > 0 ? effMinutes : null,
+        },
+        items: lines.map(it => ({
+          name: it.name.trim(),
+          description: it.description.trim() || null,
+          qty: parseFloat(it.qty) || 1,
+          unit_price_cents: toCents(it.price),
+          taxable: it.taxable,
+          service_id: it.service_id,
+        })),
+      }, { summary: `${name} · ${date || ''} ${time || ''}`.trim() })
+
+      // Photos of the customer's requests, attached to the job once it exists on the server
+      for (const [i, ph] of photos.entries()) {
+        await enqueue('photo', {
+          owner_type: 'job',
+          owner_client_ref: `${ref}:deal`,
+          client_ref: newRef(),
+          caption: ph.caption.trim() || null,
+          filename: `demande-${i + 1}.jpg`,
+        }, { blob: ph.blob, summary: ph.caption || `Photo ${i + 1} · ${name}` })
       }
 
-      const apptIso = date ? `${date}T${time || '08:00'}:00` : null
-      const name = `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
-      const { data: deal } = await api.post('/deals/', {
-        title: `${name} — ${serviceNames.join(', ')}`.slice(0, 250),
-        value: totals.subtotal / 100,
-        stage: 'qualified',
-        contact_id: contact.id,
-        expected_close_date: apptIso,
-        notes: notes.trim() || null,
-        assigned_to: user?.id,
-        job_status: 'todo',
-        business_type: business,
-        estimated_minutes: effMinutes > 0 ? effMinutes : null,
-      })
-
-      await api.put(`/deals/${deal.id}/line-items`, lines.map(it => ({
-        name: it.name.trim(),
-        description: it.description.trim() || null,
-        qty: parseFloat(it.qty) || 1,
-        unit_price_cents: toCents(it.price),
-        taxable: it.taxable,
-        service_id: it.service_id,
-      })))
-
+      setSavedOffline(!navigator.onLine)
       setSuccess(true)
-      setTimeout(() => navigate('/calendar'), 1600)
+      setTimeout(() => navigate('/calendar'), navigator.onLine ? 1600 : 2600)
     } catch (err) {
-      const d = err.response?.data?.detail
-      setError(typeof d === 'string' ? d : "Impossible d'enregistrer le rendez-vous")
+      setError("Impossible d'enregistrer le rendez-vous sur le téléphone")
     } finally {
       setSaving(false)
     }
@@ -209,7 +240,11 @@ export default function Booking() {
           <CheckCircle size={32} className="text-emerald-400" />
         </div>
         <h2 className="text-xl font-bold text-white mb-1">Rendez-vous enregistré!</h2>
-        <p className="text-slate-400 text-sm">Redirection vers le calendrier…</p>
+        {savedOffline ? (
+          <p className="text-amber-300 text-sm flex items-center gap-1.5 justify-center"><CloudOff size={14} /> Hors ligne : il sera envoyé automatiquement au retour du réseau.</p>
+        ) : (
+          <p className="text-slate-400 text-sm">Redirection vers le calendrier…</p>
+        )}
       </div>
     )
   }
@@ -405,6 +440,39 @@ export default function Booking() {
             <div className="flex justify-between text-slate-500 text-xs"><span>TPS (5 %)</span><span>{money(totals.tps)}</span></div>
             <div className="flex justify-between text-slate-500 text-xs"><span>TVQ (9,975 %)</span><span>{money(totals.tvq)}</span></div>
             <div className="flex justify-between text-white font-bold pt-1"><span>Total</span><span>{money(totals.total)}</span></div>
+          </div>
+        </Card>
+
+        <Card title="Photos de la demande" icon={Camera}
+          right={photos.length > 0 && <span className="text-xs text-slate-500">{photos.length} photo{photos.length > 1 ? 's' : ''}</span>}>
+          <p className="text-xs text-slate-500 -mt-2">Prenez en photo les demandes spécifiques (tache, fenêtre brisée, accès…). Fonctionne hors ligne.</p>
+          {photos.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {photos.map(ph => (
+                <div key={ph.key} className="bg-slate-800/60 border border-slate-700/60 rounded-xl overflow-hidden">
+                  <div className="relative">
+                    <img src={ph.url} alt="" className="w-full h-28 object-cover" />
+                    <button type="button" aria-label="Retirer la photo"
+                      onClick={() => { URL.revokeObjectURL(ph.url); setPhotos(l => l.filter(x => x.key !== ph.key)) }}
+                      className="absolute top-1 right-1 bg-black/60 rounded-full p-1 text-white"><X size={14} /></button>
+                  </div>
+                  <input value={ph.caption} onChange={e => setPhotos(l => l.map(x => x.key === ph.key ? { ...x, caption: e.target.value } : x))}
+                    placeholder="Note (optionnel)" className="w-full bg-transparent text-xs text-slate-200 placeholder-slate-500 px-2 py-2 focus:outline-none" />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#5b8eff]/15 border border-[#5b8eff]/50 text-[#9db8ff] text-sm font-semibold cursor-pointer active:bg-[#5b8eff]/25">
+              <Camera size={16} /> Prendre une photo
+              <input type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={e => { addPhotos(e.target.files); e.target.value = '' }} />
+            </label>
+            <label className="flex items-center justify-center gap-2 h-12 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-sm font-semibold cursor-pointer active:bg-slate-700">
+              <Plus size={16} /> Galerie
+              <input type="file" accept="image/*" multiple className="hidden"
+                onChange={e => { addPhotos(e.target.files); e.target.value = '' }} />
+            </label>
           </div>
         </Card>
 

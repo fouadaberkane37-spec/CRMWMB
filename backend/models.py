@@ -484,3 +484,29 @@ class ServicePlan(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     contact = relationship("Contact")
+
+
+class Attachment(Base):
+    """Photo/file attached to a job, customer or map pin. Files live on disk (FILES_DIR)."""
+    __tablename__ = "attachments"
+    id = Column(Integer, primary_key=True, index=True)
+    owner_type = Column(String, nullable=False, index=True)   # job | contact | knock
+    owner_id = Column(Integer, nullable=False, index=True)
+    filename = Column(String, nullable=False)                  # stored name on disk
+    original_name = Column(String, nullable=True)
+    content_type = Column(String, nullable=True)
+    size = Column(Integer, default=0)
+    caption = Column(Text, nullable=True)
+    client_ref = Column(String, unique=True, index=True, nullable=True)  # offline upload id (dedupe)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SyncReceipt(Base):
+    """Remembers offline actions already applied, so a retried upload never duplicates."""
+    __tablename__ = "sync_receipts"
+    client_ref = Column(String, primary_key=True)    # e.g. "<uuid>:deal"
+    kind = Column(String, nullable=False)
+    object_id = Column(Integer, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
