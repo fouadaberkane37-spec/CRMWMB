@@ -20,6 +20,7 @@ from routes import quotes as quotes_routes, pricebook as pricebook_routes
 from routes import billing as billing_routes
 from routes import customers as customers_routes, service_plans as service_plans_routes
 from routes import bridge as bridge_routes
+from routes import job_items as job_items_routes
 from auth import get_password_hash
 from datetime import datetime
 import os
@@ -843,6 +844,7 @@ app.include_router(customers_routes.router)
 app.include_router(service_plans_routes.router)
 app.include_router(service_plans_routes.public_router)
 app.include_router(bridge_routes.router)
+app.include_router(job_items_routes.router)
 
 # Start 24h reminder scheduler
 reminders_routes.start_scheduler()

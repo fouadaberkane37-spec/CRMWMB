@@ -1,28 +1,24 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api.js'
 import { useAuth } from '../App.jsx'
-import { CalendarDays, User, MapPin, Phone, Wrench, DollarSign, Clock, CheckCircle, ChevronDown, Loader2 } from 'lucide-react'
-import { estimateMinutes, fmtDuration, addMinutesToTime } from '../serviceMeta.js'
+import {
+  CalendarDays, User, MapPin, Phone, Wrench, Clock, CheckCircle, Loader2,
+  Plus, Minus, Trash2, Search, X, Star, BookOpen,
+} from 'lucide-react'
+import { fmtDuration, addMinutesToTime } from '../serviceMeta.js'
 
-const SERVICES_WINDOW = [
-  { value: 'window-ext',        label: 'Windows — Exterior' },
-  { value: 'window-int',        label: 'Windows — Interior' },
-  { value: 'window-both',       label: 'Windows — Int + Ext' },
-  { value: 'gutters',           label: 'Gutter Cleaning' },
-  { value: 'pressure-washing',  label: 'Pressure Washing' },
-  { value: 'roof',              label: 'Roof Cleaning' },
-  { value: 'screens',           label: 'Screen Cleaning' },
-  { value: 'solar',             label: 'Solar Panels' },
-]
+// Blue work–style "Create job": typed duration (minutes) + free line items
+// (name, description, qty, unit price, taxable), price book as optional shortcuts.
 
-const SERVICES_LANDSCAPE = [
-  { value: 'pavers-pressure', label: 'Pavers Pressure Washing' },
-  { value: 'pavers-relevel',  label: 'Pavers Relevel' },
-  { value: 'pavers-install',  label: 'Pavers Install' },
-]
+const TPS = 0.05
+const TVQ = 0.09975
+const QUICK_DURATIONS = [30, 60, 90, 120, 180, 240]
 
-function Field({ label, icon: Icon, children }) {
+const INPUT = "w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#5b8eff]"
+const INPUT_CENTER = INPUT + " text-center"
+
+function Field({ label, icon: Icon, children, hint }) {
   return (
     <div>
       <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-300 mb-2">
@@ -30,125 +26,177 @@ function Field({ label, icon: Icon, children }) {
         {label}
       </label>
       {children}
+      {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
     </div>
   )
 }
 
-const INPUT = "w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-const INPUT_CENTER = INPUT + " text-center"
+function Card({ title, icon: Icon, children, right }) {
+  return (
+    <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+          <Icon size={12} /> {title}
+        </h2>
+        {right}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+const money = (cents) => (cents / 100).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })
+const toCents = (v) => Math.round((parseFloat(String(v).replace(',', '.')) || 0) * 100)
+const emptyItem = () => ({ key: Math.random().toString(36).slice(2), name: '', description: '', qty: '1', price: '', taxable: true, service_id: null, minutes: null, showDesc: false })
 
 export default function Booking() {
   const { user } = useAuth()
-  const navigate  = useNavigate()
+  const navigate = useNavigate()
+  const isAdmin = user?.role === 'admin' || user?.role === 'ceo'
 
-  const [form, setForm] = useState({
-    business:  'window',
-    firstName: '',
-    lastName:  '',
-    phone:     '',
-    address:   '',
-    services:  [],
-    price:     '',
-    date:      '',
-    time:      '',
-    estimatedMinutes: '',   // '' = use the service-based suggestion
-    notes:     '',
-  })
-  const [saving, setSaving]         = useState(false)
-  const [success, setSuccess]       = useState(false)
-  const [error, setError]           = useState('')
-  const [dayCount, setDayCount]     = useState(null)   // bookings on selected date
-  const [checking, setChecking]     = useState(false)
+  const [business, setBusiness] = useState('window')
+  // Customer: either an existing contact or new fields
+  const [existing, setExisting] = useState(null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [cust, setCust] = useState({ firstName: '', lastName: '', phone: '', address: '' })
 
-  function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
-  function setBusiness(val) { setForm(f => ({ ...f, business: val, services: [] })) }
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
+  const [minutes, setMinutes] = useState('')        // typed duration in minutes
+  const [minutesTouched, setMinutesTouched] = useState(false)
+  const [items, setItems] = useState([emptyItem()])
+  const [notes, setNotes] = useState('')
 
-  function toggleService(val) {
-    setForm(f => ({
-      ...f,
-      services: f.services.includes(val)
-        ? f.services.filter(s => s !== val)
-        : [...f.services, val],
-    }))
+  const [services, setServices] = useState([])      // price book
+  const [saving, setSaving] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
+  const [dayCount, setDayCount] = useState(null)
+  const [savedToBook, setSavedToBook] = useState({})
+
+  useEffect(() => {
+    api.get('/services', { params: { active: true } }).then(r => setServices(r.data || [])).catch(() => {})
+  }, [])
+
+  // Existing customer search (debounced)
+  useEffect(() => {
+    if (existing || query.trim().length < 2) { setResults([]); return }
+    const t = setTimeout(() => {
+      api.get('/contacts/', { params: { search: query.trim(), limit: 8 } })
+        .then(r => setResults(r.data || [])).catch(() => setResults([]))
+    }, 250)
+    return () => clearTimeout(t)
+  }, [query, existing])
+
+  // Suggested duration = sum of price-book default minutes × qty (only until the user types)
+  const suggested = useMemo(() => items.reduce((s, it) => s + (it.minutes ? it.minutes * (parseFloat(it.qty) || 1) : 0), 0), [items])
+  useEffect(() => {
+    if (!minutesTouched) setMinutes(suggested > 0 ? String(Math.round(suggested)) : '')
+  }, [suggested, minutesTouched])
+
+  const effMinutes = parseInt(minutes, 10) || 0
+  const estEnd = addMinutesToTime(time, effMinutes)
+
+  const totals = useMemo(() => {
+    let subtotal = 0, taxable = 0
+    for (const it of items) {
+      const line = Math.round((parseFloat(it.qty) || 0) * toCents(it.price))
+      subtotal += line
+      if (it.taxable) taxable += line
+    }
+    const tps = Math.round(taxable * TPS), tvq = Math.round(taxable * TVQ)
+    return { subtotal, tps, tvq, total: subtotal + tps + tvq }
+  }, [items])
+
+  function setItem(key, patch) { setItems(list => list.map(it => it.key === key ? { ...it, ...patch } : it)) }
+  function removeItem(key) { setItems(list => list.length > 1 ? list.filter(it => it.key !== key) : [emptyItem()]) }
+  function addFromBook(s) {
+    const it = { ...emptyItem(), name: s.name, description: s.description || '', price: (s.unit_price_cents / 100).toFixed(2),
+      taxable: s.taxable !== false, service_id: s.id, minutes: s.default_minutes || null }
+    setItems(list => {
+      const blank = list.length === 1 && !list[0].name && !list[0].price
+      return blank ? [it] : [...list, it]
+    })
+  }
+  function pickNameSuggestion(key, name) {
+    const s = services.find(x => x.name === name)
+    if (s) setItem(key, { service_id: s.id, price: (s.unit_price_cents / 100).toFixed(2), taxable: s.taxable !== false, minutes: s.default_minutes || null, description: s.description || '' })
+  }
+  async function saveToPriceBook(it) {
+    try {
+      const { data } = await api.post('/services', { name: it.name.trim(), description: it.description || null,
+        unit_price_cents: toCents(it.price), taxable: it.taxable, default_minutes: it.minutes || null })
+      setServices(list => [...list, data])
+      setItem(it.key, { service_id: data.id })
+      setSavedToBook(m => ({ ...m, [it.key]: true }))
+    } catch { setError("Impossible d'ajouter à la liste de prix") }
   }
 
   async function handleDateChange(dateStr) {
-    set('date', dateStr)
+    setDate(dateStr)
     if (!dateStr) { setDayCount(null); return }
-    setChecking(true)
     try {
-      const { data } = await api.get('/deals/', { params: { limit: 1000, business_type: form.business } })
-      const count = data.filter(d => {
-        if (!d.expected_close_date) return false
-        return d.expected_close_date.slice(0, 10) === dateStr
-      }).length
-      setDayCount(count)
-    } catch {
-      setDayCount(null)
-    } finally {
-      setChecking(false)
-    }
+      const { data } = await api.get('/deals/', { params: { limit: 1000, business_type: business } })
+      setDayCount(data.filter(d => d.expected_close_date?.slice(0, 10) === dateStr).length)
+    } catch { setDayCount(null) }
   }
-
-  // No daily cap — multiple teams run in parallel. dayCount is shown for info only.
-  const suggestedMinutes = estimateMinutes(form.services)        // auto guess from services
-  const effMinutes = form.estimatedMinutes !== '' ? Number(form.estimatedMinutes) : suggestedMinutes
-  const estEnd     = addMinutesToTime(form.time, effMinutes)
-
-  // Preset choices for the "estimated time" picker (minutes)
-  const DURATION_CHOICES = [30, 45, 60, 90, 120, 150, 180, 240, 300, 360, 480]
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.firstName.trim()) { setError('First name is required'); return }
-    if (form.business === 'window' && !form.date) { setError('Date is required'); return }
+    const lines = items.filter(it => it.name.trim())
+    if (!existing && !cust.firstName.trim()) { setError('Le prénom du client est requis'); return }
+    if (business === 'window' && !date) { setError('La date est requise'); return }
+    if (lines.length === 0) { setError('Ajoutez au moins un service'); return }
+    if (effMinutes < 0 || effMinutes > 1440) { setError('Durée entre 1 et 1440 minutes'); return }
     setSaving(true)
     try {
-      // 1. Create or find contact
-      const contactPayload = {
-        first_name: form.firstName.trim(),
-        last_name:  form.lastName.trim() || null,
-        phone:      form.phone.trim() || null,
-        address:    form.address.trim() || null,
-        services:   form.services.join(',') || null,
-        price:      form.price !== '' ? parseFloat(form.price) : null,
-        status:     'prospect',
+      const serviceNames = lines.map(it => it.name.trim())
+      let contact = existing
+      if (!contact) {
+        const { data } = await api.post('/contacts/', {
+          first_name: cust.firstName.trim(),
+          last_name: cust.lastName.trim() || null,
+          phone: cust.phone.trim() || null,
+          address: cust.address.trim() || null,
+          services: serviceNames.join(', '),
+          price: totals.subtotal / 100,
+          status: 'prospect',
+        })
+        contact = data
+        if (cust.address.trim()) api.post(`/contacts/${contact.id}/geocode`).catch(() => {})
       }
-      const { data: contact } = await api.post('/contacts/', contactPayload)
 
-      // 2. Build appointment datetime ISO string
-      const timeStr = form.time || '08:00'
-      const apptIso = form.date ? `${form.date}T${timeStr}:00` : null
-
-      // 3. Create deal linked to that contact
-      const allServices = form.business === 'landscape' ? SERVICES_LANDSCAPE : SERVICES_WINDOW
-      const serviceLabel = form.services.length > 0
-        ? form.services.map(s => allServices.find(x => x.value === s)?.label || s).join(', ')
-        : 'Appointment'
-      const dealPayload = {
-        title:               `${form.firstName} ${form.lastName}`.trim() + ` — ${serviceLabel}`,
-        value:               form.price !== '' ? parseFloat(form.price) : 0,
-        stage:               'qualified',
-        contact_id:          contact.id,
+      const apptIso = date ? `${date}T${time || '08:00'}:00` : null
+      const name = `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
+      const { data: deal } = await api.post('/deals/', {
+        title: `${name} — ${serviceNames.join(', ')}`.slice(0, 250),
+        value: totals.subtotal / 100,
+        stage: 'qualified',
+        contact_id: contact.id,
         expected_close_date: apptIso,
-        notes:               form.notes.trim() || null,
-        assigned_to:         user?.id,
-        job_status:          'todo',
-        business_type:       form.business,
-        estimated_minutes:   effMinutes > 0 ? effMinutes : null,
-      }
-      await api.post('/deals/', dealPayload)
+        notes: notes.trim() || null,
+        assigned_to: user?.id,
+        job_status: 'todo',
+        business_type: business,
+        estimated_minutes: effMinutes > 0 ? effMinutes : null,
+      })
 
-      // 3. Trigger geocoding for address
-      if (form.address.trim()) {
-        api.post(`/contacts/${contact.id}/geocode`).catch(() => {})
-      }
+      await api.put(`/deals/${deal.id}/line-items`, lines.map(it => ({
+        name: it.name.trim(),
+        description: it.description.trim() || null,
+        qty: parseFloat(it.qty) || 1,
+        unit_price_cents: toCents(it.price),
+        taxable: it.taxable,
+        service_id: it.service_id,
+      })))
 
       setSuccess(true)
-      setTimeout(() => navigate('/calendar'), 1800)
+      setTimeout(() => navigate('/calendar'), 1600)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to save booking')
+      const d = err.response?.data?.detail
+      setError(typeof d === 'string' ? d : "Impossible d'enregistrer le rendez-vous")
     } finally {
       setSaving(false)
     }
@@ -157,237 +205,225 @@ export default function Booking() {
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center px-4 text-center" style={{ minHeight: '60vh' }}>
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${form.business === 'landscape' ? 'bg-emerald-500/20' : 'bg-emerald-500/20'}`}>
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-emerald-500/20">
           <CheckCircle size={32} className="text-emerald-400" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-1">
-          {form.business === 'landscape' ? 'Project Saved!' : 'Booking Saved!'}
-        </h2>
-        <p className="text-slate-400 text-sm">
-          {form.business === 'landscape'
-            ? 'Go to the Landscape calendar to add steps & assign crew.'
-            : 'Redirecting to calendar…'}
-        </p>
+        <h2 className="text-xl font-bold text-white mb-1">Rendez-vous enregistré!</h2>
+        <p className="text-slate-400 text-sm">Redirection vers le calendrier…</p>
       </div>
     )
   }
 
+  const nameOptions = services.map(s => s.name)
+
   return (
-    <div className="px-4 pt-6 pb-4 md:px-8 md:pt-8 max-w-lg mx-auto w-full">
-      {/* Header */}
+    <div className="px-4 pt-6 pb-4 md:px-8 md:pt-8 max-w-2xl mx-auto w-full">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-slate-100">New Booking</h1>
-        <p className="text-slate-500 text-xs mt-0.5">Schedule an appointment for a client</p>
+        <h1 className="text-xl font-bold text-slate-100">Nouveau travail</h1>
+        <p className="text-slate-500 text-xs mt-0.5">Client, date, durée et services — comme dans Blue work</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-
         {/* Business selector */}
         <div className="flex gap-2">
-          {[{ v: 'window', label: 'Window Cleaning' }, { v: 'landscape', label: 'Landscape' }].map(({ v, label }) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setBusiness(v)}
+          {[{ v: 'window', label: 'Nettoyage' }, { v: 'landscape', label: 'Pavé-uni / Aménagement' }].map(({ v, label }) => (
+            <button key={v} type="button" onClick={() => setBusiness(v)}
               className={`flex-1 py-3 rounded-2xl text-sm font-semibold border transition-all ${
-                form.business === v
-                  ? 'bg-indigo-600 border-indigo-500 text-white'
-                  : 'bg-slate-900 border-slate-700 text-slate-400 active:bg-slate-800'
-              }`}
-            >
+                business === v ? 'bg-[#5b8eff] border-[#5b8eff] text-white' : 'bg-slate-900 border-slate-700 text-slate-400 active:bg-slate-800'}`}>
               {label}
             </button>
           ))}
         </div>
 
-        {/* Customer Name */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4">
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <User size={12} /> Customer
-          </h2>
+        {/* Customer */}
+        <Card title="Client" icon={User}>
+          {existing ? (
+            <div className="flex items-start justify-between bg-slate-800/70 border border-[#5b8eff]/40 rounded-xl px-4 py-3">
+              <div>
+                <p className="text-slate-100 font-semibold text-sm">{existing.first_name} {existing.last_name || ''}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{[existing.phone, existing.address].filter(Boolean).join(' · ') || 'Aucune coordonnée'}</p>
+              </div>
+              <button type="button" onClick={() => { setExisting(null); setQuery('') }} className="text-slate-400 hover:text-white p-1" aria-label="Changer de client">
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Chercher un client existant (nom, téléphone)…"
+                  className={INPUT + ' pl-10'} style={{ height: '46px' }} />
+                {results.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl">
+                    {results.map(c => (
+                      <button key={c.id} type="button" onClick={() => { setExisting(c); setResults([]) }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-slate-700 border-b border-slate-700/50 last:border-0">
+                        <p className="text-sm text-slate-100">{c.first_name} {c.last_name || ''}</p>
+                        <p className="text-xs text-slate-400">{[c.phone, c.address].filter(Boolean).join(' · ')}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wider">ou nouveau client</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Prénom *">
+                  <input value={cust.firstName} onChange={e => setCust(c => ({ ...c, firstName: e.target.value }))} placeholder="Jean" className={INPUT} style={{ height: '46px' }} />
+                </Field>
+                <Field label="Nom">
+                  <input value={cust.lastName} onChange={e => setCust(c => ({ ...c, lastName: e.target.value }))} placeholder="Tremblay" className={INPUT} style={{ height: '46px' }} />
+                </Field>
+              </div>
+              <Field label="Téléphone" icon={Phone}>
+                <input type="tel" value={cust.phone} onChange={e => setCust(c => ({ ...c, phone: e.target.value }))} placeholder="450-555-1234" className={INPUT} style={{ height: '46px' }} />
+              </Field>
+              <Field label="Adresse du service" icon={MapPin}>
+                <input value={cust.address} onChange={e => setCust(c => ({ ...c, address: e.target.value }))} placeholder="123 rue des Érables, Laval" className={INPUT} style={{ height: '46px' }} />
+              </Field>
+            </>
+          )}
+        </Card>
+
+        {/* Date, time, duration */}
+        <Card title="Date et durée" icon={CalendarDays}>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="First Name *">
-              <input
-                value={form.firstName}
-                onChange={e => set('firstName', e.target.value)}
-                placeholder="Jean"
-                className={INPUT}
-                style={{ height: '48px' }}
-                required
-              />
-            </Field>
-            <Field label="Last Name">
-              <input
-                value={form.lastName}
-                onChange={e => set('lastName', e.target.value)}
-                placeholder="Tremblay"
-                className={INPUT}
-                style={{ height: '48px' }}
-              />
-            </Field>
-          </div>
-          <Field label="Phone Number" icon={Phone}>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={e => set('phone', e.target.value)}
-              placeholder="450-555-1234"
-              className={INPUT}
-              style={{ height: '48px' }}
-            />
-          </Field>
-          <Field label="Service Address" icon={MapPin}>
-            <input
-              value={form.address}
-              onChange={e => set('address', e.target.value)}
-              placeholder="123 Rue des Érables, Saint-Jérôme"
-              className={INPUT}
-              style={{ height: '48px' }}
-            />
-          </Field>
-        </div>
-
-        {/* Date & Time */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4 overflow-hidden">
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <CalendarDays size={12} /> Date & Time
-          </h2>
-          <div>
             <Field label="Date *">
-              <input
-                type="date"
-                value={form.date}
-                onChange={e => handleDateChange(e.target.value)}
-                className={INPUT_CENTER}
-                style={{ colorScheme: 'dark', height: '48px' }}
-                required
-              />
+              <input type="date" value={date} onChange={e => handleDateChange(e.target.value)} className={INPUT_CENTER} style={{ colorScheme: 'dark', height: '46px' }} />
             </Field>
-            {checking && (
-              <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
-                <Loader2 size={11} className="animate-spin" /> Checking…
-              </p>
-            )}
-            {!checking && dayCount !== null && (
-              <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full inline-block bg-slate-500" />
-                {dayCount === 0
-                  ? 'No appointments booked yet that day'
-                  : `${dayCount} appointment${dayCount > 1 ? 's' : ''} already booked that day`}
-              </p>
-            )}
+            <Field label="Heure" icon={Clock}>
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} className={INPUT_CENTER} style={{ colorScheme: 'dark', height: '46px' }} />
+            </Field>
           </div>
-          <Field label="Time" icon={Clock}>
-            <input
-              type="time"
-              value={form.time}
-              onChange={e => set('time', e.target.value)}
-              className={INPUT_CENTER}
-              style={{ colorScheme: 'dark', height: '48px' }}
-            />
-          </Field>
+          {dayCount !== null && (
+            <p className="-mt-2 text-xs text-slate-500">
+              {dayCount === 0 ? 'Aucun rendez-vous ce jour-là' : `${dayCount} rendez-vous déjà ce jour-là`}
+            </p>
+          )}
 
-          {/* Estimated time to complete the job */}
-          <Field label="Estimated Time to Complete" icon={Clock}>
-            <div className="relative">
-              <select
-                value={form.estimatedMinutes}
-                onChange={e => set('estimatedMinutes', e.target.value)}
-                className={INPUT + " appearance-none pr-10"}
-                style={{ height: '48px' }}
-              >
-                <option value="">
-                  {suggestedMinutes > 0
-                    ? `Suggested: ${fmtDuration(suggestedMinutes)} (from services)`
-                    : 'Select estimated time…'}
-                </option>
-                {DURATION_CHOICES.map(m => (
-                  <option key={m} value={m}>{fmtDuration(m)}</option>
-                ))}
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+          <Field label="Durée estimée (minutes)" icon={Clock}
+            hint={suggested > 0 && !minutesTouched ? `Suggérée à partir de la liste de prix : ${fmtDuration(Math.round(suggested))}` : null}>
+            <div className="flex items-stretch gap-2">
+              <button type="button" aria-label="Moins 15 minutes"
+                onClick={() => { setMinutesTouched(true); setMinutes(m => String(Math.max(0, (parseInt(m, 10) || 0) - 15))) }}
+                className="w-12 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center active:bg-slate-700"><Minus size={16} /></button>
+              <input type="number" inputMode="numeric" min="0" max="1440" step="5" value={minutes}
+                onChange={e => { setMinutesTouched(true); setMinutes(e.target.value) }}
+                placeholder="ex. 75" className={INPUT_CENTER + ' text-base font-semibold'} style={{ height: '46px' }} />
+              <button type="button" aria-label="Plus 15 minutes"
+                onClick={() => { setMinutesTouched(true); setMinutes(m => String(Math.min(1440, (parseInt(m, 10) || 0) + 15))) }}
+                className="w-12 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center active:bg-slate-700"><Plus size={16} /></button>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {QUICK_DURATIONS.map(m => (
+                <button key={m} type="button" onClick={() => { setMinutesTouched(true); setMinutes(String(m)) }}
+                  className={`px-2.5 py-1 rounded-lg text-xs border ${effMinutes === m ? 'bg-[#5b8eff]/20 border-[#5b8eff] text-[#9db8ff]' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                  {fmtDuration(m)}
+                </button>
+              ))}
             </div>
             {effMinutes > 0 && (
-              <p className="mt-2 flex items-center gap-1.5 text-xs text-indigo-300">
-                <Clock size={12} className="shrink-0" />
-                {fmtDuration(effMinutes)} estimated
-                {form.time && estEnd && <> · finishes around <span className="font-semibold text-indigo-100">{estEnd}</span></>}
+              <p className="mt-2 text-xs text-[#9db8ff]">
+                = {fmtDuration(effMinutes)}{time && estEnd && <> · fin prévue vers <span className="font-semibold text-white">{estEnd}</span></>}
               </p>
             )}
           </Field>
-        </div>
+        </Card>
 
-        {/* Services */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-3">
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <Wrench size={12} /> Services
-          </h2>
-          <div className="grid grid-cols-2 gap-2">
-            {(form.business === 'landscape' ? SERVICES_LANDSCAPE : SERVICES_WINDOW).map(s => {
-              const active = form.services.includes(s.value)
+        {/* Line items */}
+        <Card title="Services" icon={Wrench}
+          right={<button type="button" onClick={() => setItems(l => [...l, emptyItem()])}
+            className="flex items-center gap-1 text-xs font-semibold text-[#9db8ff] hover:text-white"><Plus size={14} /> Ligne</button>}>
+
+          {services.length > 0 && (
+            <div>
+              <p className="text-[11px] text-slate-500 mb-1.5 flex items-center gap-1"><BookOpen size={11} /> Liste de prix (optionnel)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {services.map(s => (
+                  <button key={s.id} type="button" onClick={() => addFromBook(s)}
+                    className="px-2.5 py-1.5 rounded-lg text-xs bg-slate-800 border border-slate-700 text-slate-300 hover:border-[#5b8eff]">
+                    + {s.name}{s.unit_price_cents ? ` · ${money(s.unit_price_cents)}` : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <datalist id="pricebook-names">{nameOptions.map(n => <option key={n} value={n} />)}</datalist>
+
+          <div className="space-y-3">
+            {items.map((it, idx) => {
+              const line = Math.round((parseFloat(it.qty) || 0) * toCents(it.price))
+              const custom = it.name.trim() && !it.service_id
               return (
-                <button
-                  key={s.value}
-                  type="button"
-                  onClick={() => toggleService(s.value)}
-                  className={`text-left px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-indigo-600 border-indigo-500 text-white'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 active:bg-slate-700'
-                  }`}
-                  style={{ minHeight: '44px' }}
-                >
-                  {s.label}
-                </button>
+                <div key={it.key} className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input list="pricebook-names" value={it.name}
+                      onChange={e => { setItem(it.key, { name: e.target.value, service_id: null }); pickNameSuggestion(it.key, e.target.value) }}
+                      placeholder={`Service ${idx + 1} — ex. Vitres ext. 2 étages`} className={INPUT} style={{ height: '42px' }} />
+                    <button type="button" onClick={() => removeItem(it.key)} aria-label="Supprimer la ligne"
+                      className="p-2 text-slate-500 hover:text-red-400 shrink-0"><Trash2 size={16} /></button>
+                  </div>
+                  {it.showDesc || it.description ? (
+                    <textarea value={it.description} onChange={e => setItem(it.key, { description: e.target.value })}
+                      placeholder="Description (optionnel) — ex. 24 fenêtres, moustiquaires incluses" rows={2}
+                      className={INPUT + ' py-2 resize-none'} />
+                  ) : (
+                    <button type="button" onClick={() => setItem(it.key, { showDesc: true })} className="text-xs text-slate-500 hover:text-slate-300">+ description</button>
+                  )}
+                  <div className="grid grid-cols-[1fr_1.4fr_auto] gap-2 items-end">
+                    <div>
+                      <p className="text-[11px] text-slate-500 mb-1">Qté</p>
+                      <input type="number" inputMode="decimal" min="0" step="any" value={it.qty}
+                        onChange={e => setItem(it.key, { qty: e.target.value })} className={INPUT_CENTER} style={{ height: '40px' }} />
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-500 mb-1">Prix unitaire ($)</p>
+                      <input type="number" inputMode="decimal" min="0" step="0.01" value={it.price}
+                        onChange={e => setItem(it.key, { price: e.target.value })} placeholder="0.00" className={INPUT} style={{ height: '40px' }} />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-200 pb-2.5 text-right min-w-[80px]">{money(line)}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs text-slate-400">
+                      <input type="checkbox" checked={it.taxable} onChange={e => setItem(it.key, { taxable: e.target.checked })} className="accent-[#5b8eff]" />
+                      Taxable (TPS + TVQ)
+                    </label>
+                    {isAdmin && custom && !savedToBook[it.key] && (
+                      <button type="button" onClick={() => saveToPriceBook(it)} className="flex items-center gap-1 text-xs text-[#ffd166] hover:text-white">
+                        <Star size={12} /> Ajouter à la liste de prix
+                      </button>
+                    )}
+                    {savedToBook[it.key] && <span className="text-xs text-emerald-400">Ajouté à la liste de prix</span>}
+                  </div>
+                </div>
               )
             })}
           </div>
-        </div>
 
-        {/* Price & Notes */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-700/50 p-4 space-y-4">
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <DollarSign size={12} /> Pricing & Notes
-          </h2>
-          <Field label="Quoted Price ($)" icon={DollarSign}>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.price}
-              onChange={e => set('price', e.target.value)}
-              placeholder="0.00"
-              className={INPUT}
-              style={{ height: '48px' }}
-            />
-          </Field>
-          <Field label="Notes">
-            <textarea
-              value={form.notes}
-              onChange={e => set('notes', e.target.value)}
-              placeholder="Special instructions, access codes, customer preferences…"
-              rows={3}
-              className={INPUT + ' py-3 resize-none'}
-            />
-          </Field>
-        </div>
+          <div className="border-t border-slate-700/60 pt-3 space-y-1 text-sm">
+            <div className="flex justify-between text-slate-400"><span>Sous-total</span><span>{money(totals.subtotal)}</span></div>
+            <div className="flex justify-between text-slate-500 text-xs"><span>TPS (5 %)</span><span>{money(totals.tps)}</span></div>
+            <div className="flex justify-between text-slate-500 text-xs"><span>TVQ (9,975 %)</span><span>{money(totals.tvq)}</span></div>
+            <div className="flex justify-between text-white font-bold pt-1"><span>Total</span><span>{money(totals.total)}</span></div>
+          </div>
+        </Card>
+
+        <Card title="Notes" icon={BookOpen}>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="Instructions spéciales, code d'accès, préférences du client…" rows={3}
+            className={INPUT + ' py-3 resize-none'} />
+        </Card>
 
         {error && (
-          <div className="bg-red-900/30 border border-red-800/50 text-red-400 rounded-xl px-4 py-3 text-sm" role="alert">
-            {error}
-          </div>
+          <div className="bg-red-900/30 border border-red-800/50 text-red-400 rounded-xl px-4 py-3 text-sm" role="alert">{error}</div>
         )}
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full font-bold rounded-2xl text-base transition-colors flex items-center justify-center gap-2 disabled:opacity-50 bg-indigo-600 active:bg-indigo-700 text-white"
-          style={{ height: '56px' }}
-        >
+        <button type="submit" disabled={saving}
+          className="w-full font-bold rounded-2xl text-base transition-colors flex items-center justify-center gap-2 disabled:opacity-50 bg-[#5b8eff] active:bg-[#4a7aeb] text-white"
+          style={{ height: '56px' }}>
           {saving ? <Loader2 size={20} className="animate-spin" /> : <CalendarDays size={20} />}
-          {saving ? 'Saving…' : 'Book Appointment'}
+          {saving ? 'Enregistrement…' : 'Créer le travail'}
         </button>
-
       </form>
     </div>
   )
